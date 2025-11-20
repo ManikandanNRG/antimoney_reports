@@ -71,14 +71,16 @@ echo $OUTPUT->header();
         background-attachment: fixed;
         color: var(--text-primary);
         font-family: 'Outfit', sans-serif;
-        min-height: 100vh;
+        height: 100vh;
+        overflow: hidden; /* Prevent body scroll */
         transition: background-color 0.3s ease;
     }
 
     .dashboard-container {
         display: grid;
         grid-template-columns: 280px 1fr;
-        min-height: 100vh;
+        height: 100vh;
+        overflow: hidden;
     }
 
     /* Sidebar */
@@ -90,9 +92,8 @@ echo $OUTPUT->header();
         display: flex;
         flex-direction: column;
         gap: 40px;
-        position: sticky;
-        top: 0;
-        height: 100vh;
+        height: 100%;
+        overflow-y: auto; /* Allow sidebar to scroll if needed */
         z-index: 100;
     }
 
@@ -103,6 +104,7 @@ echo $OUTPUT->header();
         font-size: 24px;
         font-weight: 700;
         color: var(--text-primary);
+        flex-shrink: 0; /* Prevent brand from shrinking */
     }
 
     .brand-logo {
@@ -143,6 +145,9 @@ echo $OUTPUT->header();
         text-decoration: none;
         transition: var(--transition);
         font-weight: 500;
+        cursor: pointer; /* Ensure pointer cursor */
+        position: relative; /* For z-index context */
+        z-index: 1;
     }
 
     .nav-item:hover, .nav-item.active {
@@ -163,7 +168,9 @@ echo $OUTPUT->header();
     /* Main Content */
     .main-content {
         padding: 40px;
-        overflow-y: auto;
+        height: 100%;
+        overflow-y: auto; /* Independent scrolling */
+        scroll-behavior: smooth;
     }
 
     .header {
@@ -398,10 +405,101 @@ echo $OUTPUT->header();
     .status-active { background: rgba(16, 185, 129, 0.2); color: var(--accent-success); }
     .status-inactive { background: rgba(239, 68, 68, 0.2); color: var(--accent-danger); }
 
+    /* Heatmap */
+    .heatmap-grid {
+        display: grid;
+        grid-template-columns: repeat(53, 1fr); /* 53 weeks */
+        gap: 4px;
+        margin-top: 16px;
+    }
+
+    .heatmap-cell {
+        width: 100%;
+        padding-bottom: 100%; /* Square aspect ratio */
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.05);
+        position: relative;
+    }
+
+    .heatmap-cell:hover::after {
+        content: attr(data-title);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 10px;
+        white-space: nowrap;
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    .level-0 { background: rgba(255, 255, 255, 0.05); }
+    .level-1 { background: rgba(99, 102, 241, 0.2); }
+    .level-2 { background: rgba(99, 102, 241, 0.4); }
+    .level-3 { background: rgba(99, 102, 241, 0.7); }
+    .level-4 { background: rgba(99, 102, 241, 1); }
+
+    /* System Health */
+    .health-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--glass-border);
+    }
+
+    .health-item:last-child { border-bottom: none; }
+
+    .health-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .health-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+    }
+
+    .health-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .health-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    .dot-success { background: var(--accent-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+    .dot-warning { background: var(--accent-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+    .dot-danger { background: var(--accent-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+
     /* Responsive */
     @media (max-width: 1200px) {
         .bento-grid { grid-template-columns: repeat(2, 1fr); }
         .card-span-3, .card-span-4 { grid-column: span 2; }
+        .heatmap-grid { grid-template-columns: repeat(26, 1fr); } /* Show half year on smaller screens */
     }
 
     @media (max-width: 768px) {
@@ -409,6 +507,7 @@ echo $OUTPUT->header();
         .sidebar { display: none; }
         .bento-grid { grid-template-columns: 1fr; }
         .card-span-1, .card-span-2, .card-span-3, .card-span-4 { grid-column: span 1; }
+        .heatmap-grid { display: none; } /* Hide heatmap on mobile */
     }
 </style>
 
@@ -458,20 +557,20 @@ echo $OUTPUT->header();
         <!-- Bento Grid Layout -->
         <div class="bento-grid">
             
-            <!-- KPI 1: Total Users -->
+            <!-- KPI 1: New Registrations -->
             <div class="bento-card card-span-1">
                 <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Total Users</div>
+                    <div class="card-title"><i class="fa-solid fa-user-plus" style="color: var(--accent-primary);"></i> New Registrations</div>
                     <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 12%</div>
                 </div>
-                <div class="card-value">2,847</div>
+                <div class="card-value">128</div>
                 <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
             </div>
 
             <!-- KPI 2: Active Users (30 Days) -->
             <div class="bento-card card-span-1">
                 <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-user-check" style="color: var(--accent-success);"></i> Active (30d)</div>
+                    <div class="card-title"><i class="fa-solid fa-user-check" style="color: var(--accent-success);"></i> Active Users</div>
                     <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 5%</div>
                 </div>
                 <div class="card-value">1,942</div>
@@ -488,23 +587,25 @@ echo $OUTPUT->header();
                 <div style="height: 60px;"><canvas id="chartCompletions"></canvas></div>
             </div>
 
-            <!-- KPI 4: Inactive Users (Alert) -->
-            <div class="bento-card card-span-1" style="border-color: rgba(239, 68, 68, 0.3);">
+            <!-- KPI 4: Revenue (or Engagement) -->
+            <div class="bento-card card-span-1">
                 <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-user-times" style="color: var(--accent-danger);"></i> Inactive Users</div>
-                    <div class="card-trend trend-down"><i class="fa-solid fa-arrow-trend-down"></i> 2%</div>
+                    <div class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--accent-secondary);"></i> Avg Engagement</div>
+                    <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 3%</div>
                 </div>
-                <div class="card-value" style="color: var(--accent-danger);">156</div>
-                <p style="font-size: 12px; color: var(--text-secondary);">Users with no login > 30 days</p>
+                <div class="card-value">78%</div>
+                <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
+                    <div style="width: 78%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
+                </div>
             </div>
 
             <!-- Main Chart: Activity Overview -->
             <div class="bento-card card-span-3 card-row-2">
                 <div class="card-header">
-                    <div class="card-title">Platform Activity Overview</div>
+                    <div class="card-title">Course Completion Trend</div>
                     <select style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 4px 8px; border-radius: 8px; outline: none;">
-                        <option>Last 30 Days</option>
-                        <option>Last 7 Days</option>
+                        <option>Last 6 Months</option>
+                        <option>Last Year</option>
                     </select>
                 </div>
                 <div style="height: 300px; width: 100%;">
@@ -512,35 +613,92 @@ echo $OUTPUT->header();
                 </div>
             </div>
 
-            <!-- Inactive Users List -->
+            <!-- System Health Widget (Replaces Inactive Users) -->
             <div class="bento-card card-span-1 card-row-2">
                 <div class="card-header">
-                    <div class="card-title">Inactive Users Alert</div>
+                    <div class="card-title">System Health</div>
+                    <div class="status-badge status-active">Good</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Database -->
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-database"></i></div>
+                            <div class="health-name">Database</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> 450MB
+                        </div>
+                    </div>
+                    <!-- Cache -->
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-bolt"></i></div>
+                            <div class="health-name">Cache Hit</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> 98%
+                        </div>
+                    </div>
+                    <!-- Cron -->
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-clock"></i></div>
+                            <div class="health-name">Cron Jobs</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> Running
+                        </div>
+                    </div>
+                    <!-- Cloud Offload -->
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-cloud"></i></div>
+                            <div class="health-name">Cloud</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-warning"></div> Idle
+                        </div>
+                    </div>
+                    <!-- Error Rate -->
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                            <div class="health-name">Errors</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> 0.1%
+                        </div>
+                    </div>
+                </div>
+                <button style="margin-top: 20px; width: 100%; padding: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); border-radius: 12px; cursor: pointer;">View System Logs</button>
+            </div>
+
+            <!-- User Activity Heatmap (New Row) -->
+            <div class="bento-card card-span-4">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-fire" style="color: var(--accent-danger);"></i> User Activity Heatmap</div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">Last 12 Months</div>
+                </div>
+                <div class="heatmap-grid">
                     <?php
-                    // Mock Inactive Users Data
-                    $inactive_users = [
-                        ['name' => 'John Doe', 'days' => 45],
-                        ['name' => 'Jane Smith', 'days' => 38],
-                        ['name' => 'Mike Johnson', 'days' => 32],
-                        ['name' => 'Sarah Connor', 'days' => 60],
-                        ['name' => 'Kyle Reese', 'days' => 31],
-                    ];
-                    foreach ($inactive_users as $user) {
-                        echo '<div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: rgba(239, 68, 68, 0.1); border-radius: 12px;">
-                                <div style="width: 32px; height: 32px; background: var(--accent-danger); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
-                                    <i class="fa-solid fa-user-clock"></i>
-                                </div>
-                                <div>
-                                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary);">' . $user['name'] . '</div>
-                                    <div style="font-size: 11px; color: var(--accent-danger);">' . $user['days'] . ' days inactive</div>
-                                </div>
-                              </div>';
+                    // Generate mock heatmap data
+                    for ($i = 0; $i < 371; $i++) { // 53 weeks * 7 days
+                        $level = rand(0, 10) > 7 ? rand(1, 4) : 0; // Sparse data
+                        $date = date('M d', strtotime("-$i days"));
+                        echo "<div class='heatmap-cell level-$level' data-title='$date: $level activities'></div>";
                     }
                     ?>
                 </div>
-                <button style="margin-top: 20px; width: 100%; padding: 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); border-radius: 12px; cursor: pointer;">View All Inactive</button>
+                <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--text-secondary);">
+                    <span>Less</span>
+                    <div style="width: 10px; height: 10px; background: rgba(255,255,255,0.05); border-radius: 2px;"></div>
+                    <div style="width: 10px; height: 10px; background: rgba(99, 102, 241, 0.2); border-radius: 2px;"></div>
+                    <div style="width: 10px; height: 10px; background: rgba(99, 102, 241, 0.4); border-radius: 2px;"></div>
+                    <div style="width: 10px; height: 10px; background: rgba(99, 102, 241, 0.7); border-radius: 2px;"></div>
+                    <div style="width: 10px; height: 10px; background: rgba(99, 102, 241, 1); border-radius: 2px;"></div>
+                    <span>More</span>
+                </div>
             </div>
 
             <!-- Top Accessed Courses Table -->
@@ -670,16 +828,16 @@ document.addEventListener('DOMContentLoaded', function() {
     new Chart(document.getElementById('mainChart'), {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
             datasets: [
                 {
-                    label: 'User Access',
+                    label: 'Completions',
                     data: [150, 230, 180, 320, 290, 340, 380],
-                    borderColor: '#6366f1',
+                    borderColor: '#f59e0b', // Gold
                     backgroundColor: (ctx) => {
                         const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
-                        gradient.addColorStop(0, 'rgba(99, 102, 241, 0.4)');
-                        gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
                         return gradient;
                     },
                     borderWidth: 3,
@@ -687,11 +845,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     tension: 0.4
                 },
                 {
-                    label: 'Completions',
-                    data: [50, 80, 60, 120, 90, 140, 160],
-                    borderColor: '#10b981',
+                    label: 'Enrollments',
+                    data: [200, 280, 250, 400, 350, 420, 450],
+                    borderColor: '#10b981', // Green
                     backgroundColor: 'transparent',
-                    borderWidth: 3,
+                    borderWidth: 2,
                     borderDash: [5, 5],
                     tension: 0.4
                 }
