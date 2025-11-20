@@ -1,0 +1,172 @@
+{{!
+    @template local_manireports/dashboard_teacher
+    Teacher dashboard template.
+}}
+<div class="manireports-dashboard teacher-dashboard">
+    <div class="dashboard-header mb-4">
+        <h2>{{title}}</h2>
+        <p class="lead">{{#str}}teacherdashboarddesc, local_manireports{{/str}}</p>
+    </div>
+
+    <!-- KPI Widgets -->
+    <div class="dashboard-widgets row mb-4">
+        {{#widgets}}
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card {{#alert}}border-warning{{/alert}}">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">{{title}}</h6>
+                    <p class="display-4 mb-0">{{value}}</p>
+                </div>
+            </div>
+        </div>
+        {{/widgets}}
+    </div>
+
+    <!-- My Courses Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{#str}}mycourses, local_manireports{{/str}}</h5>
+                </div>
+                <div class="card-body">
+                    {{#mycourses}}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{#str}}course{{/str}}</th>
+                                <th>{{#str}}students, local_manireports{{/str}}</th>
+                                <th>{{#str}}completed, local_manireports{{/str}}</th>
+                                <th>{{#str}}rate, local_manireports{{/str}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#mycourses}}
+                            <tr>
+                                <td><a href="{{config.wwwroot}}/course/view.php?id={{id}}">{{fullname}}</a></td>
+                                <td>{{enrolledstudents}}</td>
+                                <td>{{completedstudents}}</td>
+                                <td>{{completionrate}}%</td>
+                            </tr>
+                            {{/mycourses}}
+                        </tbody>
+                    </table>
+                    {{/mycourses}}
+                    {{^mycourses}}
+                    <p class="text-muted">{{#str}}nocourses, local_manireports{{/str}}</p>
+                    {{/mycourses}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Progress Section -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{#str}}studentprogress, local_manireports{{/str}}</h5>
+                </div>
+                <div class="card-body">
+                    {{#studentprogress}}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{#str}}student, local_manireports{{/str}}</th>
+                                <th>{{#str}}enrolled, local_manireports{{/str}}</th>
+                                <th>{{#str}}completed, local_manireports{{/str}}</th>
+                                <th>{{#str}}progress, local_manireports{{/str}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#studentprogress}}
+                            <tr>
+                                <td>{{fullname}}</td>
+                                <td>{{enrolledcourses}}</td>
+                                <td>{{completedcourses}}</td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar" role="progressbar" 
+                                             style="width: {{progressrate}}%;" 
+                                             aria-valuenow="{{progressrate}}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{progressrate}}%
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{/studentprogress}}
+                        </tbody>
+                    </table>
+                    {{/studentprogress}}
+                    {{^studentprogress}}
+                    <p class="text-muted">{{#str}}nostudents, local_manireports{{/str}}</p>
+                    {{/studentprogress}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity Section -->
+    {{#recentactivity}}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{#str}}recentactivity, local_manireports{{/str}}</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{#str}}student, local_manireports{{/str}}</th>
+                                <th>{{#str}}course{{/str}}</th>
+                                <th>{{#str}}activity, local_manireports{{/str}}</th>
+                                <th>{{#str}}type, local_manireports{{/str}}</th>
+                                <th>{{#str}}time, local_manireports{{/str}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#recentactivity}}
+                            <tr>
+                                <td>{{studentname}}</td>
+                                <td>{{coursename}}</td>
+                                <td>{{activityname}}</td>
+                                <td>{{activitytype}}</td>
+                                <td>{{timemodified}}</td>
+                            </tr>
+                            {{/recentactivity}}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    {{/recentactivity}}
+
+    <!-- Quick Links to Reports -->
+    <div class="dashboard-reports mt-4">
+        <h3>{{#str}}reports, local_manireports{{/str}}</h3>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_progress" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-chart-line"></i> {{#str}}courseprogress, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=user_engagement" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-users"></i> {{#str}}userengagement, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=quiz_attempts" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-question-circle"></i> {{#str}}quizattempts, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_completion" class="btn btn-outline-secondary btn-block">
+                    <i class="fa fa-check-circle"></i> {{#str}}coursecompletion, local_manireports{{/str}}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

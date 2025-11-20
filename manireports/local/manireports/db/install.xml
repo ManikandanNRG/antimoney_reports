@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="local/manireports/db" VERSION="20241117" COMMENT="XMLDB file for Moodle local/manireports"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="manireports_customreports" COMMENT="Stores custom report definitions created by users">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Report name"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Report description"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="sql" SEQUENCE="false" COMMENT="Report type: sql or gui"/>
+        <FIELD NAME="sqlquery" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="SQL query for sql-type reports"/>
+        <FIELD NAME="configjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON configuration for gui-type reports"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who created the report"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when last modified"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="createdby" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="type" UNIQUE="false" FIELDS="type"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_schedules" COMMENT="Stores scheduled report configurations">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who created the schedule"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Schedule name"/>
+        <FIELD NAME="reporttype" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Report type identifier (prebuilt class name or 'custom')"/>
+        <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Custom report ID if reporttype is 'custom'"/>
+        <FIELD NAME="frequency" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Frequency: daily, weekly, monthly"/>
+        <FIELD NAME="format" TYPE="char" LENGTH="10" NOTNULL="true" DEFAULT="csv" SEQUENCE="false" COMMENT="Export format: csv, xlsx, pdf"/>
+        <FIELD NAME="parameters" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON encoded report parameters"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether schedule is enabled"/>
+        <FIELD NAME="lastrun" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp of last run"/>
+        <FIELD NAME="nextrun" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of next scheduled run"/>
+        <FIELD NAME="failcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of consecutive failures"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when last modified"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="reportid" TYPE="foreign" FIELDS="reportid" REFTABLE="manireports_customreports" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="nextrun_enabled" UNIQUE="false" FIELDS="nextrun,enabled"/>
+        <INDEX NAME="userid" UNIQUE="false" FIELDS="userid"/>
+        <INDEX NAME="reportid" UNIQUE="false" FIELDS="reportid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_sched_recip" COMMENT="Stores email recipients for scheduled reports">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="scheduleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Reference to schedule"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Recipient user ID"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="scheduleid" TYPE="foreign" FIELDS="scheduleid" REFTABLE="manireports_schedules" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="scheduleid" UNIQUE="false" FIELDS="scheduleid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_report_runs" COMMENT="Stores report execution history and audit trail">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="reportid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Reference to custom report"/>
+        <FIELD NAME="scheduleid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Reference to schedule if scheduled run"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who executed the report"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Status: running, completed, failed"/>
+        <FIELD NAME="paramsjson" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON encoded parameters used"/>
+        <FIELD NAME="rowcount" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Number of rows returned"/>
+        <FIELD NAME="fileitemid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="File API item ID for export"/>
+        <FIELD NAME="error" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error message if failed"/>
+        <FIELD NAME="timestarted" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when started"/>
+        <FIELD NAME="timefinished" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Timestamp when finished"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="reportid" TYPE="foreign" FIELDS="reportid" REFTABLE="manireports_customreports" REFFIELDS="id"/>
+        <KEY NAME="scheduleid" TYPE="foreign" FIELDS="scheduleid" REFTABLE="manireports_schedules" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="reportid_timestarted" UNIQUE="false" FIELDS="reportid,timestarted"/>
+        <INDEX NAME="status" UNIQUE="false" FIELDS="status"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_time_sessions" COMMENT="Stores active time tracking sessions">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
+        <FIELD NAME="sessionstart" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Session start timestamp"/>
+        <FIELD NAME="lastupdated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last heartbeat timestamp"/>
+        <FIELD NAME="duration" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Session duration in seconds"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid,courseid"/>
+        <INDEX NAME="lastupdated" UNIQUE="false" FIELDS="lastupdated"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_time_daily" COMMENT="Stores aggregated daily time tracking summaries">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
+        <FIELD NAME="date" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Date in Y-m-d format"/>
+        <FIELD NAME="duration" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Total duration in seconds"/>
+        <FIELD NAME="sessioncount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of sessions"/>
+        <FIELD NAME="lastupdated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last update timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid_date" UNIQUE="true" FIELDS="userid,courseid,date"/>
+        <INDEX NAME="date" UNIQUE="false" FIELDS="date"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_scorm_summary" COMMENT="Stores pre-aggregated SCORM analytics">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="scormid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="SCORM activity ID"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
+        <FIELD NAME="attempts" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of attempts"/>
+        <FIELD NAME="completed" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Completion status"/>
+        <FIELD NAME="totaltime" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Total time in seconds"/>
+        <FIELD NAME="score" TYPE="number" LENGTH="10" NOTNULL="false" SEQUENCE="false" DECIMALS="2" COMMENT="Average score"/>
+        <FIELD NAME="lastaccess" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Last access timestamp"/>
+        <FIELD NAME="lastupdated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last update timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="scormid" TYPE="foreign" FIELDS="scormid" REFTABLE="scorm" REFFIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="scormid_userid" UNIQUE="true" FIELDS="scormid,userid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_cache_summary" COMMENT="Stores pre-computed report data for caching">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="cachekey" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Unique cache key"/>
+        <FIELD NAME="reporttype" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Type of report"/>
+        <FIELD NAME="referenceid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Reference ID (course, user, etc)"/>
+        <FIELD NAME="datajson" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Cached data as JSON"/>
+        <FIELD NAME="lastgenerated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when generated"/>
+        <FIELD NAME="ttl" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Time to live in seconds"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="cachekey" UNIQUE="true" FIELDS="cachekey"/>
+        <INDEX NAME="reporttype" UNIQUE="false" FIELDS="reporttype"/>
+        <INDEX NAME="lastgenerated" UNIQUE="false" FIELDS="lastgenerated"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_dashboards" COMMENT="Stores custom dashboard configurations">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="name" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Dashboard name"/>
+        <FIELD NAME="description" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Dashboard description"/>
+        <FIELD NAME="scope" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="personal" SEQUENCE="false" COMMENT="Scope: personal, global, company"/>
+        <FIELD NAME="companyid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Company ID for company-scoped dashboards"/>
+        <FIELD NAME="layoutjson" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Dashboard layout as JSON"/>
+        <FIELD NAME="createdby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who created the dashboard"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when last modified"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="createdby" TYPE="foreign" FIELDS="createdby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="scope" UNIQUE="false" FIELDS="scope"/>
+        <INDEX NAME="companyid" UNIQUE="false" FIELDS="companyid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_dash_widgets" COMMENT="Stores dashboard widget configurations">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="dashboardid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Reference to dashboard"/>
+        <FIELD NAME="widgettype" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Widget type: kpi, line, bar, pie, table"/>
+        <FIELD NAME="title" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Widget title"/>
+        <FIELD NAME="position" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Widget position in layout"/>
+        <FIELD NAME="configjson" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Widget configuration as JSON"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="dashboardid" TYPE="foreign" FIELDS="dashboardid" REFTABLE="manireports_dashboards" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="dashboardid" UNIQUE="false" FIELDS="dashboardid"/>
+      </INDEXES>
+    </TABLE>
+
+    <TABLE NAME="manireports_audit_logs" COMMENT="Stores audit trail for compliance and troubleshooting">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User who performed the action"/>
+        <FIELD NAME="action" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Action performed"/>
+        <FIELD NAME="objecttype" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Type of object affected"/>
+        <FIELD NAME="objectid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="ID of object affected"/>
+        <FIELD NAME="details" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Additional details as JSON"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when action occurred"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_timecreated" UNIQUE="false" FIELDS="userid,timecreated"/>
+        <INDEX NAME="action" UNIQUE="false" FIELDS="action"/>
+        <INDEX NAME="objecttype_objectid" UNIQUE="false" FIELDS="objecttype,objectid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="manireports_atrisk_ack" COMMENT="At-risk learner acknowledgments">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID of at-risk learner"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
+        <FIELD NAME="acknowledgedby" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID who acknowledged"/>
+        <FIELD NAME="note" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Intervention note"/>
+        <FIELD NAME="timeacknowledged" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Acknowledgment timestamp"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
+        <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+        <KEY NAME="acknowledgedby" TYPE="foreign" FIELDS="acknowledgedby" REFTABLE="user" REFFIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid,courseid"/>
+        <INDEX NAME="timeacknowledged" UNIQUE="false" FIELDS="timeacknowledged"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="manireports_failed_jobs" COMMENT="Failed scheduled jobs for retry management">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="taskname" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Task class name"/>
+        <FIELD NAME="error" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Error message"/>
+        <FIELD NAME="stacktrace" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Stack trace"/>
+        <FIELD NAME="context" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Task context as JSON"/>
+        <FIELD NAME="timefailed" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Time of failure"/>
+        <FIELD NAME="retrycount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of retry attempts"/>
+        <FIELD NAME="lastretry" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Time of last retry"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="taskname" UNIQUE="false" FIELDS="taskname"/>
+        <INDEX NAME="timefailed" UNIQUE="false" FIELDS="timefailed"/>
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

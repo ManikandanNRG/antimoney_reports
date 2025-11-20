@@ -1,0 +1,181 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_manireports/dashboard_admin
+
+    Admin dashboard template.
+
+    Context variables required for this template:
+    * title - Dashboard title
+    * widgets - Array of widget data
+    * companies - Array of company data (IOMAD)
+    * courseusage - Array of course usage data
+    * inactiveusers - Array of inactive user data
+    * hasisomad - Boolean indicating if IOMAD is installed
+
+    Example context (json):
+    {
+        "title": "Admin Dashboard",
+        "widgets": [
+            {
+                "type": "kpi",
+                "title": "Total Users",
+                "value": "150",
+                "icon": "users"
+            }
+        ],
+        "companies": [],
+        "courseusage": [],
+        "inactiveusers": [],
+        "hasisomad": false
+    }
+}}
+<div class="manireports-dashboard">
+    <div class="dashboard-header mb-4">
+        <h2>{{title}}</h2>
+    </div>
+
+    {{! Site-wide statistics widgets }}
+    <div class="dashboard-widgets row mb-4">
+        {{#widgets}}
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card {{#alert}}border-warning{{/alert}}">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">{{title}}</h6>
+                    <p class="card-text display-4 {{#alert}}text-warning{{/alert}}">{{value}}</p>
+                </div>
+            </div>
+        </div>
+        {{/widgets}}
+    </div>
+
+    {{! IOMAD Companies section }}
+    {{#hasisomad}}
+    <div class="dashboard-section mb-4">
+        <h3>{{#str}}companies, local_manireports{{/str}}</h3>
+        {{#companies}}
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="card-title">{{name}}</h5>
+                        <p class="card-text text-muted">{{shortname}}</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="text-muted small">{{#str}}users, local_manireports{{/str}}</div>
+                        <div class="h4">{{usercount}}</div>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="text-muted small">{{#str}}courses, local_manireports{{/str}}</div>
+                        <div class="h4">{{coursecount}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/companies}}
+        {{^companies}}
+        <div class="alert alert-info">
+            {{#str}}nocompanies, local_manireports{{/str}}
+        </div>
+        {{/companies}}
+    </div>
+    {{/hasisomad}}
+
+    {{! Course usage heatmap }}
+    <div class="dashboard-section mb-4">
+        <h3>{{#str}}courseusage, local_manireports{{/str}}</h3>
+        <p class="text-muted">{{#str}}courseusagedesc, local_manireports{{/str}}</p>
+        {{#courseusage}}
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <h6 class="mb-0">{{fullname}}</h6>
+                        <small class="text-muted">{{shortname}}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-muted small">{{#str}}activeusers, local_manireports{{/str}}</div>
+                        <div class="h5 mb-0">{{usercount}}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-muted small">{{#str}}totalaccesses, local_manireports{{/str}}</div>
+                        <div class="h5 mb-0">{{accesscount}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/courseusage}}
+        {{^courseusage}}
+        <div class="alert alert-info">
+            {{#str}}nocourseusage, local_manireports{{/str}}
+        </div>
+        {{/courseusage}}
+    </div>
+
+    {{! Inactive users widget }}
+    <div class="dashboard-section mb-4">
+        <h3>{{#str}}inactiveusers, local_manireports{{/str}}</h3>
+        <p class="text-muted">{{#str}}inactiveusersdesc, local_manireports{{/str}}</p>
+        {{#inactiveusers}}
+        <div class="card mb-2">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <strong>{{fullname}}</strong><br>
+                        <small class="text-muted">{{email}}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">{{#str}}lastaccess, local_manireports{{/str}}</div>
+                        <div>{{lastaccess}}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-muted small">{{#str}}daysinactive, local_manireports{{/str}}</div>
+                        <div class="text-warning"><strong>{{daysinactive}}</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{/inactiveusers}}
+        {{^inactiveusers}}
+        <div class="alert alert-success">
+            {{#str}}noinactiveusers, local_manireports{{/str}}
+        </div>
+        {{/inactiveusers}}
+    </div>
+
+    {{! Available reports }}
+    <div class="dashboard-reports mt-4">
+        <h3>{{#str}}reports, local_manireports{{/str}}</h3>
+        <div class="list-group">
+            <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_completion" class="list-group-item list-group-item-action">
+                <i class="fa fa-graduation-cap"></i> {{#str}}coursecompletion, local_manireports{{/str}}
+            </a>
+            <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_progress" class="list-group-item list-group-item-action">
+                <i class="fa fa-chart-line"></i> {{#str}}courseprogress, local_manireports{{/str}}
+            </a>
+            <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=user_engagement" class="list-group-item list-group-item-action">
+                <i class="fa fa-users"></i> {{#str}}userengagement, local_manireports{{/str}}
+            </a>
+            <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=quiz_attempts" class="list-group-item list-group-item-action">
+                <i class="fa fa-question-circle"></i> {{#str}}quizattempts, local_manireports{{/str}}
+            </a>
+            <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=scorm_summary" class="list-group-item list-group-item-action">
+                <i class="fa fa-file-alt"></i> {{#str}}scormsummary, local_manireports{{/str}}
+            </a>
+        </div>
+    </div>
+</div>

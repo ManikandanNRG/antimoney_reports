@@ -1,0 +1,27 @@
+{{!
+    @template local_manireports/dashboard_student
+    Student dashboard template.
+}}
+<div class="manireports-dashboard">
+    <div class="dashboard-header">
+        <h2>{{title}}</h2>
+    </div>
+
+    <div class="dashboard-widgets row">
+        {{#widgets}}
+        <div class="col-md-4 mb-3">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">{{title}}</h5>
+                    <p class="card-text display-4">{{value}}</p>
+                </div>
+            </div>
+        </div>
+        {{/widgets}}
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <h4>{{#str}}studentdashboard, local_manireports{{/str}}</h4>
+        <p>View your personal progress and course completion status.</p>
+    </div>
+</div>

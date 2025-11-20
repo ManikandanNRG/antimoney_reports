@@ -1,0 +1,132 @@
+{{!
+    @template local_manireports/dashboard_manager
+    Manager dashboard template.
+}}
+<div class="manireports-dashboard manager-dashboard">
+    <div class="dashboard-header mb-4">
+        <h2>{{title}}</h2>
+        {{#hascompany}}
+        <p class="lead">{{#str}}company, local_manireports{{/str}}: <strong>{{companyname}}</strong></p>
+        {{/hascompany}}
+        {{^hascompany}}
+        <div class="alert alert-warning">
+            {{#str}}nocompanyassigned, local_manireports{{/str}}
+        </div>
+        {{/hascompany}}
+    </div>
+
+    {{#hascompany}}
+    <!-- KPI Widgets -->
+    <div class="dashboard-widgets row mb-4">
+        {{#widgets}}
+        <div class="col-md-4 col-lg-2 mb-3">
+            <div class="card {{#alert}}border-warning{{/alert}}">
+                <div class="card-body text-center">
+                    <h6 class="card-title text-muted">{{title}}</h6>
+                    <p class="display-4 mb-0">{{value}}</p>
+                </div>
+            </div>
+        </div>
+        {{/widgets}}
+    </div>
+
+    <!-- Company Users Section -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{#str}}recentusers, local_manireports{{/str}}</h5>
+                </div>
+                <div class="card-body">
+                    {{#companyusers}}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{#str}}name{{/str}}</th>
+                                <th>{{#str}}email{{/str}}</th>
+                                <th>{{#str}}lastaccess{{/str}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#companyusers}}
+                            <tr>
+                                <td>{{fullname}}</td>
+                                <td>{{email}}</td>
+                                <td>{{lastaccess}}</td>
+                            </tr>
+                            {{/companyusers}}
+                        </tbody>
+                    </table>
+                    {{/companyusers}}
+                    {{^companyusers}}
+                    <p class="text-muted">{{#str}}nousers, local_manireports{{/str}}</p>
+                    {{/companyusers}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Company Courses Section -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">{{#str}}companycourses, local_manireports{{/str}}</h5>
+                </div>
+                <div class="card-body">
+                    {{#companycourses}}
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>{{#str}}course{{/str}}</th>
+                                <th>{{#str}}enrolled, local_manireports{{/str}}</th>
+                                <th>{{#str}}completed, local_manireports{{/str}}</th>
+                                <th>{{#str}}rate, local_manireports{{/str}}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {{#companycourses}}
+                            <tr>
+                                <td>{{fullname}}</td>
+                                <td>{{enrolledusers}}</td>
+                                <td>{{completedusers}}</td>
+                                <td>{{completionrate}}%</td>
+                            </tr>
+                            {{/companycourses}}
+                        </tbody>
+                    </table>
+                    {{/companycourses}}
+                    {{^companycourses}}
+                    <p class="text-muted">{{#str}}nocourses, local_manireports{{/str}}</p>
+                    {{/companycourses}}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links to Reports -->
+    <div class="dashboard-reports mt-4">
+        <h3>{{#str}}reports, local_manireports{{/str}}</h3>
+        <div class="row">
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_completion" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-check-circle"></i> {{#str}}coursecompletion, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=course_progress" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-chart-line"></i> {{#str}}courseprogress, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/report_view.php?report=user_engagement" class="btn btn-outline-primary btn-block">
+                    <i class="fa fa-users"></i> {{#str}}userengagement, local_manireports{{/str}}
+                </a>
+            </div>
+            <div class="col-md-3 mb-3">
+                <a href="{{config.wwwroot}}/local/manireports/ui/schedules.php" class="btn btn-outline-secondary btn-block">
+                    <i class="fa fa-calendar"></i> {{#str}}schedules, local_manireports{{/str}}
+                </a>
+            </div>
+        </div>
+    </div>
+    {{/hascompany}}
+</div>
