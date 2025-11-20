@@ -495,6 +495,23 @@ echo $OUTPUT->header();
     .dot-warning { background: var(--accent-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
     .dot-danger { background: var(--accent-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
 
+    .card-illustration {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 100px;
+        height: 100px;
+        object-fit: contain;
+        opacity: 0.9;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .card-content-wrapper {
+        position: relative;
+        z-index: 1;
+    }
+
     /* Responsive */
     @media (max-width: 1200px) {
         .bento-grid { grid-template-columns: repeat(2, 1fr); }
@@ -508,6 +525,7 @@ echo $OUTPUT->header();
         .bento-grid { grid-template-columns: 1fr; }
         .card-span-1, .card-span-2, .card-span-3, .card-span-4 { grid-column: span 1; }
         .heatmap-grid { display: none; } /* Hide heatmap on mobile */
+        .card-illustration { width: 60px; height: 60px; opacity: 0.5; }
     }
 </style>
 
@@ -559,43 +577,63 @@ echo $OUTPUT->header();
             
             <!-- KPI 1: New Registrations -->
             <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-user-plus" style="color: var(--accent-primary);"></i> New Registrations</div>
-                    <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 12%</div>
+                <img src="https://avatar.iran.liara.run/public/boy?username=Reg" class="card-illustration" alt="New Users">
+                <div class="card-content-wrapper">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-user-plus" style="color: var(--accent-primary);"></i> New Registrations</div>
+                    </div>
+                    <div style="display: flex; align-items: baseline; gap: 12px;">
+                        <div class="card-value">128</div>
+                        <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 12%</div>
+                    </div>
+                    <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
                 </div>
-                <div class="card-value">128</div>
-                <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
             </div>
 
             <!-- KPI 2: Active Users (30 Days) -->
             <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-user-check" style="color: var(--accent-success);"></i> Active Users</div>
-                    <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 5%</div>
+                <img src="https://avatar.iran.liara.run/public/girl?username=ActiveUser" class="card-illustration" alt="Active Users">
+                <div class="card-content-wrapper">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-user-check" style="color: var(--accent-success);"></i> Active Users</div>
+                    </div>
+                    <div style="display: flex; align-items: baseline; gap: 12px;">
+                        <div class="card-value">1,942</div>
+                        <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 5%</div>
+                    </div>
+                    <div style="height: 60px;"><canvas id="chartActive"></canvas></div>
                 </div>
-                <div class="card-value">1,942</div>
-                <div style="height: 60px;"><canvas id="chartActive"></canvas></div>
             </div>
 
             <!-- KPI 3: Course Completions -->
             <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-trophy" style="color: var(--accent-warning);"></i> Completions</div>
-                    <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 8%</div>
+                <img src="https://avatar.iran.liara.run/public/boy?username=Winner" class="card-illustration" alt="Completions">
+                <div class="card-content-wrapper">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-trophy" style="color: var(--accent-warning);"></i> Completions</div>
+                    </div>
+                    <div style="display: flex; align-items: baseline; gap: 12px;">
+                        <div class="card-value">1,256</div>
+                        <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 8%</div>
+                    </div>
+                    <div style="height: 60px;"><canvas id="chartCompletions"></canvas></div>
                 </div>
-                <div class="card-value">1,256</div>
-                <div style="height: 60px;"><canvas id="chartCompletions"></canvas></div>
             </div>
 
             <!-- KPI 4: Revenue (or Engagement) -->
             <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--accent-secondary);"></i> Avg Engagement</div>
-                    <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 3%</div>
-                </div>
-                <div class="card-value">78%</div>
-                <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
-                    <div style="width: 78%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
+                <img src="https://avatar.iran.liara.run/public/girl?username=Stats" class="card-illustration" alt="Engagement">
+                <div class="card-content-wrapper">
+                    <div class="card-header">
+                        <div class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--accent-secondary);"></i> Avg Engagement</div>
+                    </div>
+                    <div style="display: flex; align-items: baseline; gap: 12px;">
+                        <div class="card-value">78%</div>
+                        <div class="card-trend trend-up"><i class="fa-solid fa-arrow-trend-up"></i> 3%</div>
+                    </div>
+                    <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
+                        <div style="width: 78%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
+                    </div>
                 </div>
             </div>
 
