@@ -54,6 +54,8 @@ $loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_
 $kpi_data = $loader->get_admin_kpis();
 $system_health = $loader->get_system_health();
 $company_data = $loader->get_company_analytics(5);
+$role_data = $loader->get_user_roles_distribution();
+$trend_data = $loader->get_completion_trends();
 
 // Fetch Table Data (Safely)
 $course_data = $loader->get_table_data('course_completion', 5);
@@ -404,6 +406,32 @@ body {
                 </div>
             </div>
 
+            <!-- User Role Distribution (Donut) -->
+            <div class="bento-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title">User Roles</div>
+                </div>
+                <div style="height: 250px; width: 100%; position: relative;">
+                    <canvas id="chartUserRoles"></canvas>
+                    <!-- Center Text Overlay -->
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">Total</div>
+                        <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);"><?php echo array_sum($role_data); ?></div>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 16px; margin-top: 16px;">
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> Admin
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> Teacher
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span> Student
+                    </div>
+                </div>
+            </div>
+
             <!-- Course Completion Trend Chart -->
             <div class="bento-card card-span-3">
                 <div class="card-header">
@@ -608,27 +636,49 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Completion Trend Chart
+    // Completion Trend Chart (Multi-line Area)
     new Chart(document.getElementById('completionTrendChart'), {
         type: 'line',
         data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            datasets: [{
-                label: 'Completions',
-                data: [20, 35, 40, 55],
-                borderColor: '#10b981',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                tension: 0.4
-            }]
+            labels: <?php echo json_encode($trend_data['labels']); ?>,
+            datasets: [
+                {
+                    label: 'Enrolled',
+                    data: <?php echo json_encode($trend_data['enrollments']); ?>,
+                    borderColor: '#10b981',
+                    backgroundColor: (ctx) => {
+                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+                        gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                        return gradient;
+                    },
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Completed',
+                    data: <?php echo json_encode($trend_data['completions']); ?>,
+                    borderColor: '#f59e0b',
+                    backgroundColor: (ctx) => {
+                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                        return gradient;
+                    },
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    labels: { color: '#94a3b8', font: { family: 'Outfit' } },
+                    display: true,
+                    labels: { color: '#94a3b8', font: { family: 'Outfit' }, usePointStyle: true, boxWidth: 6 },
                     position: 'top',
                     align: 'end'
                 }
@@ -636,6 +686,28 @@ document.addEventListener('DOMContentLoaded', function() {
             scales: {
                 y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } },
                 x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } }
+            }
+        }
+    });
+
+    // User Roles Donut Chart
+    new Chart(document.getElementById('chartUserRoles'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Admin', 'Teacher', 'Student'],
+            datasets: [{
+                data: [<?php echo $role_data['admin']; ?>, <?php echo $role_data['teacher']; ?>, <?php echo $role_data['student']; ?>],
+                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '75%',
+            plugins: {
+                legend: { display: false }
             }
         }
     });
