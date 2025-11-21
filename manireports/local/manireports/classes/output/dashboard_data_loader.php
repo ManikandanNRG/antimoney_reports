@@ -375,4 +375,79 @@ class dashboard_data_loader {
         global $CFG;
         return file_exists($CFG->dirroot . '/local/iomad/lib.php');
     }
+
+    /**
+     * Get Live Statistics (Active Users, Peak, Top Courses, Timeline).
+     *
+     * @return array Live stats data
+     */
+    public function get_live_statistics() {
+        global $DB;
+        
+        // Time windows
+        $now = time();
+        $five_mins_ago = $now - 300;
+        $start_of_day = strtotime("today midnight");
+        $twenty_four_hours_ago = $now - (24 * 3600);
+
+        // 1. Active Users (Last 5 mins)
+        // Count distinct users who did something in the last 5 mins
+        $sql_active = "SELECT COUNT(DISTINCT userid) FROM {logstore_standard_log} WHERE timecreated > :window";
+        $active_users = $DB->count_records_sql($sql_active, ['window' => $five_mins_ago]);
+
+        // 2. Peak Today (Max Hourly Active Users)
+        // Group by hour for today and find the max count
+        $sql_peak = "SELECT COUNT(DISTINCT userid) as user_count
+                       FROM {logstore_standard_log}
+                      WHERE timecreated > :startofday
+                   GROUP BY FLOOR(timecreated / 3600)
+                   ORDER BY user_count DESC";
+        $peak_records = $DB->get_records_sql($sql_peak, ['startofday' => $start_of_day], 0, 1);
+        $peak_today = !empty($peak_records) ? reset($peak_records)->user_count : 0;
+        // Ensure peak is at least current active
+        $peak_today = max($peak_today, $active_users);
+
+        // 3. Active Courses Count (Last 5 mins)
+        $sql_courses = "SELECT COUNT(DISTINCT courseid) FROM {logstore_standard_log} WHERE timecreated > :window AND courseid > 1";
+        $active_courses_count = $DB->count_records_sql($sql_courses, ['window' => $five_mins_ago]);
+
+        // 4. Top Active Courses (Last 5 mins)
+        $sql_top_courses = "SELECT c.id, c.fullname, COUNT(DISTINCT l.userid) as active_count
+                              FROM {logstore_standard_log} l
+                              JOIN {course} c ON l.courseid = c.id
+                             WHERE l.timecreated > :window AND c.id > 1
+                          GROUP BY c.id, c.fullname
+                          ORDER BY active_count DESC";
+        $top_courses = $DB->get_records_sql($sql_top_courses, ['window' => $five_mins_ago], 0, 5);
+
+        // 5. 24h Activity Timeline
+        // Group by hour for the last 24 hours
+        $sql_timeline = "SELECT FLOOR(timecreated / 3600) * 3600 as hour_timestamp, COUNT(DISTINCT userid) as user_count
+                           FROM {logstore_standard_log}
+                          WHERE timecreated > :window
+                       GROUP BY FLOOR(timecreated / 3600)
+                       ORDER BY hour_timestamp ASC";
+        $timeline_records = $DB->get_records_sql($sql_timeline, ['window' => $twenty_four_hours_ago]);
+
+        // Process timeline to ensure all hours are represented (even if 0)
+        $timeline_data = [];
+        $timeline_labels = [];
+        for ($i = 23; $i >= 0; $i--) {
+            $hour_ts = $now - ($i * 3600);
+            $hour_key = floor($hour_ts / 3600) * 3600;
+            $count = isset($timeline_records[$hour_key]) ? $timeline_records[$hour_key]->user_count : 0;
+            
+            $timeline_data[] = $count;
+            $timeline_labels[] = date('H:00', $hour_key);
+        }
+
+        return [
+            'active_users' => $active_users,
+            'peak_today' => $peak_today,
+            'active_courses_count' => $active_courses_count,
+            'top_courses' => array_values($top_courses),
+            'timeline_labels' => $timeline_labels,
+            'timeline_data' => $timeline_data
+        ];
+    }
 }

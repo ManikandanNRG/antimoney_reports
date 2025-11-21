@@ -47,28 +47,29 @@ if ($end_param) {
     }
 }
 
-// Initialize Data Loader
+// Instantiate Data Loader
 $loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
 
 // Fetch Data
 $kpi_data = $loader->get_admin_kpis();
+$company_data = $loader->get_company_analytics();
+$course_data = $loader->get_table_data('course_progress', 10);
 $system_health = $loader->get_system_health();
-$company_data = $loader->get_company_analytics(5);
 $role_data = $loader->get_user_roles_distribution();
 $trend_data = $loader->get_completion_trends();
 
-// Fetch Table Data (Safely)
-$course_data = $loader->get_table_data('course_completion', 5);
-$user_data = $loader->get_table_data('user_engagement', 5);
-$scorm_data = $loader->get_table_data('scorm_summary', 5);
-
-// Prepare Chart Data (Mocking structure if report doesn't return expected format)
-$chart_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-$chart_datasets = [
-    'companies' => [18, 19, 20, 21, 22, 23, 24],
-    'courses' => [140, 145, 148, 150, 152, 154, 156],
-    'users' => [8500, 8510, 8520, 8530, 8535, 8540, 8542]
-];
+try {
+    $live_stats = $loader->get_live_statistics();
+} catch (Exception $e) {
+    $live_stats = [
+        'active_users' => 0,
+        'peak_today' => 0,
+        'active_courses_count' => 0,
+        'top_courses' => [],
+        'timeline_labels' => [],
+        'timeline_data' => []
+    ];
+}
 
 echo $OUTPUT->header();
 ?>
@@ -345,17 +346,14 @@ body {
             </div>
             <!-- End KPI Cards -->
 
-            <!-- Tab Content: Overview -->
-            <div id="tab-overview" class="tab-content active">
-                <div class="bento-grid">
+            <div class="bento-grid">
 
             <!-- System Health Widget -->
             <div class="bento-card card-span-1">
                 <div class="card-header">
                     <div class="card-title">System Health</div>
-                    <div class="status-badge status-active">Good</div>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div>
                     <div class="health-item">
                         <div class="health-info">
                             <div class="health-icon"><i class="fa-solid fa-database"></i></div>
@@ -407,7 +405,7 @@ body {
             </div>
 
             <!-- User Role Distribution (Donut) -->
-            <div class="bento-card card-span-1">
+            <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">User Roles</div>
                 </div>
@@ -433,12 +431,92 @@ body {
             </div>
 
             <!-- Course Completion Trend Chart -->
-            <div class="bento-card card-span-3">
+            <!-- Course Completion Trend Chart -->
+            <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">Course Completion Trend</div>
                 </div>
                 <div style="height: 300px; width: 100%;">
                     <canvas id="completionTrendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Analytics Row (Full Width) -->
+            <div class="bento-card card-span-4" style="min-height: 320px;">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="card-title" style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-bolt" style="color: #10b981;"></i> Real-time Active Users
+                        <span style="font-size: 12px; color: #10b981; display: flex; align-items: center; gap: 5px;">
+                            <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 1.5s infinite;"></span> Live
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-secondary);">
+                        Updated <span id="live-update-timer">0</span> sec ago
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1.5fr 1.5fr; gap: 24px; margin-top: 16px;">
+                    <!-- Col 1: Metrics -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+                        <div style="background: rgba(16, 185, 129, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.2);">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">Currently Active</div>
+                            <div style="font-size: 32px; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 10px;">
+                                <?php echo $live_stats['active_users']; ?>
+                                <i class="fa-solid fa-users" style="font-size: 20px; opacity: 0.5;"></i>
+                            </div>
+                        </div>
+                        <div style="background: rgba(139, 92, 246, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2);">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">Peak Today</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #8b5cf6; display: flex; align-items: center; gap: 10px;">
+                                <?php echo $live_stats['peak_today']; ?>
+                                <i class="fa-solid fa-chart-line" style="font-size: 18px; opacity: 0.5;"></i>
+                            </div>
+                        </div>
+                        <div style="background: rgba(59, 130, 246, 0.1); padding: 16px; border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2);">
+                            <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 4px;">Active Courses</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #3b82f6; display: flex; align-items: center; gap: 10px;">
+                                <?php echo $live_stats['active_courses_count']; ?>
+                                <i class="fa-solid fa-book-open" style="font-size: 18px; opacity: 0.5;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Col 2: Live Courses -->
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px;">Users by Course (Live)</div>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <?php foreach ($live_stats['top_courses'] as $course): ?>
+                                <?php 
+                                    $percent = ($live_stats['active_users'] > 0) ? ($course->active_count / $live_stats['active_users']) * 100 : 0;
+                                    $color = '#3b82f6'; // Default Blue
+                                    if ($percent > 50) $color = '#8b5cf6'; // Purple for high activity
+                                    if ($percent < 20) $color = '#ef4444'; // Red for low
+                                ?>
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">
+                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><?php echo $course->fullname; ?></span>
+                                        <span style="font-weight: 600; color: var(--text-primary);"><?php echo $course->active_count; ?></span>
+                                    </div>
+                                    <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
+                                        <div style="width: <?php echo $percent; ?>%; height: 100%; background: <?php echo $color; ?>; border-radius: 3px;"></div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                            <?php if (empty($live_stats['top_courses'])): ?>
+                                <div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 20px;">No active courses right now.</div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+
+                    <!-- Col 3: 24h Timeline -->
+                    <div>
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px;">Activity Timeline (24h)</div>
+                        <div style="height: 200px; width: 100%;">
+                            <canvas id="timelineChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -517,6 +595,7 @@ body {
                 </table>
             </div>
 
+            </div>
         </div>
     </main>
 </div>
@@ -799,6 +878,70 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     });
 
+document.addEventListener('DOMContentLoaded', function() {
+    // Live Update Timer
+    let seconds = 0;
+    setInterval(function() {
+        seconds++;
+        document.getElementById('live-update-timer').innerText = seconds;
+    }, 1000);
+
+    // 24h Timeline Chart
+    const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+    const timelineGradient = timelineCtx.createLinearGradient(0, 0, 0, 200);
+    timelineGradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+    timelineGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+    new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
+            datasets: [{
+                label: 'Active Users',
+                data: <?php echo json_encode($live_stats['timeline_data']); ?>,
+                borderColor: '#10b981',
+                backgroundColor: timelineGradient,
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#94a3b8',
+                    bodyColor: '#f8fafc',
+                    borderColor: 'rgba(148, 163, 184, 0.1)',
+                    borderWidth: 1
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        color: '#94a3b8', 
+                        font: { size: 10 },
+                        maxTicksLimit: 6 
+                    }
+                }
+            }
+        }
+    });
+    });
+
 // Date Filter Logic
 function setDateFilter(range) {
     const buttons = document.querySelectorAll('.quick-filter-btn');
@@ -843,6 +986,13 @@ function setDateFilter(range) {
     console.log(`Filter applied: ${range} (${formatDate(startDate)} - ${formatDate(today)})`);
 }
 </script>
+<style>
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+</style>
 
 <?php
 echo $OUTPUT->footer();
