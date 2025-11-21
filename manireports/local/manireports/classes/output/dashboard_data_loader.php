@@ -297,45 +297,30 @@ class dashboard_data_loader {
     public function get_user_roles_distribution() {
         global $DB;
 
-        // Fetch counts for specific roles
-        // Note: Role IDs can vary, so we search by shortname
-        $roles = $DB->get_records_list('role', 'shortname', ['manager', 'editingteacher', 'student']);
-        
-        $counts = [
-            'admin' => 0,
-            'teacher' => 0,
-            'student' => 0
+        // 1. Admins: Count Site Administrators
+        $admins = get_admins();
+        $admin_count = count($admins);
+
+        // 2. Teachers: Count users with 'teacher' role (Non-editing teacher)
+        // We use a direct SQL count for performance
+        $teacher_role = $DB->get_record('role', ['shortname' => 'teacher']);
+        $teacher_count = 0;
+        if ($teacher_role) {
+            $teacher_count = $DB->count_records('role_assignments', ['roleid' => $teacher_role->id]);
+        }
+
+        // 3. Students: Count users with 'student' role
+        $student_role = $DB->get_record('role', ['shortname' => 'student']);
+        $student_count = 0;
+        if ($student_role) {
+            $student_count = $DB->count_records('role_assignments', ['roleid' => $student_role->id]);
+        }
+
+        return [
+            'admin' => $admin_count,
+            'teacher' => $teacher_count,
+            'student' => $student_count
         ];
-
-        foreach ($roles as $role) {
-            // Count users with this role assignment at system or course level
-            // This is a simplified count. For accuracy, we should check context.
-            // For dashboard overview, counting distinct users with these roles is acceptable.
-            $sql = "SELECT COUNT(DISTINCT userid) 
-                      FROM {role_assignments} 
-                     WHERE roleid = :roleid";
-            
-            $count = $DB->count_records_sql($sql, ['roleid' => $role->id]);
-
-            if ($role->shortname === 'manager') {
-                $counts['admin'] += $count;
-            } elseif ($role->shortname === 'editingteacher') {
-                $counts['teacher'] += $count;
-            } elseif ($role->shortname === 'student') {
-                $counts['student'] += $count;
-            }
-        }
-
-        // If counts are zero (e.g. fresh install), provide some mock data for visualization
-        if (array_sum($counts) == 0) {
-            return [
-                'admin' => 5,
-                'teacher' => 12,
-                'student' => 150
-            ];
-        }
-
-        return $counts;
     }
 
     /**

@@ -690,24 +690,93 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // User Roles Donut Chart
+    // User Roles Donut Chart (3 Concentric Rings with Logarithmic Scaling)
+    const roleData = {
+        admin: <?php echo $role_data['admin']; ?>,
+        teacher: <?php echo $role_data['teacher']; ?>,
+        student: <?php echo $role_data['student']; ?>
+    };
+
+    // Logarithmic Scaling Function
+    // We use Math.log10(value + 1) to handle 0 and scale appropriately
+    // We normalize against the largest value (student) to determine ring length
+    const maxVal = Math.max(roleData.student, roleData.teacher, roleData.admin, 1);
+    const logMax = Math.log10(maxVal + 10); // +10 to give a bit of headroom/base
+
+    const getScaledValue = (val) => {
+        if (val === 0) return 0;
+        // Calculate log score: e.g. log(4) vs log(13000)
+        // We want a minimum visibility for non-zero items, say 15%
+        const logVal = Math.log10(val + 1);
+        const ratio = logVal / logMax;
+        
+        // Map ratio (0 to 1) to percentage (15 to 100)
+        // If ratio is small, boost it.
+        return Math.max(ratio * 100, 15); 
+    };
+
+    const adminPct = getScaledValue(roleData.admin);
+    const teacherPct = getScaledValue(roleData.teacher);
+    const studentPct = getScaledValue(roleData.student); // Should be close to 100%
+
+    const trackColor = 'rgba(255, 255, 255, 0.1)'; 
+    const gapColor = '#1e293b'; // Dark Slate to match card background
+    const gapWidth = 6;
+
     new Chart(document.getElementById('chartUserRoles'), {
         type: 'doughnut',
         data: {
             labels: ['Admin', 'Teacher', 'Student'],
-            datasets: [{
-                data: [<?php echo $role_data['admin']; ?>, <?php echo $role_data['teacher']; ?>, <?php echo $role_data['student']; ?>],
-                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                borderWidth: 0,
-                hoverOffset: 4
-            }]
+            datasets: [
+                // Outer Ring (Student)
+                {
+                    data: [studentPct, 100 - studentPct],
+                    backgroundColor: ['#ef4444', trackColor],
+                    borderWidth: gapWidth,
+                    borderColor: gapColor,
+                    borderRadius: [20, 0],
+                    cutout: '85%'
+                },
+                // Middle Ring (Teacher)
+                {
+                    data: [teacherPct, 100 - teacherPct],
+                    backgroundColor: ['#f59e0b', trackColor],
+                    borderWidth: gapWidth,
+                    borderColor: gapColor,
+                    borderRadius: [20, 0],
+                    cutout: '85%'
+                },
+                // Inner Ring (Admin)
+                {
+                    data: [adminPct, 100 - adminPct],
+                    backgroundColor: ['#10b981', trackColor],
+                    borderWidth: gapWidth,
+                    borderColor: gapColor,
+                    borderRadius: [20, 0],
+                    cutout: '85%'
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '75%',
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: { 
+                    enabled: true,
+                    callbacks: {
+                        label: function(context) {
+                            // Show real data in tooltip, not the scaled percentage
+                            const label = context.chart.data.labels[context.datasetIndex];
+                            const realValue = roleData[label.toLowerCase()];
+                            return `${label}: ${realValue}`;
+                        }
+                    }
+                }
+            },
+            animation: {
+                animateScale: true,
+                animateRotate: true
             }
         }
     });
