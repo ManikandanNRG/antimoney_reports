@@ -719,14 +719,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const teacherPct = getScaledValue(roleData.teacher);
     const studentPct = getScaledValue(roleData.student); // Should be close to 100%
 
-    const trackColor = 'rgba(255, 255, 255, 0.1)'; 
-    const gapColor = '#1e293b'; // Dark Slate to match card background
+    // Use a neutral grey for the track that works on both dark and light backgrounds
+    const trackColor = 'rgba(148, 163, 184, 0.15)'; 
+    // Use transparent gap so the card background shows through (works for both modes)
+    const gapColor = 'transparent'; 
     const gapWidth = 4; // Reduced border width to not eat up the ring
 
     new Chart(document.getElementById('chartUserRoles'), {
         type: 'doughnut',
         data: {
-            labels: ['Admin', 'Teacher', 'Student'],
+            // labels must match the order of datasets (Outer -> Inner)
+            labels: ['Student', 'Teacher', 'Admin'], 
             datasets: [
                 // Outer Ring (Student)
                 {

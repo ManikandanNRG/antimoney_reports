@@ -301,19 +301,18 @@ class dashboard_data_loader {
         $admins = get_admins();
         $admin_count = count($admins);
 
-        // 2. Teachers: Count users with 'teacher' role (Non-editing teacher)
-        // We use a direct SQL count for performance
+        // 2. Teachers: Count DISTINCT users with 'teacher' role
         $teacher_role = $DB->get_record('role', ['shortname' => 'teacher']);
         $teacher_count = 0;
         if ($teacher_role) {
-            $teacher_count = $DB->count_records('role_assignments', ['roleid' => $teacher_role->id]);
+            $teacher_count = $DB->count_records_sql("SELECT COUNT(DISTINCT userid) FROM {role_assignments} WHERE roleid = ?", [$teacher_role->id]);
         }
 
-        // 3. Students: Count users with 'student' role
+        // 3. Students: Count DISTINCT users with 'student' role
         $student_role = $DB->get_record('role', ['shortname' => 'student']);
         $student_count = 0;
         if ($student_role) {
-            $student_count = $DB->count_records('role_assignments', ['roleid' => $student_role->id]);
+            $student_count = $DB->count_records_sql("SELECT COUNT(DISTINCT userid) FROM {role_assignments} WHERE roleid = ?", [$student_role->id]);
         }
 
         return [
