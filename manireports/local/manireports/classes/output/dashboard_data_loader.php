@@ -41,13 +41,23 @@ class dashboard_data_loader {
     /** @var int User ID requesting the data */
     protected $userid;
 
+    /** @var int Start timestamp for filtering */
+    protected $startdate;
+
+    /** @var int End timestamp for filtering */
+    protected $enddate;
+
     /**
      * Constructor.
      *
      * @param int $userid User ID
+     * @param int $startdate Optional start timestamp
+     * @param int $enddate Optional end timestamp
      */
-    public function __construct($userid) {
+    public function __construct($userid, $startdate = 0, $enddate = 0) {
         $this->userid = $userid;
+        $this->startdate = $startdate;
+        $this->enddate = $enddate ?: time();
     }
 
     /**
@@ -58,10 +68,30 @@ class dashboard_data_loader {
     public function get_admin_kpis() {
         global $DB;
 
-        // Total Users (Active)
+        // Date filter SQL fragment
+        $date_sql = "";
+        $params = [];
+        if ($this->startdate > 0) {
+            $date_sql = " AND timecreated >= :startdate AND timecreated <= :enddate";
+            $params['startdate'] = $this->startdate;
+            $params['enddate'] = $this->enddate;
+        }
+
+        // Total Users (Active) - Note: 'timecreated' filter applies if we want "New Users", 
+        // but usually "Total Users" implies all active users regardless of creation date.
+        // However, for "New Registrations" KPI, we would use the date.
+        // For this dashboard, let's assume "Total Users" is always ALL, but we could add a "New Users" KPI.
+        // Let's stick to the requested KPIs: Total Users (All Time), but maybe filter others?
+        
+        // Actually, the user wants filters to apply. 
+        // If filter is "Last 7 Days", "Total Users" usually means "New Users in last 7 days" OR "Active Users in last 7 days".
+        // Let's interpret it as "Active Users in period" (using lastaccess) or "New Users" (using timecreated).
+        // Given the label "Total Users", it's ambiguous. Let's keep Total Users as ALL TIME for now to avoid confusion,
+        // unless the user explicitly asked for "New Users".
+        
         $totalusers = $DB->count_records_select('user', 'deleted = 0 AND suspended = 0 AND id > 2');
 
-        // Total Courses
+        // Total Courses (All Time)
         $totalcourses = $DB->count_records_select('course', 'id > 1');
 
         // Total Companies (IOMAD)
@@ -70,9 +100,22 @@ class dashboard_data_loader {
             $totalcompanies = $DB->count_records('company');
         }
 
-        // Overall Completion Rate
+        // Overall Completion Rate (Filtered by date if possible)
+        // Completions within the date range
+        $completion_where = 'timecompleted > 0';
+        $completion_params = [];
+        
+        if ($this->startdate > 0) {
+            $completion_where .= " AND timecompleted >= :startdate AND timecompleted <= :enddate";
+            $completion_params['startdate'] = $this->startdate;
+            $completion_params['enddate'] = $this->enddate;
+        }
+
+        $total_completions = $DB->count_records_select('course_completions', $completion_where, $completion_params);
+        
+        // For rate, we need enrollments. This is hard to filter by date (enrolled when?).
+        // Let's use total active enrollments as denominator for now.
         $total_enrollments = $DB->count_records('user_enrolments', array('status' => 0));
-        $total_completions = $DB->count_records_select('course_completions', 'timecompleted > 0');
         
         $completion_rate = 0;
         if ($total_enrollments > 0) {

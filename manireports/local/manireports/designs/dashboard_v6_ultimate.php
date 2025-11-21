@@ -11,6 +11,10 @@
  * - Tab-specific content areas
  */
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once(__DIR__ . '/../../../config.php');
 require_once(__DIR__ . '/../classes/output/dashboard_data_loader.php');
 require_login();
@@ -18,12 +22,33 @@ require_login();
 $context = context_system::instance();
 $PAGE->set_context($context);
 $PAGE->set_url(new moodle_url('/local/manireports/designs/dashboard_v6_ultimate.php'));
-$PAGE->set_title('ManiReports - Dashboard V6');
 $PAGE->set_heading('Dashboard V6 Ultimate');
 $PAGE->set_pagelayout('embedded');
 
+// --- Backend Connection Logic ---
+$start_param = optional_param('start', '', PARAM_TEXT);
+$end_param = optional_param('end', '', PARAM_TEXT);
+
+$start_timestamp = 0;
+$end_timestamp = 0;
+
+if ($start_param) {
+    $dt = DateTime::createFromFormat('d-m-Y', $start_param);
+    if ($dt) {
+        $dt->setTime(0, 0, 0);
+        $start_timestamp = $dt->getTimestamp();
+    }
+}
+if ($end_param) {
+    $dt = DateTime::createFromFormat('d-m-Y', $end_param);
+    if ($dt) {
+        $dt->setTime(23, 59, 59);
+        $end_timestamp = $dt->getTimestamp();
+    }
+}
+
 // Initialize Data Loader
-$loader = new \local_manireports\output\dashboard_data_loader($USER->id);
+$loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
 
 // Fetch Data
 $kpi_data = $loader->get_admin_kpis();
@@ -36,7 +61,6 @@ $user_data = $loader->get_table_data('user_engagement', 5);
 $scorm_data = $loader->get_table_data('scorm_summary', 5);
 
 // Prepare Chart Data (Mocking structure if report doesn't return expected format)
-// In a real implementation, we would ensure the report class returns the exact Chart.js structure
 $chart_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
 $chart_datasets = [
     'companies' => [18, 19, 20, 21, 22, 23, 24],
@@ -88,41 +112,15 @@ body {
     height: 100vh; overflow: hidden;
     transition: background-color 0.3s ease;
 }
-.dashboard-container { display: grid; grid-template-columns: 280px 1fr; height: 100vh; overflow: hidden; transition: var(--transition); }
-.dashboard-container.sidebar-collapsed { grid-template-columns: 0px 1fr; }
-.sidebar {
-    padding: 32px; background: var(--sidebar-bg); backdrop-filter: blur(20px);
-    border-right: 1px solid var(--glass-border); display: flex; flex-direction: column;
-    gap: 40px; height: 100%; overflow-y: auto; z-index: 100;
-    transition: var(--transition); width: 280px;
-}
-.sidebar-collapsed .sidebar { transform: translateX(-100%); width: 0; padding: 0; opacity: 0; }
-.hamburger-btn {
-    width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--glass-border);
-    background: var(--glass-bg); color: var(--text-primary); display: flex;
-    align-items: center; justify-content: center; cursor: pointer; transition: var(--transition);
-    font-size: 20px; margin-right: 16px;
-}
-.hamburger-btn:hover { background: rgba(99, 102, 241, 0.1); }
-.brand { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; color: var(--text-primary); flex-shrink: 0; }
-.brand-logo {
-    width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-    border-radius: 12px; display: flex; align-items: center; justify-content: center;
-    font-size: 20px; color: white; box-shadow: 0 8px 16px rgba(99, 102, 241, 0.25);
-}
-.nav-menu { display: flex; flex-direction: column; gap: 8px; }
-.nav-label { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text-secondary); margin-bottom: 12px; padding-left: 16px; }
-.nav-item {
-    display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 16px;
-    color: var(--text-secondary); text-decoration: none; transition: var(--transition);
-    font-weight: 500; cursor: pointer; position: relative; z-index: 1;
-}
-.nav-item:hover, .nav-item.active { background: rgba(99, 102, 241, 0.1); color: var(--text-primary); }
-.nav-item.active { border-left: 3px solid var(--accent-primary); }
-.nav-item i { width: 20px; text-align: center; font-size: 18px; }
+.dashboard-container { display: block; height: 100vh; overflow: hidden; transition: var(--transition); }
 .main-content { padding: 0; height: 100%; overflow-y: auto; scroll-behavior: smooth; }
 .header { display: flex; justify-content: space-between; align-items: center; padding: 24px 40px; background: var(--glass-bg); border-bottom: 1px solid var(--glass-border); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 50; }
 .header-left { display: flex; align-items: center; gap: 16px; }
+.brand-logo {
+    width: 40px; height: 40px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: white; box-shadow: 0 8px 16px rgba(99, 102, 241, 0.25); margin-right: 12px;
+}
 .tab-menu { display: flex; gap: 8px; padding: 16px 40px; background: var(--glass-bg); border-bottom: 1px solid var(--glass-border); backdrop-filter: blur(10px); overflow-x: auto; }
 .tab-item {
     padding: 12px 24px; border-radius: 12px; background: transparent; border: 1px solid transparent;
@@ -148,7 +146,7 @@ body {
     border-radius: 10px; cursor: pointer; transition: var(--transition); font-weight: 500;
 }
 .export-btn:hover { background: var(--accent-secondary); transform: translateY(-2px); }
-.content-area { padding: 40px; }
+.content-area { padding: 40px; max-width: 1600px; margin: 0 auto; }
 .welcome-text h1 { font-size: 32px; margin: 0 0 8px 0; font-weight: 600; color: var(--text-primary); }
 .welcome-text p { margin: 0; color: var(--text-secondary); }
 .header-actions { display: flex; gap: 16px; align-items: center; }
@@ -191,14 +189,14 @@ body {
 .card-span-3 { grid-column: span 3; }
 .card-span-4 { grid-column: span 4; }
 .card-row-2 { grid-row: span 2; }
-.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; position: relative; z-index: 2; }
 .card-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; }
-.card-value { font-size: 36px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); }
+.card-value { font-size: 36px; font-weight: 700; margin-bottom: 8px; color: var(--text-primary); position: relative; z-index: 2; }
 .card-trend { font-size: 14px; display: flex; align-items: center; gap: 4px; }
 .trend-up { color: var(--accent-success); }
 .trend-down { color: var(--accent-danger); }
-.card-illustration { position: absolute; top: 10px; right: 10px; width: 100px; height: 100px; object-fit: contain; opacity: 0.9; pointer-events: none; z-index: 0; }
-.card-content-wrapper { position: relative; z-index: 1; }
+.card-illustration { position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; object-fit: contain; opacity: 0.6; pointer-events: none; z-index: 1; }
+.card-content-wrapper { position: relative; z-index: 2; }
 .table-header { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; padding: 12px; text-align: left; }
 .table-row { border-bottom: 1px solid var(--glass-border); transition: var(--transition); }
 .table-row:last-child { border-bottom: none; }
@@ -223,81 +221,71 @@ body {
     .card-span-3, .card-span-4 { grid-column: span 2; }
 }
 @media (max-width: 768px) {
-    .dashboard-container { grid-template-columns: 1fr; }
-    .sidebar { display: none; }
     .bento-grid { grid-template-columns: 1fr; }
+    .kpi-cards { grid-template-columns: repeat(2, 1fr); }
     .card-span-1, .card-span-2, .card-span-3, .card-span-4 { grid-column: span 1; }
+    .header { padding: 16px 20px; flex-direction: column; gap: 16px; }
+    .header-left { width: 100%; justify-content: space-between; }
+    .filter-area { padding: 16px 20px; }
+    .tab-menu { padding: 12px 20px; }
 }
 </style>
 
-<div class="dashboard-container" id="dashboardContainer">
-    <aside class="sidebar">
-        <div class="brand"><div class="brand-logo">M</div><span>ManiReports</span></div>
-        <nav class="nav-menu">
-            <div class="nav-label">Overview</div>
-            <a href="#" class="nav-item active"><i class="fa-solid fa-grid-2"></i> <span>Dashboard</span></a>
-            <a href="#" class="nav-item"><i class="fa-solid fa-chart-pie"></i> <span>Reports</span></a>
-            <a href="#" class="nav-item"><i class="fa-solid fa-users"></i> <span>Users</span></a>
-            <div class="nav-label">Management</div>
-            <a href="#" class="nav-item"><i class="fa-solid fa-book-open"></i> <span>Courses</span></a>
-            <a href="#" class="nav-item"><i class="fa-solid fa-calendar-check"></i> <span>Schedules</span></a>
-            <a href="#" class="nav-item"><i class="fa-solid fa-cloud"></i> <span>Cloud Jobs</span></a>
-        </nav>
-    </aside>
-
+<!-- Dashboard Container -->
+<div class="dashboard-container">
+    <!-- Main Content -->
     <main class="main-content">
         <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <button class="hamburger-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+                <div class="brand-logo"><i class="fa-solid fa-chart-pie"></i></div>
                 <div class="welcome-text">
-                    <h1 style="font-size: 24px; margin: 0;">Welcome back, <?php echo $USER->firstname; ?> 👋</h1>
-                    <p style="margin: 0; font-size: 14px;">Complete platform analytics and monitoring</p>
+                    <h1>Dashboard V6</h1>
+                    <p>Welcome back, <?php echo $USER->firstname; ?></p>
                 </div>
             </div>
             <div class="header-actions">
-                <div class="theme-toggle" onclick="toggleTheme()"><div class="theme-toggle-thumb"><i class="fa-solid fa-moon"></i></div></div>
-                <button class="icon-btn"><i class="fa-regular fa-bell"></i></button>
-                <div class="user-profile"><div class="avatar"></div><span style="font-size: 14px; font-weight: 500;"><?php echo $USER->firstname; ?></span></div>
+                <div class="theme-toggle" onclick="toggleTheme()">
+                    <div class="theme-toggle-thumb"><i class="fa-solid fa-sun"></i></div>
+                </div>
+                <div class="icon-btn"><i class="fa-regular fa-bell"></i></div>
+                <div class="user-profile">
+                    <div class="avatar"></div>
+                    <span><?php echo $USER->firstname; ?></span>
+                    <i class="fa-solid fa-chevron-down" style="font-size: 12px;"></i>
+                </div>
             </div>
         </header>
 
         <!-- Tab Menu -->
         <div class="tab-menu">
-            <div class="tab-item active" onclick="switchTab('overview')"><i class="fa-solid fa-chart-line"></i> Overview</div>
-            <div class="tab-item" onclick="switchTab('courses')"><i class="fa-solid fa-book"></i> Courses</div>
+            <div class="tab-item active" onclick="switchTab('overview')"><i class="fa-solid fa-grid-2"></i> Overview</div>
+            <div class="tab-item" onclick="switchTab('courses')"><i class="fa-solid fa-book-open"></i> Courses</div>
             <div class="tab-item" onclick="switchTab('companies')"><i class="fa-solid fa-building"></i> Companies</div>
             <div class="tab-item" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Users</div>
             <div class="tab-item" onclick="switchTab('email')"><i class="fa-solid fa-envelope"></i> Email</div>
             <div class="tab-item" onclick="switchTab('certificates')"><i class="fa-solid fa-certificate"></i> Certificates</div>
-            <div class="tab-item" onclick="switchTab('schedules')"><i class="fa-solid fa-calendar-check"></i> Schedules</div>
+            <div class="tab-item" onclick="switchTab('reports')"><i class="fa-solid fa-file-lines"></i> Reports</div>
         </div>
 
         <!-- Filter Area -->
         <div class="filter-area">
             <div class="filter-item">
-                <i class="fa-solid fa-calendar" style="color: var(--text-secondary);"></i>
-                <select class="filter-select" id="dateRange">
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d" selected>Last 30 Days</option>
-                    <option value="90d">Last 90 Days</option>
-                    <option value="365d">Last Year</option>
-                </select>
+                <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
+                <input type="text" id="dateStart" class="filter-input" placeholder="Start Date" style="width: 100px;">
+                <span style="color: var(--text-secondary);">-</span>
+                <input type="text" id="dateEnd" class="filter-input" placeholder="End Date" style="width: 100px;">
             </div>
             <div class="filter-item">
-                <i class="fa-solid fa-building" style="color: var(--text-secondary);"></i>
-                <select class="filter-select" id="companyFilter">
-                    <option value="">All Companies</option>
-                    <?php 
-                    if (!empty($company_data)) {
-                        foreach ($company_data as $company) {
-                            echo '<option value="'.$company['id'].'">'.$company['name'].'</option>';
-                        }
-                    }
-                    ?>
-                </select>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1W')">1W</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1M')">1M</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('3M')">3M</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('YTD')">YTD</button>
+                <button class="filter-select quick-filter-btn active" onclick="setDateFilter('ALL')">ALL</button>
             </div>
-            <button class="export-btn"><i class="fa-solid fa-download"></i> Export</button>
+            <div class="filter-item" style="margin-left: auto;">
+                <button class="export-btn"><i class="fa-solid fa-download"></i> Export Report</button>
+            </div>
         </div>
 
         <!-- Content Area -->
@@ -328,8 +316,6 @@ body {
                     <div style="height: 60px;"><canvas id="chartCourses"></canvas></div>
                 </div>
             </div>
-
-            <!-- KPI 3: Total Users -->
             <div class="bento-card card-span-1">
                 <img src="https://avatar.iran.liara.run/public/boy?username=Users" class="card-illustration" alt="Users">
                 <div class="card-content-wrapper">
@@ -508,11 +494,7 @@ body {
 </div>
 
 <script>
-// Toggle Sidebar
-function toggleSidebar() {
-    const container = document.getElementById('dashboardContainer');
-    container.classList.toggle('sidebar-collapsed');
-}
+
 
 // Toggle Theme
 function toggleTheme() {
@@ -657,7 +639,51 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-});
+    });
+
+// Date Filter Logic
+function setDateFilter(range) {
+    const buttons = document.querySelectorAll('.quick-filter-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+
+    const today = new Date();
+    let startDate = new Date();
+
+    switch(range) {
+        case '1W':
+            startDate.setDate(today.getDate() - 7);
+            break;
+        case '1M':
+            startDate.setMonth(today.getMonth() - 1);
+            break;
+        case '3M':
+            startDate.setMonth(today.getMonth() - 3);
+            break;
+        case 'YTD':
+            startDate = new Date(today.getFullYear(), 0, 1);
+            break;
+        case 'ALL':
+            startDate = new Date(2000, 0, 1); // Arbitrary past date
+            break;
+    }
+
+    // Format dates as dd-mm-yyyy
+    const formatDate = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}-${m}-${y}`;
+    };
+
+    document.getElementById('dateStart').value = formatDate(startDate);
+    document.getElementById('dateEnd').value = formatDate(today);
+
+    // Trigger backend update (Reload page with params for now)
+    // window.location.href = `?start=${formatDate(startDate)}&end=${formatDate(today)}`;
+    // For now, just log to console as we are in dev mode
+    console.log(`Filter applied: ${range} (${formatDate(startDate)} - ${formatDate(today)})`);
+}
 </script>
 
 <?php
