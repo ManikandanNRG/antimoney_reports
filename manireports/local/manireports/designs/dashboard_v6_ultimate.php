@@ -528,12 +528,23 @@ body {
 function toggleTheme() {
     const body = document.body;
     const icon = document.querySelector('.theme-toggle-thumb i');
-    if (body.getAttribute('data-theme') === 'light') {
+    const isLight = body.getAttribute('data-theme') === 'light';
+    
+    if (isLight) {
         body.removeAttribute('data-theme');
         icon.className = 'fa-solid fa-moon';
     } else {
         body.setAttribute('data-theme', 'light');
         icon.className = 'fa-solid fa-sun';
+    }
+
+    // Update Chart Gaps if chart exists
+    if (typeof userRolesChart !== 'undefined') {
+        const newGapColor = isLight ? '#1e293b' : '#ffffff'; // Switched because isLight is the OLD state
+        userRolesChart.data.datasets.forEach(dataset => {
+            dataset.borderColor = newGapColor;
+        });
+        userRolesChart.update();
     }
 }
 
@@ -721,11 +732,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Use a neutral grey for the track that works on both dark and light backgrounds
     const trackColor = 'rgba(148, 163, 184, 0.15)'; 
-    // Use transparent gap so the card background shows through (works for both modes)
-    const gapColor = 'transparent'; 
-    const gapWidth = 4; // Reduced border width to not eat up the ring
+    
+    // Dynamic Gap Color
+    const isLightMode = document.body.getAttribute('data-theme') === 'light';
+    const gapColor = isLightMode ? '#ffffff' : '#1e293b';
+    const gapWidth = 4; 
 
-    new Chart(document.getElementById('chartUserRoles'), {
+    // Assign to global variable for theme toggling
+    window.userRolesChart = new Chart(document.getElementById('chartUserRoles'), {
         type: 'doughnut',
         data: {
             // labels must match the order of datasets (Outer -> Inner)
