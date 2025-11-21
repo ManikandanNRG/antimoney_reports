@@ -135,9 +135,9 @@ body {
 }
 .filter-item { display: flex; align-items: center; gap: 8px; }
 .filter-select, .filter-input {
-    padding: 8px 16px; background: rgba(0, 0, 0, 0.1); border: 1px solid var(--glass-border);
-    border-radius: 10px; color: var(--text-primary); font-family: inherit; outline: none;
-    transition: var(--transition); min-width: 150px;
+    padding: 6px 12px; background: rgba(0, 0, 0, 0.1); border: 1px solid var(--glass-border);
+    border-radius: 8px; color: var(--text-primary); font-family: inherit; outline: none;
+    transition: var(--transition); min-width: 120px; font-size: 13px;
 }
 [data-theme="light"] .filter-select, [data-theme="light"] .filter-input { background: rgba(255, 255, 255, 0.5); }
 .filter-select:focus, .filter-input:focus { border-color: var(--accent-primary); background: rgba(0, 0, 0, 0.15); }
@@ -240,7 +240,7 @@ body {
             <div class="header-left">
                 <div class="brand-logo"><i class="fa-solid fa-chart-pie"></i></div>
                 <div class="welcome-text">
-                    <h1>Dashboard V6</h1>
+                    <h1>ManiReports</h1>
                     <p>Welcome back, <?php echo $USER->firstname; ?></p>
                 </div>
             </div>
@@ -348,7 +348,7 @@ body {
                 <div class="bento-grid">
 
             <!-- System Health Widget -->
-            <div class="bento-card card-span-1 card-row-2">
+            <div class="bento-card card-span-1">
                 <div class="card-header">
                     <div class="card-title">System Health</div>
                     <div class="status-badge status-active">Good</div>
