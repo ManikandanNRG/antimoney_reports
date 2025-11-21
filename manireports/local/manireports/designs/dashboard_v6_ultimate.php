@@ -721,7 +721,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const trackColor = 'rgba(255, 255, 255, 0.1)'; 
     const gapColor = '#1e293b'; // Dark Slate to match card background
-    const gapWidth = 6;
+    const gapWidth = 4; // Reduced border width to not eat up the ring
 
     new Chart(document.getElementById('chartUserRoles'), {
         type: 'doughnut',
@@ -735,7 +735,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderWidth: gapWidth,
                     borderColor: gapColor,
                     borderRadius: [20, 0],
-                    cutout: '85%'
+                    cutout: '50%' // Reduced from 85% to give rings more space
                 },
                 // Middle Ring (Teacher)
                 {
@@ -744,7 +744,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderWidth: gapWidth,
                     borderColor: gapColor,
                     borderRadius: [20, 0],
-                    cutout: '85%'
+                    cutout: '50%'
                 },
                 // Inner Ring (Admin)
                 {
@@ -753,7 +753,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     borderWidth: gapWidth,
                     borderColor: gapColor,
                     borderRadius: [20, 0],
-                    cutout: '85%'
+                    cutout: '50%'
                 }
             ]
         },
