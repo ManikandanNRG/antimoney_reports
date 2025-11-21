@@ -1,7 +1,7 @@
 <?php
 /**
- * Dashboard V6 - Ultimate Admin Dashboard with Tabs & Filters
- * Based on V7 Ultimate Design
+ * Dashboard V7 - Ultimate Admin Dashboard with Tabs & Filters
+ * Based on V6 Glassmorphic Design Template
  * 
  * Features:
  * - Collapsible Sidebar (hamburger menu)
@@ -12,37 +12,14 @@
  */
 
 require_once(__DIR__ . '/../../../config.php');
-require_once(__DIR__ . '/../classes/output/dashboard_data_loader.php');
 require_login();
 
 $context = context_system::instance();
 $PAGE->set_context($context);
-$PAGE->set_url(new moodle_url('/local/manireports/designs/dashboard_v6_ultimate.php'));
-$PAGE->set_title('ManiReports - Dashboard V6');
-$PAGE->set_heading('Dashboard V6 Ultimate');
+$PAGE->set_url(new moodle_url('/local/manireports/designs/dashboard_v7_ultimate.php'));
+$PAGE->set_title('ManiReports - Dashboard V7');
+$PAGE->set_heading('Dashboard V7 Ultimate');
 $PAGE->set_pagelayout('embedded');
-
-// Initialize Data Loader
-$loader = new \local_manireports\output\dashboard_data_loader($USER->id);
-
-// Fetch Data
-$kpi_data = $loader->get_admin_kpis();
-$system_health = $loader->get_system_health();
-$company_data = $loader->get_company_analytics(5);
-
-// Fetch Table Data (Safely)
-$course_data = $loader->get_table_data('course_completion', 5);
-$user_data = $loader->get_table_data('user_engagement', 5);
-$scorm_data = $loader->get_table_data('scorm_summary', 5);
-
-// Prepare Chart Data (Mocking structure if report doesn't return expected format)
-// In a real implementation, we would ensure the report class returns the exact Chart.js structure
-$chart_labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
-$chart_datasets = [
-    'companies' => [18, 19, 20, 21, 22, 23, 24],
-    'courses' => [140, 145, 148, 150, 152, 154, 156],
-    'users' => [8500, 8510, 8520, 8530, 8535, 8540, 8542]
-];
 
 echo $OUTPUT->header();
 ?>
@@ -251,14 +228,14 @@ body {
             <div class="header-left">
                 <button class="hamburger-btn" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
                 <div class="welcome-text">
-                    <h1 style="font-size: 24px; margin: 0;">Welcome back, <?php echo $USER->firstname; ?> 👋</h1>
+                    <h1 style="font-size: 24px; margin: 0;">Welcome back, Admin 👋</h1>
                     <p style="margin: 0; font-size: 14px;">Complete platform analytics and monitoring</p>
                 </div>
             </div>
             <div class="header-actions">
                 <div class="theme-toggle" onclick="toggleTheme()"><div class="theme-toggle-thumb"><i class="fa-solid fa-moon"></i></div></div>
                 <button class="icon-btn"><i class="fa-regular fa-bell"></i></button>
-                <div class="user-profile"><div class="avatar"></div><span style="font-size: 14px; font-weight: 500;"><?php echo $USER->firstname; ?></span></div>
+                <div class="user-profile"><div class="avatar"></div><span style="font-size: 14px; font-weight: 500;">Admin</span></div>
             </div>
         </header>
 
@@ -288,13 +265,31 @@ body {
                 <i class="fa-solid fa-building" style="color: var(--text-secondary);"></i>
                 <select class="filter-select" id="companyFilter">
                     <option value="">All Companies</option>
-                    <?php 
-                    if (!empty($company_data)) {
-                        foreach ($company_data as $company) {
-                            echo '<option value="'.$company['id'].'">'.$company['name'].'</option>';
-                        }
-                    }
-                    ?>
+                    <option value="1">Tech Corp</option>
+                    <option value="2">Edu Solutions</option>
+                    <option value="3">Global Training</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <i class="fa-solid fa-book" style="color: var(--text-secondary);"></i>
+                <select class="filter-select" id="courseFilter">
+                    <option value="">All Courses</option>
+                    <option value="1">Python for Data Science</option>
+                    <option value="2">Machine Learning</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <i class="fa-solid fa-user" style="color: var(--text-secondary);"></i>
+                <input type="text" class="filter-input" id="userSearch" placeholder="Search user or email...">
+            </div>
+            <div class="filter-item">
+                <i class="fa-solid fa-user-tag" style="color: var(--text-secondary);"></i>
+                <select class="filter-select" id="roleFilter">
+                    <option value="">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="student">Student</option>
                 </select>
             </div>
             <button class="export-btn"><i class="fa-solid fa-download"></i> Export</button>
@@ -312,7 +307,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid fa-building" style="color: var(--accent-primary);"></i> Total Companies</div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['companies']; ?></div>
+                    <div class="card-value">24</div>
                     <div style="height: 60px;"><canvas id="chartCompanies"></canvas></div>
                 </div>
             </div>
@@ -324,7 +319,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid fa-book" style="color: var(--accent-success);"></i> Total Courses</div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['courses']; ?></div>
+                    <div class="card-value">156</div>
                     <div style="height: 60px;"><canvas id="chartCourses"></canvas></div>
                 </div>
             </div>
@@ -336,7 +331,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Users</div>
                     </div>
-                    <div class="card-value"><?php echo number_format($kpi_data['users']); ?></div>
+                    <div class="card-value">8,542</div>
                     <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
                 </div>
             </div>
@@ -348,9 +343,9 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid fa-trophy" style="color: var(--accent-secondary);"></i> Completion %</div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['completion_rate']; ?>%</div>
+                    <div class="card-value">76%</div>
                     <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
-                        <div style="width: <?php echo $kpi_data['completion_rate']; ?>%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
+                        <div style="width: 76%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
                     </div>
                 </div>
             </div>
@@ -374,7 +369,7 @@ body {
                             <div class="health-name">Database Size</div>
                         </div>
                         <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['db_size']; ?>
+                            <div class="status-dot dot-success"></div> 850MB
                         </div>
                     </div>
                     <div class="health-item">
@@ -383,7 +378,16 @@ body {
                             <div class="health-name">Cache Hit Rate</div>
                         </div>
                         <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['cache_hit_rate']; ?>
+                            <div class="status-dot dot-success"></div> 96%
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-hourglass"></i></div>
+                            <div class="health-name">Avg Query Time</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> 45ms
                         </div>
                     </div>
                     <div class="health-item">
@@ -392,7 +396,25 @@ body {
                             <div class="health-name">Error Rate</div>
                         </div>
                         <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['error_rate']; ?>
+                            <div class="status-dot dot-success"></div> 0.08%
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-clock"></i></div>
+                            <div class="health-name">Last Cache Update</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> 2m ago
+                        </div>
+                    </div>
+                    <div class="health-item">
+                        <div class="health-info">
+                            <div class="health-icon"><i class="fa-solid fa-calendar-check"></i></div>
+                            <div class="health-name">Scheduled Tasks</div>
+                        </div>
+                        <div class="health-status">
+                            <div class="status-dot dot-success"></div> Running
                         </div>
                     </div>
                 </div>
@@ -402,6 +424,10 @@ body {
             <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">Active Users (24h)</div>
+                    <select id="activeUsersRange" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 4px 8px; border-radius: 8px; outline: none;">
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d" selected>Last 30 Days</option>
+                    </select>
                 </div>
                 <div style="height: 250px; width: 100%;">
                     <canvas id="activeUsersChart"></canvas>
@@ -412,6 +438,10 @@ body {
             <div class="bento-card card-span-1">
                 <div class="card-header">
                     <div class="card-title">Avg Time/User</div>
+                    <select id="timeSpentRange" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 4px 8px; border-radius: 8px; outline: none;">
+                        <option value="7d">7d</option>
+                        <option value="30d" selected>30d</option>
+                    </select>
                 </div>
                 <div style="height: 250px; width: 100%;">
                     <canvas id="timeSpentChart"></canvas>
@@ -422,6 +452,11 @@ body {
             <div class="bento-card card-span-3">
                 <div class="card-header">
                     <div class="card-title">Course Completion Trend</div>
+                    <select id="completionRange" style="background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-primary); padding: 4px 8px; border-radius: 8px; outline: none;">
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d" selected>Last 90 Days</option>
+                        <option value="365d">Last 365 Days</option>
+                    </select>
                 </div>
                 <div style="height: 300px; width: 100%;">
                     <canvas id="completionTrendChart"></canvas>
@@ -432,6 +467,7 @@ body {
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Company-wise Analytics</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-ellipsis"></i></button>
                 </div>
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
@@ -447,21 +483,23 @@ body {
                     </thead>
                     <tbody>
                         <?php
-                        if (!empty($company_data)) {
-                            foreach ($company_data as $company) {
-                                $completion_pct = ($company['enrolled'] > 0) ? round(($company['completed'] / $company['enrolled']) * 100) : 0;
-                                echo '<tr class="table-row">
-                                        <td class="table-cell" style="font-weight: 600;">' . $company['name'] . '</td>
-                                        <td class="table-cell">' . $company['courses'] . '</td>
-                                        <td class="table-cell">' . $company['users'] . '</td>
-                                        <td class="table-cell">' . $company['enrolled'] . '</td>
-                                        <td class="table-cell">' . $company['completed'] . '</td>
-                                        <td class="table-cell" style="color: var(--accent-success);">' . $completion_pct . '%</td>
-                                        <td class="table-cell">' . $company['time'] . '</td>
-                                      </tr>';
-                            }
-                        } else {
-                            echo '<tr><td colspan="7" class="table-cell">No company data available.</td></tr>';
+                        $companies = [
+                            ['name' => 'Tech Corp', 'courses' => 45, 'users' => 1200, 'enrolled' => 3400, 'completed' => 2890, 'time' => '24.5h'],
+                            ['name' => 'Edu Solutions', 'courses' => 38, 'users' => 980, 'enrolled' => 2850, 'completed' => 2280, 'time' => '22.1h'],
+                            ['name' => 'Global Training', 'courses' => 52, 'users' => 1450, 'enrolled' => 4200, 'completed' => 3360, 'time' => '28.3h'],
+                            ['name' => 'Learning Hub', 'courses' => 29, 'users' => 720, 'enrolled' => 1980, 'completed' => 1584, 'time' => '18.7h'],
+                        ];
+                        foreach ($companies as $company) {
+                            $completion_pct = round(($company['completed'] / $company['enrolled']) * 100);
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $company['name'] . '</td>
+                                    <td class="table-cell">' . $company['courses'] . '</td>
+                                    <td class="table-cell">' . $company['users'] . '</td>
+                                    <td class="table-cell">' . $company['enrolled'] . '</td>
+                                    <td class="table-cell">' . $company['completed'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-success);">' . $completion_pct . '%</td>
+                                    <td class="table-cell">' . $company['time'] . '</td>
+                                  </tr>';
                         }
                         ?>
                     </tbody>
@@ -472,31 +510,224 @@ body {
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Course Analytics (Top 10 Courses)</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-download"></i></button>
                 </div>
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr>
-                            <?php 
-                            if (!empty($course_data['headers'])) {
-                                foreach ($course_data['headers'] as $header) {
-                                    echo '<th class="table-header">' . $header . '</th>';
-                                }
-                            }
-                            ?>
+                            <th class="table-header">Course Name</th>
+                            <th class="table-header">Shortname</th>
+                            <th class="table-header">Enrolled</th>
+                            <th class="table-header">Completed</th>
+                            <th class="table-header">Completion %</th>
+                            <th class="table-header">Avg Time</th>
+                            <th class="table-header">Avg Grade</th>
+                            <th class="table-header">Last Activity</th>
+                            <th class="table-header">Active Users (7d/30d)</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php
-                        if (!empty($course_data['rows'])) {
-                            foreach ($course_data['rows'] as $row) {
-                                echo '<tr class="table-row">';
-                                foreach ($row as $cell) {
-                                    echo '<td class="table-cell">' . $cell . '</td>';
-                                }
-                                echo '</tr>';
-                            }
-                        } else {
-                            echo '<tr><td colspan="5" class="table-cell">No course data available.</td></tr>';
+                        $courses = [
+                            ['name' => 'Python for Data Science', 'short' => 'PY101', 'enrolled' => 450, 'completed' => 380, 'time' => '24.5h', 'grade' => 85, 'date' => '2025-01-18', 'active7' => 120, 'active30' => 380],
+                            ['name' => 'Advanced Machine Learning', 'short' => 'ML201', 'enrolled' => 320, 'completed' => 245, 'time' => '32.1h', 'grade' => 82, 'date' => '2025-01-17', 'active7' => 95, 'active30' => 280],
+                            ['name' => 'Web Development Bootcamp', 'short' => 'WEB300', 'enrolled' => 280, 'completed' => 210, 'time' => '28.3h', 'grade' => 88, 'date' => '2025-01-18', 'active7' => 85, 'active30' => 245],
+                            ['name' => 'Cybersecurity Basics', 'short' => 'SEC101', 'enrolled' => 210, 'completed' => 156, 'time' => '18.7h', 'grade' => 79, 'date' => '2025-01-16', 'active7' => 62, 'active30' => 180],
+                            ['name' => 'Cloud Computing Essentials', 'short' => 'CLOUD201', 'enrolled' => 195, 'completed' => 142, 'time' => '22.4h', 'grade' => 84, 'date' => '2025-01-18', 'active7' => 58, 'active30' => 165],
+                        ];
+                        foreach ($courses as $course) {
+                            $completion_pct = round(($course['completed'] / $course['enrolled']) * 100);
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $course['name'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $course['short'] . '</td>
+                                    <td class="table-cell">' . $course['enrolled'] . '</td>
+                                    <td class="table-cell">' . $course['completed'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-success);">' . $completion_pct . '%</td>
+                                    <td class="table-cell">' . $course['time'] . '</td>
+                                    <td class="table-cell">' . $course['grade'] . '%</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $course['date'] . '</td>
+                                    <td class="table-cell">' . $course['active7'] . ' / ' . $course['active30'] . '</td>
+                                  </tr>';
+                        }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- User/Learner Analytics Table -->
+            <div class="bento-card card-span-4">
+                <div class="card-header">
+                    <div class="card-title">User/Learner Analytics</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-filter"></i></button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="table-header">User Name</th>
+                            <th class="table-header">Email</th>
+                            <th class="table-header">Company</th>
+                            <th class="table-header">Role</th>
+                            <th class="table-header">Enrolled Courses</th>
+                            <th class="table-header">Completed</th>
+                            <th class="table-header">Last Login</th>
+                            <th class="table-header">Avg Time/Day</th>
+                            <th class="table-header">Risk Score</th>
+                            <th class="table-header">Last Cert</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $users = [
+                            ['name' => 'John Smith', 'email' => 'john@techcorp.com', 'company' => 'Tech Corp', 'role' => 'Student', 'enrolled' => 8, 'completed' => 6, 'login' => '2025-01-18', 'time' => '2.5h', 'risk' => 15, 'cert' => '2025-01-10'],
+                            ['name' => 'Sarah Johnson', 'email' => 'sarah@edu.com', 'company' => 'Edu Solutions', 'role' => 'Student', 'enrolled' => 5, 'completed' => 5, 'login' => '2025-01-17', 'time' => '3.2h', 'risk' => 5, 'cert' => '2025-01-15'],
+                            ['name' => 'Mike Davis', 'email' => 'mike@global.com', 'company' => 'Global Training', 'role' => 'Student', 'enrolled' => 12, 'completed' => 8, 'login' => '2025-01-18', 'time' => '4.1h', 'risk' => 20, 'cert' => '2025-01-12'],
+                            ['name' => 'Emily Brown', 'email' => 'emily@learning.com', 'company' => 'Learning Hub', 'role' => 'Student', 'enrolled' => 6, 'completed' => 4, 'login' => '2025-01-16', 'time' => '1.8h', 'risk' => 35, 'cert' => '2024-12-20'],
+                        ];
+                        foreach ($users as $user) {
+                            $risk_color = $user['risk'] < 20 ? 'var(--accent-success)' : ($user['risk'] < 40 ? 'var(--accent-warning)' : 'var(--accent-danger)');
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $user['name'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $user['email'] . '</td>
+                                    <td class="table-cell">' . $user['company'] . '</td>
+                                    <td class="table-cell">' . $user['role'] . '</td>
+                                    <td class="table-cell">' . $user['enrolled'] . '</td>
+                                    <td class="table-cell">' . $user['completed'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $user['login'] . '</td>
+                                    <td class="table-cell">' . $user['time'] . '</td>
+                                    <td class="table-cell" style="color: ' . $risk_color . ';">' . $user['risk'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $user['cert'] . '</td>
+                                  </tr>';
+                        }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SCORM Analytics Table -->
+            <div class="bento-card card-span-4">
+                <div class="card-header">
+                    <div class="card-title">SCORM Analytics</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-chart-bar"></i></button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="table-header">SCORM Title</th>
+                            <th class="table-header">Course</th>
+                            <th class="table-header">Attempts</th>
+                            <th class="table-header">Unique Learners</th>
+                            <th class="table-header">Completed</th>
+                            <th class="table-header">Passed</th>
+                            <th class="table-header">Failed</th>
+                            <th class="table-header">Avg Time</th>
+                            <th class="table-header">Interactions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $scorms = [
+                            ['title' => 'Python Basics Module', 'course' => 'PY101', 'attempts' => 450, 'learners' => 380, 'completed' => 360, 'passed' => 340, 'failed' => 20, 'time' => '45m', 'interactions' => 1250],
+                            ['title' => 'ML Algorithms Deep Dive', 'course' => 'ML201', 'attempts' => 320, 'learners' => 245, 'completed' => 230, 'passed' => 210, 'failed' => 20, 'time' => '62m', 'interactions' => 980],
+                            ['title' => 'Web Security Fundamentals', 'course' => 'SEC101', 'attempts' => 210, 'learners' => 156, 'completed' => 145, 'passed' => 135, 'failed' => 10, 'time' => '38m', 'interactions' => 620],
+                        ];
+                        foreach ($scorms as $scorm) {
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $scorm['title'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $scorm['course'] . '</td>
+                                    <td class="table-cell">' . $scorm['attempts'] . '</td>
+                                    <td class="table-cell">' . $scorm['learners'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-success);">' . $scorm['completed'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-success);">' . $scorm['passed'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-danger);">' . $scorm['failed'] . '</td>
+                                    <td class="table-cell">' . $scorm['time'] . '</td>
+                                    <td class="table-cell">' . $scorm['interactions'] . '</td>
+                                  </tr>';
+                        }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Reports & Schedules Panel -->
+            <div class="bento-card card-span-2">
+                <div class="card-header">
+                    <div class="card-title">Reports & Schedules</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="table-header">Report Name</th>
+                            <th class="table-header">Created By</th>
+                            <th class="table-header">Frequency</th>
+                            <th class="table-header">Next Run</th>
+                            <th class="table-header">Last Run</th>
+                            <th class="table-header">Status</th>
+                            <th class="table-header">Recipients</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $reports = [
+                            ['name' => 'Weekly Completion Report', 'creator' => 'Admin', 'freq' => 'Weekly', 'next' => '2025-01-25', 'last' => '2025-01-18', 'status' => 'Active', 'recipients' => 5],
+                            ['name' => 'Monthly User Engagement', 'creator' => 'Manager', 'freq' => 'Monthly', 'next' => '2025-02-01', 'last' => '2025-01-01', 'status' => 'Active', 'recipients' => 12],
+                            ['name' => 'Daily Active Users', 'creator' => 'Admin', 'freq' => 'Daily', 'next' => '2025-01-19', 'last' => '2025-01-18', 'status' => 'Active', 'recipients' => 3],
+                        ];
+                        foreach ($reports as $report) {
+                            $status_class = $report['status'] == 'Active' ? 'status-active' : 'status-inactive';
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $report['name'] . '</td>
+                                    <td class="table-cell">' . $report['creator'] . '</td>
+                                    <td class="table-cell">' . $report['freq'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $report['next'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $report['last'] . '</td>
+                                    <td class="table-cell"><span class="status-badge ' . $status_class . '">' . $report['status'] . '</span></td>
+                                    <td class="table-cell">' . $report['recipients'] . '</td>
+                                  </tr>';
+                        }
+                        ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Cloud Offload/Job Monitor -->
+            <div class="bento-card card-span-2">
+                <div class="card-header">
+                    <div class="card-title">Cloud Offload / Job Monitor</div>
+                    <button class="icon-btn" style="width: 32px; height: 32px;"><i class="fa-solid fa-refresh"></i></button>
+                </div>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="table-header">Job Type</th>
+                            <th class="table-header">Tenant/Company</th>
+                            <th class="table-header">Status</th>
+                            <th class="table-header">Total Recipients</th>
+                            <th class="table-header">Succeeded</th>
+                            <th class="table-header">Failed</th>
+                            <th class="table-header">Created</th>
+                            <th class="table-header">Queue Depth</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $jobs = [
+                            ['type' => 'Email Report', 'tenant' => 'Tech Corp', 'status' => 'Completed', 'total' => 120, 'success' => 118, 'failed' => 2, 'created' => '2025-01-18 08:00', 'queue' => 0],
+                            ['type' => 'Certificate Generation', 'tenant' => 'Edu Solutions', 'status' => 'Processing', 'total' => 45, 'success' => 38, 'failed' => 0, 'created' => '2025-01-18 09:15', 'queue' => 7],
+                            ['type' => 'Bulk Email', 'tenant' => 'Global Training', 'status' => 'Queued', 'total' => 850, 'success' => 0, 'failed' => 0, 'created' => '2025-01-18 10:30', 'queue' => 850],
+                        ];
+                        foreach ($jobs as $job) {
+                            $status_class = $job['status'] == 'Completed' ? 'status-active' : ($job['status'] == 'Processing' ? 'status-warning' : 'status-inactive');
+                            echo '<tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;">' . $job['type'] . '</td>
+                                    <td class="table-cell">' . $job['tenant'] . '</td>
+                                    <td class="table-cell"><span class="status-badge ' . $status_class . '">' . $job['status'] . '</span></td>
+                                    <td class="table-cell">' . $job['total'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-success);">' . $job['success'] . '</td>
+                                    <td class="table-cell" style="color: var(--accent-danger);">' . $job['failed'] . '</td>
+                                    <td class="table-cell" style="color: var(--text-secondary);">' . $job['created'] . '</td>
+                                    <td class="table-cell">' . $job['queue'] . '</td>
+                                  </tr>';
                         }
                         ?>
                     </tbody>
@@ -529,8 +760,11 @@ function toggleTheme() {
 
 // Switch Tabs
 function switchTab(tabName) {
+    // Update tab buttons
     document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
     event.target.closest('.tab-item').classList.add('active');
+    
+    // Update tab content
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     document.getElementById('tab-' + tabName).classList.add('active');
 }
@@ -568,49 +802,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     new Chart(document.getElementById('chartUsers'), {
-        type: 'line',
-        data: { labels: [1,2,3,4,5,6,7], datasets: [{ data: [8500, 8510, 8520, 8530, 8535, 8540, 8542], borderColor: '#f59e0b', borderWidth: 2, fill: true, backgroundColor: (ctx) => {
-            const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 60);
-            gradient.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
-            gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
-            return gradient;
-        }}]},
+        type: 'bar',
+        data: { labels: [1,2,3,4,5,6,7], datasets: [{ data: [7800, 7950, 8100, 8250, 8350, 8450, 8542], backgroundColor: '#f59e0b', borderRadius: 2 }]},
         options: commonOptions
     });
 
     // Active Users Chart
     new Chart(document.getElementById('activeUsersChart'), {
-        type: 'bar',
-        data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Active Users',
-                data: [120, 150, 180, 170, 160, 90, 100],
-                backgroundColor: '#6366f1',
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-            }
-        }
-    });
-
-    // Time Spent Chart
-    new Chart(document.getElementById('timeSpentChart'), {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: ['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5', 'Day 6', 'Day 7'],
             datasets: [{
-                label: 'Avg Minutes',
-                data: [45, 50, 60, 55, 40, 30, 35],
-                borderColor: '#8b5cf6',
-                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                label: 'Active Users',
+                data: [680, 720, 710, 780, 750, 820, 850],
+                borderColor: '#6366f1',
+                backgroundColor: (ctx) => {
+                    const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 250);
+                    gradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+                    gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+                    return gradient;
+                },
+                borderWidth: 3,
                 fill: true,
                 tension: 0.4
             }]
@@ -620,8 +832,31 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
             scales: {
-                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } }
+            }
+        }
+    });
+
+    // Time Spent Chart
+    new Chart(document.getElementById('timeSpentChart'), {
+        type: 'bar',
+        data: {
+            labels: ['W1', 'W2', 'W3', 'W4'],
+            datasets: [{
+                label: 'Avg Time (hours)',
+                data: [2.3, 2.5, 2.8, 3.1],
+                backgroundColor: '#10b981',
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { family: 'Outfit' } } }
             }
         }
     });
@@ -630,16 +865,32 @@ document.addEventListener('DOMContentLoaded', function() {
     new Chart(document.getElementById('completionTrendChart'), {
         type: 'line',
         data: {
-            labels: ['Week 1', 'Week 2', 'Week 3', 'Week 4'],
-            datasets: [{
-                label: 'Completions',
-                data: [20, 35, 40, 55],
-                borderColor: '#10b981',
-                backgroundColor: 'transparent',
-                borderWidth: 2,
-                borderDash: [5, 5],
-                tension: 0.4
-            }]
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+            datasets: [
+                {
+                    label: 'Completions',
+                    data: [450, 580, 620, 750, 820, 950, 1100, 1250, 1380, 1520, 1680, 1850],
+                    borderColor: '#f59e0b',
+                    backgroundColor: (ctx) => {
+                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
+                        gradient.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
+                        gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                        return gradient;
+                    },
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Enrollments',
+                    data: [1200, 1450, 1580, 1850, 2100, 2350, 2600, 2850, 3100, 3350, 3600, 3850],
+                    borderColor: '#10b981',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    tension: 0.4
+                }
+            ]
         },
         options: {
             responsive: true,
