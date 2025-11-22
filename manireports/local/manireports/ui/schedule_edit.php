@@ -111,10 +111,48 @@ class schedule_form extends moodleform {
         $frequencies = array(
             'daily' => get_string('daily', 'local_manireports'),
             'weekly' => get_string('weekly', 'local_manireports'),
-            'monthly' => get_string('monthly', 'local_manireports')
+            'monthly' => get_string('monthly', 'local_manireports'),
+            'custom' => get_string('custom', 'local_manireports')
         );
         $mform->addElement('select', 'frequency', get_string('frequency', 'local_manireports'), $frequencies);
         $mform->addRule('frequency', null, 'required', null, 'client');
+
+        // Custom interval (days).
+        $mform->addElement('text', 'custom_interval', get_string('custominterval', 'local_manireports'), array('size' => 5));
+        $mform->setType('custom_interval', PARAM_INT);
+        $mform->setDefault('custom_interval', 0);
+        $mform->hideIf('custom_interval', 'frequency', 'neq', 'custom');
+        $mform->addHelpButton('custom_interval', 'custominterval', 'local_manireports');
+
+        // Cloud Offload Settings Header.
+        $mform->addElement('header', 'cloud_settings', get_string('cloudsettings', 'local_manireports'));
+
+        // Action Type.
+        $actiontypes = array(
+            'email' => get_string('actionemail', 'local_manireports'),
+            'certificate' => get_string('actioncertificate', 'local_manireports'),
+            'both' => get_string('actionboth', 'local_manireports')
+        );
+        $mform->addElement('select', 'action_type', get_string('actiontype', 'local_manireports'), $actiontypes);
+        $mform->setDefault('action_type', 'email');
+        $mform->addHelpButton('action_type', 'actiontype', 'local_manireports');
+
+        // Cloud Preference.
+        $cloudprefs = array(
+            'auto' => get_string('cloudauto', 'local_manireports'),
+            'force_cloud' => get_string('forcecloud', 'local_manireports'),
+            'force_local' => get_string('forcelocal', 'local_manireports')
+        );
+        $mform->addElement('select', 'cloud_preference', get_string('cloudpreference', 'local_manireports'), $cloudprefs);
+        $mform->setDefault('cloud_preference', 'auto');
+        $mform->addHelpButton('cloud_preference', 'cloudpreference', 'local_manireports');
+
+        // Suppression Settings.
+        $mform->addElement('header', 'suppression_settings', get_string('suppressionsettings', 'local_manireports'));
+
+        $mform->addElement('advcheckbox', 'suppress_course_completion', get_string('suppressifcomplete', 'local_manireports'));
+        $mform->setDefault('suppress_course_completion', 0);
+        $mform->addHelpButton('suppress_course_completion', 'suppressifcomplete', 'local_manireports');
         
         // Recipients (textarea for multiple emails).
         $mform->addElement('textarea', 'recipients', get_string('recipients', 'local_manireports'), 
@@ -179,6 +217,10 @@ if ($mform->is_cancelled()) {
     
     $schedule_data->format = $data->format;
     $schedule_data->frequency = $data->frequency;
+    $schedule_data->custom_interval = $data->custom_interval;
+    $schedule_data->action_type = $data->action_type;
+    $schedule_data->cloud_preference = $data->cloud_preference;
+    $schedule_data->suppress_course_completion = $data->suppress_course_completion;
     $schedule_data->enabled = $data->enabled;
     $schedule_data->parameters = '{}'; // Empty JSON for now.
     
