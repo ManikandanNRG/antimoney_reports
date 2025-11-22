@@ -891,4 +891,172 @@ class dashboard_data_loader {
             'timeline_data' => $timeline_data
         ];
     }
+    /**
+     * Get Users Tab Metrics (KPIs).
+     */
+    public function get_users_tab_metrics() {
+        global $DB;
+
+        // 1. Total Users (All Time)
+        $total_users = $DB->count_records_select('user', 'deleted = 0 AND suspended = 0 AND id > 2');
+
+        // 2. Active Today
+        $today_start = strtotime("today midnight");
+        $active_today = $DB->count_records_select('user', 'lastaccess >= ? AND id > 2', [$today_start]);
+
+        // 3. Suspended Users
+        $suspended_users = $DB->count_records('user', ['suspended' => 1, 'deleted' => 0]);
+
+        // 4. New Users (Last 30 Days)
+        $thirty_days_ago = time() - (30 * 24 * 3600);
+        $new_users = $DB->count_records_select('user', 'timecreated >= ? AND deleted = 0 AND id > 2', [$thirty_days_ago]);
+
+        return [
+            'total_users' => $total_users,
+            'active_today' => $active_today,
+            'suspended_users' => $suspended_users,
+            'new_users' => $new_users
+        ];
+    }
+
+    /**
+     * Get Comprehensive User List with Pagination.
+     */
+    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {
+        global $DB, $CFG;
+
+        $offset = ($page - 1) * $per_page;
+        $params = [];
+        $where_clauses = ["u.deleted = 0", "u.id > 2"];
+
+        // Search Filter
+        if (!empty($search)) {
+            $where_clauses[] = "(u.firstname LIKE :search OR u.lastname LIKE :search2 OR u.email LIKE :search3)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+            $params['search3'] = '%' . $search . '%';
+        }
+
+        // Status Filter
+        if ($status_filter !== '') {
+            if ($status_filter === 'active') {
+                $where_clauses[] = "u.suspended = 0";
+            } elseif ($status_filter === 'suspended') {
+                $where_clauses[] = "u.suspended = 1";
+            }
+        }
+
+        // Role Filter (Complex join needed)
+        $role_join = "";
+        if (!empty($role_filter)) {
+            $role_join = "JOIN {role_assignments} ra ON ra.userid = u.id 
+                          JOIN {role} r ON r.id = ra.roleid";
+            $where_clauses[] = "r.shortname = :role";
+            $params['role'] = $role_filter;
+        }
+
+        $where_sql = implode(" AND ", $where_clauses);
+
+        // Count Total for Pagination
+        $count_sql = "SELECT COUNT(DISTINCT u.id) 
+                      FROM {user} u 
+                      $role_join 
+                      WHERE $where_sql";
+        $total_records = $DB->count_records_sql($count_sql, $params);
+        $total_pages = ceil($total_records / $per_page);
+
+        // Fetch Users
+        // Note: Using subqueries for counts to avoid massive joins and grouping issues
+        $sql = "SELECT u.id, u.firstname, u.lastname, u.email, u.suspended, u.lastaccess,
+                       (SELECT COUNT(ue.id) FROM {user_enrolments} ue WHERE ue.userid = u.id AND ue.status = 0) as enrolled,
+                       (SELECT COUNT(cc.id) FROM {course_completions} cc WHERE cc.userid = u.id AND cc.timecompleted > 0) as completed,
+                       (SELECT AVG(gg.finalgrade) 
+                        FROM {grade_grades} gg 
+                        JOIN {grade_items} gi ON gi.id = gg.itemid 
+                        WHERE gg.userid = u.id AND gi.itemtype = 'course') as avg_grade
+                  FROM {user} u
+                  $role_join
+                 WHERE $where_sql
+                 ORDER BY u.lastaccess DESC";
+        
+        $users = $DB->get_records_sql($sql, $params, $offset, $per_page);
+
+        $rows = [];
+        foreach ($users as $user) {
+            // Calculate Progress
+            $progress = ($user->enrolled > 0) ? round(($user->completed / $user->enrolled) * 100, 1) : 0;
+            
+            // Determine Role (Primary)
+            $user_role = 'Student'; // Default
+            $role_class = 'badge-student';
+            if (is_siteadmin($user->id)) {
+                $user_role = 'Admin';
+                $role_class = 'badge-admin';
+            } else {
+                // Get user's highest role
+                $roles = get_user_roles(\context_system::instance(), $user->id);
+                if (!empty($roles)) {
+                    $first_role = reset($roles);
+                    $user_role = $first_role->shortname;
+                    if ($user_role === 'editingteacher' || $user_role === 'teacher') {
+                        $user_role = 'Teacher';
+                        $role_class = 'badge-teacher';
+                    } elseif ($user_role === 'manager') {
+                        $user_role = 'Manager';
+                        $role_class = 'badge-manager';
+                    }
+                }
+            }
+
+            // IOMAD Company
+            $company_name = '';
+            if ($this->is_iomad_installed()) {
+                $company = $DB->get_record_sql("SELECT c.name 
+                                                  FROM {company} c 
+                                                  JOIN {company_users} cu ON cu.companyid = c.id 
+                                                 WHERE cu.userid = ?", [$user->id]);
+                if ($company) {
+                    $company_name = $company->name;
+                }
+            }
+
+            // Last Active String
+            $last_active = $user->lastaccess > 0 ? userdate($user->lastaccess, '%d %b %H:%M') : 'Never';
+            // Simple "time ago" logic
+            if ($user->lastaccess > 0) {
+                $diff = time() - $user->lastaccess;
+                if ($diff < 60) $last_active = 'Just now';
+                elseif ($diff < 3600) $last_active = floor($diff / 60) . ' min ago';
+                elseif ($diff < 86400) $last_active = floor($diff / 3600) . ' hours ago';
+                elseif ($diff < 604800) $last_active = floor($diff / 86400) . ' days ago';
+            }
+
+            $rows[] = [
+                'id' => $user->id,
+                'name' => fullname($user),
+                'email' => $user->email,
+                'company' => $company_name,
+                'role' => ucfirst($user_role),
+                'role_class' => $role_class,
+                'status' => $user->suspended ? 'Inactive' : 'Active',
+                'status_class' => $user->suspended ? 'status-retired' : 'status-active',
+                'enrolled' => $user->enrolled,
+                'in_progress' => max(0, $user->enrolled - $user->completed),
+                'completed' => $user->completed,
+                'completion_rate' => $progress,
+                'avg_score' => $user->avg_grade ? round($user->avg_grade, 1) . '%' : '-',
+                'last_active' => $last_active
+            ];
+        }
+
+        return [
+            'data' => $rows,
+            'pagination' => [
+                'total_records' => $total_records,
+                'total_pages' => $total_pages,
+                'current_page' => $page,
+                'per_page' => $per_page
+            ]
+        ];
+    }
 }

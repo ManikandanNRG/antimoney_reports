@@ -144,6 +144,28 @@ try {
     $company_list = [];
 }
 
+// 10. Users Tab Data
+$user_page = optional_param('user_page', 1, PARAM_INT);
+$user_search = optional_param('user_search', '', PARAM_TEXT);
+$user_role = optional_param('user_role', '', PARAM_TEXT);
+$user_status = optional_param('user_status', '', PARAM_TEXT);
+$user_per_page = 10;
+
+try {
+    $users_metrics = $loader->get_users_tab_metrics();
+} catch (\Exception $e) {
+    $users_metrics = ['total_users' => 0, 'active_today' => 0, 'suspended_users' => 0, 'new_users' => 0];
+}
+
+try {
+    $users_list_data = $loader->get_comprehensive_user_list($user_page, $user_per_page, $user_search, $user_role, $user_status);
+    $users_list = $users_list_data['data'];
+    $users_pagination = $users_list_data['pagination'];
+} catch (\Exception $e) {
+    $users_list = [];
+    $users_pagination = ['total_records' => 0, 'total_pages' => 0, 'current_page' => 1, 'per_page' => 10];
+}
+
 // DEBUG: Check company data
 // error_log("Company Metrics: " . print_r($company_metrics, true));
 // error_log("Company List Count: " . count($company_list));
@@ -302,6 +324,12 @@ body {
 .dot-success { background: var(--accent-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 .dot-warning { background: var(--accent-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 .dot-danger { background: var(--accent-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+
+.badge-student { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); border: 1px solid rgba(99, 102, 241, 0.2); }
+.badge-teacher { background: rgba(16, 185, 129, 0.1); color: var(--accent-success); border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge-manager { background: rgba(139, 92, 246, 0.1); color: var(--accent-secondary); border: 1px solid rgba(139, 92, 246, 0.2); }
+.badge-admin { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+
 @media (max-width: 1200px) {
     .bento-grid { grid-template-columns: repeat(2, 1fr); }
     .card-span-3, .card-span-4 { grid-column: span 2; }
@@ -993,6 +1021,157 @@ body {
         </div>
     </div>
 </div>
+
+            <!-- USERS TAB -->
+            <div id="tab-users" class="tab-content">
+                <!-- KPI Cards -->
+                <div class="kpi-cards">
+                    <!-- Total Users -->
+                    <div class="bento-card card-span-1">
+                        <div class="card-content-wrapper">
+                            <div class="card-header"><div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Total Users</div></div>
+                            <div class="card-value"><?php echo number_format($users_metrics['total_users']); ?></div>
+                            <div class="card-subtext">All time registered</div>
+                        </div>
+                    </div>
+                    <!-- Active Today -->
+                    <div class="bento-card card-span-1">
+                        <div class="card-content-wrapper">
+                            <div class="card-header"><div class="card-title"><i class="fa-solid fa-user-clock" style="color: var(--accent-success);"></i> Active Today</div></div>
+                            <div class="card-value"><?php echo number_format($users_metrics['active_today']); ?></div>
+                            <div class="card-subtext">Users logged in today</div>
+                        </div>
+                    </div>
+                    <!-- Suspended -->
+                    <div class="bento-card card-span-1">
+                        <div class="card-content-wrapper">
+                            <div class="card-header"><div class="card-title"><i class="fa-solid fa-user-slash" style="color: var(--accent-danger);"></i> Suspended</div></div>
+                            <div class="card-value"><?php echo number_format($users_metrics['suspended_users']); ?></div>
+                            <div class="card-subtext">Inactive accounts</div>
+                        </div>
+                    </div>
+                    <!-- New Users -->
+                    <div class="bento-card card-span-1">
+                        <div class="card-content-wrapper">
+                            <div class="card-header"><div class="card-title"><i class="fa-solid fa-user-plus" style="color: var(--accent-warning);"></i> New Users</div></div>
+                            <div class="card-value"><?php echo number_format($users_metrics['new_users']); ?></div>
+                            <div class="card-subtext">Last 30 days</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="filter-area" style="margin-top: 20px; margin-bottom: 20px;">
+                    <div class="filter-item">
+                        <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
+                        <input type="text" id="userSearchInput" class="filter-input" placeholder="Search users..." value="<?php echo s($user_search); ?>">
+                    </div>
+                    <div class="filter-item">
+                        <select id="userRoleSelect" class="filter-select" onchange="applyUserFilters()">
+                            <option value="">All Roles</option>
+                            <option value="student" <?php echo $user_role === 'student' ? 'selected' : ''; ?>>Student</option>
+                            <option value="teacher" <?php echo $user_role === 'teacher' ? 'selected' : ''; ?>>Teacher</option>
+                            <option value="manager" <?php echo $user_role === 'manager' ? 'selected' : ''; ?>>Manager</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <select id="userStatusSelect" class="filter-select" onchange="applyUserFilters()">
+                            <option value="">All Status</option>
+                            <option value="active" <?php echo $user_status === 'active' ? 'selected' : ''; ?>>Active</option>
+                            <option value="suspended" <?php echo $user_status === 'suspended' ? 'selected' : ''; ?>>Suspended</option>
+                        </select>
+                    </div>
+                    <button class="export-btn" onclick="applyUserFilters()">Apply</button>
+                </div>
+
+                <!-- Users Table -->
+                <div class="bento-card" style="padding: 0; overflow: hidden;">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--glass-border);">
+                                    <th class="table-header" style="padding: 16px 24px;">USER</th>
+                                    <th class="table-header">ROLE</th>
+                                    <th class="table-header">STATUS</th>
+                                    <th class="table-header" style="text-align: center;">ENROLLED</th>
+                                    <th class="table-header" style="text-align: center;">IN PROGRESS</th>
+                                    <th class="table-header" style="text-align: center;">COMPLETED</th>
+                                    <th class="table-header">COMPLETION %</th>
+                                    <th class="table-header" style="text-align: center;">AVG SCORE</th>
+                                    <th class="table-header">LAST ACTIVE</th>
+                                    <th class="table-header" style="text-align: right; padding-right: 24px;">ACTIONS</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (!empty($users_list)): ?>
+                                    <?php foreach ($users_list as $user): ?>
+                                    <tr class="table-row" style="border-bottom: 1px solid var(--glass-border);">
+                                        <td class="table-cell" style="padding: 16px 24px;">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div class="avatar-circle" style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-weight: 600; color: white;">
+                                                    <?php echo strtoupper(substr($user['name'], 0, 2)); ?>
+                                                </div>
+                                                <div>
+                                                    <div style="font-weight: 600; color: var(--text-primary);"><?php echo $user['name']; ?></div>
+                                                    <div style="font-size: 12px; color: var(--text-secondary);"><?php echo $user['email']; ?></div>
+                                                    <?php if ($user['company']): ?>
+                                                        <div style="font-size: 11px; color: var(--accent-secondary);"><?php echo $user['company']; ?></div>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="table-cell">
+                                            <span class="badge <?php echo $user['role_class']; ?>" style="padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; background: rgba(99, 102, 241, 0.1); color: var(--accent-primary);">
+                                                <?php echo $user['role']; ?>
+                                            </span>
+                                        </td>
+                                        <td class="table-cell">
+                                            <span class="status-dot <?php echo $user['status'] === 'Active' ? 'dot-success' : 'dot-danger'; ?>" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;"></span>
+                                            <span style="color: <?php echo $user['status'] === 'Active' ? 'var(--accent-success)' : 'var(--accent-danger)'; ?>; font-size: 13px;"><?php echo $user['status']; ?></span>
+                                        </td>
+                                        <td class="table-cell" style="text-align: center; font-weight: 600;"><?php echo $user['enrolled']; ?></td>
+                                        <td class="table-cell" style="text-align: center; color: var(--accent-warning);"><?php echo $user['in_progress']; ?></td>
+                                        <td class="table-cell" style="text-align: center; color: var(--accent-success);"><?php echo $user['completed']; ?></td>
+                                        <td class="table-cell">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <span style="font-weight: 600; color: <?php echo $user['completion_rate'] >= 50 ? 'var(--accent-success)' : 'var(--accent-warning)'; ?>"><?php echo $user['completion_rate']; ?>%</span>
+                                                <div class="progress-bar-slim" style="width: 60px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+                                                    <div style="width: <?php echo $user['completion_rate']; ?>%; height: 100%; background: <?php echo $user['completion_rate'] >= 50 ? 'var(--accent-success)' : 'var(--accent-warning)'; ?>; border-radius: 2px;"></div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="table-cell" style="text-align: center; font-weight: 600; color: var(--accent-secondary);"><?php echo $user['avg_score']; ?></td>
+                                        <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $user['last_active']; ?></td>
+                                        <td class="table-cell" style="text-align: right; padding-right: 24px;">
+                                            <div style="display: flex; align-items: center; justify-content: flex-end; gap: 12px;">
+                                                <i class="fa-regular fa-eye action-icon" style="cursor: pointer; color: var(--text-secondary);" title="View Details"></i>
+                                                <i class="fa-regular fa-envelope action-icon" style="cursor: pointer; color: var(--text-secondary);" title="Email User"></i>
+                                                <i class="fa-solid fa-ellipsis-vertical action-icon" style="cursor: pointer; color: var(--text-secondary);"></i>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <tr><td colspan="10" class="table-cell" style="text-align: center; padding: 40px;">No users found matching your criteria.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <?php if ($users_pagination['total_pages'] > 1): ?>
+                    <div style="padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--glass-border);">
+                        <div style="color: var(--text-secondary); font-size: 13px;">
+                            Showing <?php echo (($users_pagination['current_page'] - 1) * $users_pagination['per_page']) + 1; ?> to <?php echo min($users_pagination['current_page'] * $users_pagination['per_page'], $users_pagination['total_records']); ?> of <?php echo $users_pagination['total_records']; ?> users
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="export-btn" <?php echo $users_pagination['current_page'] <= 1 ? 'disabled' : ''; ?> onclick="changeUserPage(<?php echo $users_pagination['current_page'] - 1; ?>)" style="padding: 6px 12px; font-size: 12px;">Previous</button>
+                            <span style="display: flex; align-items: center; padding: 0 8px; color: var(--text-primary); font-size: 13px;">Page <?php echo $users_pagination['current_page']; ?> of <?php echo $users_pagination['total_pages']; ?></span>
+                            <button class="export-btn" <?php echo $users_pagination['current_page'] >= $users_pagination['total_pages'] ? 'disabled' : ''; ?> onclick="changeUserPage(<?php echo $users_pagination['current_page'] + 1; ?>)" style="padding: 6px 12px; font-size: 12px;">Next</button>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
 </div>
 </div>
 </div>
@@ -1646,6 +1825,39 @@ document.addEventListener('DOMContentLoaded', function() {
         // Use the global switchTab function
         switchTab(persistedTab);
     }
+    // --- USERS TAB LOGIC ---
+    function applyUserFilters() {
+        const search = document.getElementById('userSearchInput').value;
+        const role = document.getElementById('userRoleSelect').value;
+        const status = document.getElementById('userStatusSelect').value;
+        
+        const url = new URL(window.location.href);
+        url.searchParams.set('user_search', search);
+        url.searchParams.set('user_role', role);
+        url.searchParams.set('user_status', status);
+        url.searchParams.set('user_page', 1); // Reset to page 1 on filter change
+        
+        localStorage.setItem('activeTab', 'users');
+        window.location.href = url.toString();
+    }
+
+    window.applyUserFilters = applyUserFilters; // Expose to global scope
+
+    window.changeUserPage = function(page) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('user_page', page);
+        localStorage.setItem('activeTab', 'users');
+        window.location.href = url.toString();
+    };
+
+    // Enter key support for search
+    const userSearchInput = document.getElementById('userSearchInput');
+    if (userSearchInput) {
+        userSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applyUserFilters();
+        });
+    }
+
 });
 </script>
 <style>
