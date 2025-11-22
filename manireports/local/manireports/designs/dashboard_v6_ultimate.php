@@ -144,6 +144,11 @@ try {
     $company_list = [];
 }
 
+// DEBUG: Check company data
+// error_log("Company Metrics: " . print_r($company_metrics, true));
+// error_log("Company List Count: " . count($company_list));
+
+
 echo $OUTPUT->header();
 ?>
 
@@ -755,7 +760,6 @@ body {
             </div>
 
             </div>
-        </div>
 
         <!-- COURSES TAB -->
         <div id="tab-courses" class="tab-content">
@@ -863,14 +867,11 @@ body {
                 </div>
             </div>
         </div>
-        </div>
-        </div>
 </div>
 
 <!-- COMPANY TAB -->
 <div id="tab-companies" class="tab-content">
-    <div class="content-area">
-        <!-- Company Filter Bar -->
+    <!-- Company Filter Bar -->
         <div class="bento-card card-span-4" style="margin-bottom: 24px; padding: 16px 24px;">
             <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <div class="filter-item" style="flex: 1; min-width: 300px;">
@@ -987,10 +988,12 @@ body {
                             <?php endif; ?>
                         </tbody>
                     </table>
-                </div>
             </div>
         </div>
     </div>
+</div>
+</div>
+</div>
 </div>
 
 <script>
@@ -1022,18 +1025,14 @@ function toggleTheme() {
 
 // Switch Tabs (Robust Version)
 function switchTab(tabName) {
-    const event = window.event; // Ensure we capture the event
+    // Remove active class from all tabs
     document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
     
-    if (event && event.target) {
-        const tabItem = event.target.closest('.tab-item');
-        if (tabItem) tabItem.classList.add('active');
-    } else {
-        // Fallback if called programmatically without event
-        const tabBtn = document.querySelector(`.tab-item[onclick*="'${tabName}'"]`);
-        if (tabBtn) tabBtn.classList.add('active');
-    }
+    // Add active class to clicked tab
+    const tabBtn = document.querySelector(`.tab-item[onclick*="'${tabName}'"]`);
+    if (tabBtn) tabBtn.classList.add('active');
 
+    // Switch content
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     const targetContent = document.getElementById('tab-' + tabName);
     if (targetContent) targetContent.classList.add('active');
@@ -1103,8 +1102,10 @@ function clearAllFilters() {
 
 // Export Logic
 function toggleExportMenu() {
-    const menu = document.getElementById('export-menu');
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    const menu = document.getElementById('exportDropdown');
+    if (menu) {
+        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
 }
 
 function triggerExport(reportType, format) {
