@@ -41,6 +41,11 @@
         <FIELD NAME="failcount" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of consecutive failures"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when last modified"/>
+        <FIELD NAME="cloud_preference" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="auto" SEQUENCE="false" COMMENT="Cloud offload preference: auto, force_cloud, force_local"/>
+        <FIELD NAME="action_type" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="email" SEQUENCE="false" COMMENT="Action type: email, certificate, both"/>
+        <FIELD NAME="custom_interval" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Custom interval in days"/>
+        <FIELD NAME="suppresstarget" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="ID of course module to check for completion"/>
+        <FIELD NAME="suppress_course_completion" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Stop if course is complete"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
@@ -277,6 +282,61 @@
         <INDEX NAME="taskname" UNIQUE="false" FIELDS="taskname"/>
         <INDEX NAME="timefailed" UNIQUE="false" FIELDS="timefailed"/>
       </INDEXES>
+    </TABLE>
+    <TABLE NAME="manireports_cloud_jobs" COMMENT="Stores cloud offload job information">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="type" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Job type: csv_import, license_allocation, reengagement"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Job status: pending, queued, processing, completed, partial_failure, failed"/>
+        <FIELD NAME="email_count" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Total emails to process"/>
+        <FIELD NAME="emails_sent" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Emails successfully sent"/>
+        <FIELD NAME="emails_failed" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Emails failed"/>
+        <FIELD NAME="company_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="IOMAD Company ID"/>
+        <FIELD NAME="created_at" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Creation timestamp"/>
+        <FIELD NAME="started_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Processing start timestamp"/>
+        <FIELD NAME="completed_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Completion timestamp"/>
+        <FIELD NAME="error_log" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Job level error log"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="company_id" TYPE="foreign" FIELDS="company_id" REFTABLE="company" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <TABLE NAME="manireports_cloud_recipients" COMMENT="Stores individual recipients for cloud jobs">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="job_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Reference to cloud job"/>
+        <FIELD NAME="email" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Recipient email"/>
+        <FIELD NAME="recipient_data" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="JSON data specific to recipient"/>
+        <FIELD NAME="status" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Recipient status"/>
+        <FIELD NAME="sent_at" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Sent timestamp"/>
+        <FIELD NAME="error_message" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="Error details if failed"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="job_id" TYPE="foreign" FIELDS="job_id" REFTABLE="manireports_cloud_jobs" REFFIELDS="id"/>
+      </KEYS>
+    </TABLE>
+
+    <TABLE NAME="manireports_cloud_company_settings" COMMENT="Stores per-company cloud provider settings">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="company_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="IOMAD Company ID"/>
+        <FIELD NAME="provider" TYPE="char" LENGTH="50" NOTNULL="true" SEQUENCE="false" COMMENT="Provider: aws, cloudflare"/>
+        <FIELD NAME="aws_access_key" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="AWS Access Key"/>
+        <FIELD NAME="aws_secret_key" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="AWS Secret Key"/>
+        <FIELD NAME="aws_region" TYPE="char" LENGTH="50" NOTNULL="false" SEQUENCE="false" COMMENT="AWS Region"/>
+        <FIELD NAME="sqs_queue_url" TYPE="char" LENGTH="500" NOTNULL="false" SEQUENCE="false" COMMENT="AWS SQS URL"/>
+        <FIELD NAME="ses_sender_email" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="AWS SES Sender"/>
+        <FIELD NAME="cloudflare_api_token" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Cloudflare Token"/>
+        <FIELD NAME="cloudflare_account_id" TYPE="char" LENGTH="255" NOTNULL="false" SEQUENCE="false" COMMENT="Cloudflare Account ID"/>
+        <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Whether offload is enabled"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+        <KEY NAME="company_id" TYPE="foreign" FIELDS="company_id" REFTABLE="company" REFFIELDS="id"/>
+      </KEYS>
     </TABLE>
   </TABLES>
 </XMLDB>
