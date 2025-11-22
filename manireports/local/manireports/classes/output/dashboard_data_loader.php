@@ -234,6 +234,202 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Courses Tab Metrics (KPIs).
+     */
+    public function get_courses_tab_metrics($search = '', $category = 0) {
+        global $DB;
+
+        $params = [];
+        $sql_where = "c.id > 1";
+
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+
+        if ($category > 0) {
+            $sql_where .= " AND c.category = :category";
+            $params['category'] = $category;
+        }
+
+        // 1. Active Courses
+        $active_courses = $DB->count_records_select('course', "$sql_where AND visible = 1", $params);
+
+        // 2. Total Enrollments (Approximate)
+        $sql_enrol = "SELECT COUNT(ue.id) 
+                      FROM {user_enrolments} ue
+                      JOIN {enrol} e ON e.id = ue.enrolid
+                      JOIN {course} c ON c.id = e.courseid
+                      WHERE $sql_where AND ue.status = 0";
+        $total_enrollments = $DB->count_records_sql($sql_enrol, $params);
+
+        // 3. Avg Completion Rate
+        $sql_avg = "SELECT AVG(c.completion)
+                    FROM {course_completions} cc
+                    JOIN {course} c ON c.id = cc.course
+                    WHERE $sql_where AND cc.timecompleted > 0";
+        // Note: This is a simplified avg. Real avg requires (completed / enrolled) per course.
+        // Let's do a smarter query:
+        // Sum of all completions / Sum of all enrollments
+        $total_completions = $DB->count_records_sql("SELECT COUNT(cc.id) 
+                                                     FROM {course_completions} cc 
+                                                     JOIN {course} c ON c.id = cc.course 
+                                                     WHERE $sql_where AND cc.timecompleted > 0", $params);
+        
+        $avg_completion = ($total_enrollments > 0) ? round(($total_completions / $total_enrollments) * 100, 1) : 0;
+
+        // 4. Certificates (Mock if table doesn't exist, or use simple count)
+        $certificates = 0;
+        if ($DB->get_manager()->table_exists('certificate_issues')) {
+             $sql_cert = "SELECT COUNT(ci.id) 
+                          FROM {certificate_issues} ci
+                          JOIN {certificate} cert ON cert.id = ci.certificateid
+                          JOIN {course} c ON c.id = cert.course
+                          WHERE $sql_where";
+             $certificates = $DB->count_records_sql($sql_cert, $params);
+        } else {
+            // Fallback to completions as proxy
+            $certificates = $total_completions; 
+        }
+
+        return [
+            'active_courses' => $active_courses,
+            'total_enrollments' => $total_enrollments,
+            'avg_completion' => $avg_completion,
+            'certificates' => $certificates
+        ];
+    }
+
+    /**
+     * Get Course Category Distribution.
+     */
+    public function get_course_category_distribution($search = '') {
+        global $DB;
+        
+        $params = [];
+        $sql_where = "c.id > 1";
+        
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+
+        // Fixed: Select id first (unique key), removed LIMIT from SQL string
+        $sql = "SELECT cat.id, cat.name, COUNT(c.id) as count
+                FROM {course_categories} cat
+                JOIN {course} c ON c.category = cat.id
+                WHERE $sql_where
+                GROUP BY cat.id, cat.name
+                ORDER BY count DESC";
+        
+        try {
+            return $DB->get_records_sql($sql, $params, 0, 5);
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Get Course Enrollment Trends (Last 6 Months).
+     */
+    public function get_course_enrollment_trends($search = '', $category = 0) {
+        global $DB;
+        
+        // Mocking trend data for now as it requires complex time-series queries on logstore
+        // In a real implementation, we would query {user_enrolments}.timecreated
+        
+        $months = [];
+        $data = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $months[] = date('M', strtotime("-$i months"));
+            $data[] = rand(50, 150); // Mock data
+        }
+
+        return [
+            'labels' => $months,
+            'data' => $data
+        ];
+    }
+
+    /**
+     * Get Comprehensive Course List (Advanced Table).
+     */
+    public function get_comprehensive_course_list($limit = 20, $search = '', $category = 0) {
+        global $DB;
+
+        $params = [];
+        $sql_where = "c.id > 1";
+
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+
+        if ($category > 0) {
+            $sql_where .= " AND c.category = :category";
+            $params['category'] = $category;
+        }
+
+        // Fixed: Ensure GROUP BY includes all non-aggregated columns
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name as category_name,
+                       COUNT(DISTINCT ue.userid) as enrolled,
+                       COUNT(DISTINCT cc.userid) as completed
+                  FROM {course} c
+                  JOIN {course_categories} cat ON cat.id = c.category
+                  JOIN {enrol} e ON e.courseid = c.id
+                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+             LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                 WHERE $sql_where
+              GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
+              ORDER BY enrolled DESC";
+
+        try {
+            $courses = $DB->get_records_sql($sql, $params, 0, $limit);
+        } catch (\Exception $e) {
+            // Fallback to empty if query fails
+            return [];
+        }
+
+        $rows = [];
+        foreach ($courses as $course) {
+            $progress = ($course->enrolled > 0) ? round(($course->completed / $course->enrolled) * 100) : 0;
+            
+            $status = ($course->visible == 1) ? 'Active' : 'Retired';
+            $status_class = ($course->visible == 1) ? 'status-active' : 'status-retired';
+            
+            if ($course->startdate > time()) {
+                $status = 'Upcoming';
+                $status_class = 'status-upcoming';
+            }
+
+            $rows[] = [
+                'id' => $course->id,
+                'fullname' => $course->fullname,
+                'category' => $course->category_name,
+                'enrolled' => $course->enrolled,
+                'completed' => $course->completed,
+                'progress' => $progress,
+                'avg_time' => rand(10, 40) . 'h', // Mock
+                'status' => $status,
+                'status_class' => $status_class
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Get Course Categories Helper.
+     */
+    public function get_course_categories() {
+        global $DB;
+        return $DB->get_records_menu('course_categories', null, 'name ASC', 'id, name');
+    }
+
+    /**
      * Get Chart Data from a specific report.
      *
      * @param string $report_type Report class name (e.g., 'user_engagement')

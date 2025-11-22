@@ -83,6 +83,40 @@ try {
     ];
 }
 
+// 8. Courses Tab Data
+$search_param = optional_param('q', '', PARAM_TEXT);
+$category_param = optional_param('cat', 0, PARAM_INT);
+
+try {
+    $courses_metrics = $loader->get_courses_tab_metrics($search_param, $category_param);
+} catch (\Exception $e) {
+    $courses_metrics = ['active_courses' => 0, 'total_enrollments' => 0, 'avg_completion' => 0, 'certificates' => 0];
+}
+
+try {
+    $courses_dist = $loader->get_course_category_distribution($search_param);
+} catch (\Exception $e) {
+    $courses_dist = [];
+}
+
+try {
+    $courses_trends = $loader->get_course_enrollment_trends($search_param, $category_param);
+} catch (\Exception $e) {
+    $courses_trends = ['labels' => [], 'data' => []];
+}
+
+try {
+    $courses_list = $loader->get_comprehensive_course_list(20, $search_param, $category_param);
+} catch (\Exception $e) {
+    $courses_list = [];
+}
+
+try {
+    $course_categories = $loader->get_course_categories();
+} catch (\Exception $e) {
+    $course_categories = [];
+}
+
 echo $OUTPUT->header();
 ?>
 
@@ -309,6 +343,7 @@ body {
 
         <!-- Content Area -->
         <div class="content-area">
+            <div id="tab-overview" class="tab-content active">
             <!-- KPI Cards (Always Visible) -->
             <div class="kpi-cards">
 
@@ -652,7 +687,118 @@ body {
 
             </div>
         </div>
-    </main>
+
+        <!-- COURSES TAB -->
+        <div id="tab-courses" class="tab-content">
+            <!-- Filter Bar -->
+            <div class="filter-area" style="margin-bottom: 32px; background: var(--glass-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
+                <div class="filter-item" style="flex-grow: 1;">
+                    <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
+                    <input type="text" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);">
+                </div>
+                <div class="filter-item">
+                    <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
+                    <input type="text" class="filter-input" placeholder="Start Date" style="width: 110px;">
+                    <span style="color: var(--text-secondary);">-</span>
+                    <input type="text" class="filter-input" placeholder="End Date" style="width: 110px;">
+                </div>
+                <div class="filter-item">
+                    <select class="filter-select">
+                        <option value="0">All Categories</option>
+                        <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
+                    </select>
+                </div>
+                <div class="filter-item">
+                     <div class="status-badge status-active" style="cursor: pointer;">Active</div>
+                     <div class="status-badge status-retired" style="cursor: pointer; opacity: 0.5;">Past</div>
+                </div>
+            </div>
+
+            <div class="bento-grid">
+                <!-- Row 1: KPIs -->
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-book-open" style="color: var(--accent-primary);"></i> Active Courses</div>
+                    <div class="card-value"><?php echo $courses_metrics['active_courses']; ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i> Avg Completion</div>
+                    <div class="card-value"><?php echo $courses_metrics['avg_completion']; ?>%</div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Enrollments</div>
+                    <div class="card-value"><?php echo number_format($courses_metrics['total_enrollments']); ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-certificate" style="color: var(--accent-secondary);"></i> Certificates</div>
+                    <div class="card-value"><?php echo number_format($courses_metrics['certificates']); ?></div>
+                </div>
+
+                <!-- Row 2: Charts -->
+                <div class="bento-card card-span-3">
+                    <div class="card-header">
+                        <div class="card-title">Enrollment Trends</div>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="enrollmentTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-header">
+                        <div class="card-title">Categories</div>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="categoryDistChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Row 3: Advanced Table -->
+                <div class="bento-card card-span-4">
+                    <div class="card-header">
+                        <div class="card-title">Comprehensive Course List</div>
+                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;">Export CSV</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th class="table-header">Course Name</th>
+                                <th class="table-header">Category</th>
+                                <th class="table-header">Enrolled</th>
+                                <th class="table-header">Completed</th>
+                                <th class="table-header" style="width: 150px;">Progress</th>
+                                <th class="table-header">Avg Time</th>
+                                <th class="table-header">Status</th>
+                                <th class="table-header" style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($courses_list)): ?>
+                                <?php foreach ($courses_list as $course): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo $course['fullname']; ?></td>
+                                    <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $course['category']; ?></td>
+                                    <td class="table-cell"><?php echo $course['enrolled']; ?></td>
+                                    <td class="table-cell"><?php echo $course['completed']; ?></td>
+                                    <td class="table-cell">
+                                        <div class="progress-bar-slim">
+                                            <div class="progress-fill" style="width: <?php echo $course['progress']; ?>%; background: var(--accent-primary);"></div>
+                                        </div>
+                                    </td>
+                                    <td class="table-cell"><?php echo $course['avg_time']; ?></td>
+                                    <td class="table-cell"><span class="status-badge <?php echo $course['status_class']; ?>"><?php echo $course['status']; ?></span></td>
+                                    <td class="table-cell" style="text-align: right;">
+                                        <a href="#" class="action-link">View Report</a>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="8" class="table-cell" style="text-align: center;">No courses found.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        </div>
 </div>
 
 <script>
@@ -673,21 +819,70 @@ function toggleTheme() {
     }
 
     // Update Chart Gaps if chart exists
-    if (typeof userRolesChart !== 'undefined') {
-        const newGapColor = isLight ? '#1e293b' : '#ffffff'; // Switched because isLight is the OLD state
-        userRolesChart.data.datasets.forEach(dataset => {
+    if (typeof window.userRolesChart !== 'undefined') {
+        const newGapColor = isLight ? '#1e293b' : '#ffffff'; 
+        window.userRolesChart.data.datasets.forEach(dataset => {
             dataset.borderColor = newGapColor;
         });
-        userRolesChart.update();
+        window.userRolesChart.update();
     }
 }
 
-// Switch Tabs
+// Switch Tabs (Robust Version)
 function switchTab(tabName) {
+    const event = window.event; // Ensure we capture the event
     document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
-    event.target.closest('.tab-item').classList.add('active');
+    
+    if (event && event.target) {
+        const tabItem = event.target.closest('.tab-item');
+        if (tabItem) tabItem.classList.add('active');
+    } else {
+        // Fallback if called programmatically without event
+        const tabBtn = document.querySelector(`.tab-item[onclick*="'${tabName}'"]`);
+        if (tabBtn) tabBtn.classList.add('active');
+    }
+
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    document.getElementById('tab-' + tabName).classList.add('active');
+    const targetContent = document.getElementById('tab-' + tabName);
+    if (targetContent) targetContent.classList.add('active');
+    
+    // Persist selection
+    localStorage.setItem('activeTab', tabName);
+}
+
+// Date Filter Logic
+function setDateFilter(range) {
+    const event = window.event;
+    if (event) {
+        const buttons = document.querySelectorAll('.quick-filter-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        if (event.target) event.target.classList.add('active');
+    }
+
+    const today = new Date();
+    let startDate = new Date();
+
+    switch(range) {
+        case '1W': startDate.setDate(today.getDate() - 7); break;
+        case '1M': startDate.setMonth(today.getMonth() - 1); break;
+        case '3M': startDate.setMonth(today.getMonth() - 3); break;
+        case 'YTD': startDate = new Date(today.getFullYear(), 0, 1); break;
+        case 'ALL': startDate = new Date(2000, 0, 1); break;
+    }
+
+    const formatDate = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}-${m}-${y}`;
+    };
+
+    const startElem = document.getElementById('dateStart');
+    const endElem = document.getElementById('dateEnd');
+    if (startElem) startElem.value = formatDate(startDate);
+    if (endElem) endElem.value = formatDate(today);
+
+    console.log(`Filter applied: ${range}`);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -699,8 +894,14 @@ document.addEventListener('DOMContentLoaded', function() {
         elements: { point: { radius: 0 }, line: { tension: 0.4 } }
     };
 
+    // Helper to safely init chart
+    const initChart = (id, config) => {
+        const el = document.getElementById(id);
+        if (el) new Chart(el, config);
+    };
+
     // KPI Mini Charts
-    new Chart(document.getElementById('chartCompanies'), {
+    initChart('chartCompanies', {
         type: 'line',
         data: { labels: [1,2,3,4,5,6,7], datasets: [{ data: [18, 19, 20, 21, 22, 23, 24], borderColor: '#6366f1', borderWidth: 2, fill: true, backgroundColor: (ctx) => {
             const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 60);
@@ -711,7 +912,7 @@ document.addEventListener('DOMContentLoaded', function() {
         options: commonOptions
     });
 
-    new Chart(document.getElementById('chartCourses'), {
+    initChart('chartCourses', {
         type: 'line',
         data: { labels: [1,2,3,4,5,6,7], datasets: [{ data: [140, 145, 148, 150, 152, 154, 156], borderColor: '#10b981', borderWidth: 2, fill: true, backgroundColor: (ctx) => {
             const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 60);
@@ -722,7 +923,7 @@ document.addEventListener('DOMContentLoaded', function() {
         options: commonOptions
     });
 
-    new Chart(document.getElementById('chartUsers'), {
+    initChart('chartUsers', {
         type: 'line',
         data: { labels: [1,2,3,4,5,6,7], datasets: [{ data: [8500, 8510, 8520, 8530, 8535, 8540, 8542], borderColor: '#f59e0b', borderWidth: 2, fill: true, backgroundColor: (ctx) => {
             const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 60);
@@ -734,7 +935,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Active Users Chart
-    new Chart(document.getElementById('activeUsersChart'), {
+    initChart('activeUsersChart', {
         type: 'bar',
         data: {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -757,7 +958,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Time Spent Chart
-    new Chart(document.getElementById('timeSpentChart'), {
+    initChart('timeSpentChart', {
         type: 'line',
         data: {
             labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
@@ -781,8 +982,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Completion Trend Chart (Multi-line Area)
-    new Chart(document.getElementById('completionTrendChart'), {
+    // Completion Trend Chart
+    initChart('completionTrendChart', {
         type: 'line',
         data: {
             labels: <?php echo json_encode($trend_data['labels']); ?>,
@@ -835,211 +1036,271 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // User Roles Donut Chart (3 Concentric Rings with Logarithmic Scaling)
+    // User Roles Donut Chart
     const roleData = {
         admin: <?php echo $role_data['admin']; ?>,
         teacher: <?php echo $role_data['teacher']; ?>,
         student: <?php echo $role_data['student']; ?>
     };
-
-    // Logarithmic Scaling Function
-    // We use Math.log10(value + 1) to handle 0 and scale appropriately
-    // We normalize against the largest value (student) to determine ring length
     const maxVal = Math.max(roleData.student, roleData.teacher, roleData.admin, 1);
-    const logMax = Math.log10(maxVal + 10); // +10 to give a bit of headroom/base
-
+    const logMax = Math.log10(maxVal + 10);
     const getScaledValue = (val) => {
         if (val === 0) return 0;
-        // Calculate log score: e.g. log(4) vs log(13000)
-        // We want a minimum visibility for non-zero items, say 15%
         const logVal = Math.log10(val + 1);
         const ratio = logVal / logMax;
-        
-        // Map ratio (0 to 1) to percentage (15 to 100)
-        // If ratio is small, boost it.
         return Math.max(ratio * 100, 15); 
     };
-
     const adminPct = getScaledValue(roleData.admin);
     const teacherPct = getScaledValue(roleData.teacher);
-    const studentPct = getScaledValue(roleData.student); // Should be close to 100%
-
-    // Use a neutral grey for the track that works on both dark and light backgrounds
+    const studentPct = getScaledValue(roleData.student);
     const trackColor = 'rgba(148, 163, 184, 0.15)'; 
-    
-    // Dynamic Gap Color
     const isLightMode = document.body.getAttribute('data-theme') === 'light';
     const gapColor = isLightMode ? '#ffffff' : '#1e293b';
     const gapWidth = 4; 
 
-    // Assign to global variable for theme toggling
-    window.userRolesChart = new Chart(document.getElementById('chartUserRoles'), {
-        type: 'doughnut',
-        data: {
-            // labels must match the order of datasets (Outer -> Inner)
-            labels: ['Student', 'Teacher', 'Admin'], 
-            datasets: [
-                // Outer Ring (Student)
-                {
-                    data: [studentPct, 100 - studentPct],
-                    backgroundColor: ['#ef4444', trackColor],
-                    borderWidth: gapWidth,
-                    borderColor: gapColor,
-                    borderRadius: [20, 0],
-                    cutout: '50%' // Reduced from 85% to give rings more space
-                },
-                // Middle Ring (Teacher)
-                {
-                    data: [teacherPct, 100 - teacherPct],
-                    backgroundColor: ['#f59e0b', trackColor],
-                    borderWidth: gapWidth,
-                    borderColor: gapColor,
-                    borderRadius: [20, 0],
-                    cutout: '50%'
-                },
-                // Inner Ring (Admin)
-                {
-                    data: [adminPct, 100 - adminPct],
-                    backgroundColor: ['#10b981', trackColor],
-                    borderWidth: gapWidth,
-                    borderColor: gapColor,
-                    borderRadius: [20, 0],
-                    cutout: '50%'
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: { 
-                    enabled: true,
-                    callbacks: {
-                        label: function(context) {
-                            // Show real data in tooltip, not the scaled percentage
-                            const label = context.chart.data.labels[context.datasetIndex];
-                            const realValue = roleData[label.toLowerCase()];
-                            return `${label}: ${realValue}`;
+    const roleChartEl = document.getElementById('chartUserRoles');
+    if (roleChartEl) {
+        window.userRolesChart = new Chart(roleChartEl, {
+            type: 'doughnut',
+            data: {
+                labels: ['Student', 'Teacher', 'Admin'], 
+                datasets: [
+                    {
+                        data: [studentPct, 100 - studentPct],
+                        backgroundColor: ['#ef4444', trackColor],
+                        borderWidth: gapWidth,
+                        borderColor: gapColor,
+                        borderRadius: [20, 0],
+                        cutout: '50%'
+                    },
+                    {
+                        data: [teacherPct, 100 - teacherPct],
+                        backgroundColor: ['#f59e0b', trackColor],
+                        borderWidth: gapWidth,
+                        borderColor: gapColor,
+                        borderRadius: [20, 0],
+                        cutout: '50%'
+                    },
+                    {
+                        data: [adminPct, 100 - adminPct],
+                        backgroundColor: ['#10b981', trackColor],
+                        borderWidth: gapWidth,
+                        borderColor: gapColor,
+                        borderRadius: [20, 0],
+                        cutout: '50%'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { 
+                        enabled: true,
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.chart.data.labels[context.datasetIndex];
+                                const realValue = roleData[label.toLowerCase()];
+                                return `${label}: ${realValue}`;
+                            }
                         }
                     }
-                }
-            },
-            animation: {
-                animateScale: true,
-                animateRotate: true
+                },
+                animation: { animateScale: true, animateRotate: true }
             }
-        }
-    });
-    });
+        });
+    }
 
-document.addEventListener('DOMContentLoaded', function() {
     // Live Update Timer
     let seconds = 0;
     setInterval(function() {
         seconds++;
-        document.getElementById('live-update-timer').innerText = seconds;
+        const timerEl = document.getElementById('live-update-timer');
+        if (timerEl) timerEl.innerText = seconds;
     }, 1000);
 
     // 24h Timeline Chart
-    const timelineCtx = document.getElementById('timelineChart').getContext('2d');
-    const timelineGradient = timelineCtx.createLinearGradient(0, 0, 0, 200);
-    timelineGradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
-    timelineGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    const timelineEl = document.getElementById('timelineChart');
+    if (timelineEl) {
+        const timelineCtx = timelineEl.getContext('2d');
+        const timelineGradient = timelineCtx.createLinearGradient(0, 0, 0, 200);
+        timelineGradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+        timelineGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
 
-    new Chart(timelineCtx, {
-        type: 'line',
-        data: {
-            labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
-            datasets: [{
-                label: 'Active Users',
-                data: <?php echo json_encode($live_stats['timeline_data']); ?>,
-                borderColor: '#10b981',
-                backgroundColor: timelineGradient,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false,
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                    titleColor: '#94a3b8',
-                    bodyColor: '#f8fafc',
-                    borderColor: 'rgba(148, 163, 184, 0.1)',
-                    borderWidth: 1
-                }
+        new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
+                datasets: [{
+                    label: 'Active Users',
+                    data: <?php echo json_encode($live_stats['timeline_data']); ?>,
+                    borderColor: '#10b981',
+                    backgroundColor: timelineGradient,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    fill: true,
+                    tension: 0.4
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                    ticks: { color: '#94a3b8', font: { size: 10 } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#94a3b8',
+                        bodyColor: '#f8fafc',
+                        borderColor: 'rgba(148, 163, 184, 0.1)',
+                        borderWidth: 1
+                    }
                 },
-                x: {
-                    grid: { display: false },
-                    ticks: { 
-                        color: '#94a3b8', 
-                        font: { size: 10 },
-                        maxTicksLimit: 6 
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8', font: { size: 10 } }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 6 }
                     }
                 }
             }
-        }
-    });
-    });
-
-// Date Filter Logic
-function setDateFilter(range) {
-    const buttons = document.querySelectorAll('.quick-filter-btn');
-    buttons.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-
-    const today = new Date();
-    let startDate = new Date();
-
-    switch(range) {
-        case '1W':
-            startDate.setDate(today.getDate() - 7);
-            break;
-        case '1M':
-            startDate.setMonth(today.getMonth() - 1);
-            break;
-        case '3M':
-            startDate.setMonth(today.getMonth() - 3);
-            break;
-        case 'YTD':
-            startDate = new Date(today.getFullYear(), 0, 1);
-            break;
-        case 'ALL':
-            startDate = new Date(2000, 0, 1); // Arbitrary past date
-            break;
+        });
     }
 
-    // Format dates as dd-mm-yyyy
-    const formatDate = (date) => {
-        const d = date.getDate().toString().padStart(2, '0');
-        const m = (date.getMonth() + 1).toString().padStart(2, '0');
-        const y = date.getFullYear();
-        return `${d}-${m}-${y}`;
-    };
+    // --- COURSES TAB CHARTS ---
+    
+    // Enrollment Trends
+    const enrollEl = document.getElementById('enrollmentTrendChart');
+    if (enrollEl) {
+        const enrollCtx = enrollEl.getContext('2d');
+        const enrollGradient = enrollCtx.createLinearGradient(0, 0, 0, 300);
+        enrollGradient.addColorStop(0, 'rgba(99, 102, 241, 0.3)');
+        enrollGradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
 
-    document.getElementById('dateStart').value = formatDate(startDate);
-    document.getElementById('dateEnd').value = formatDate(today);
+        new Chart(enrollCtx, {
+            type: 'line',
+            data: {
+                labels: <?php echo json_encode($courses_trends['labels']); ?>,
+                datasets: [{
+                    label: 'Enrollments',
+                    data: <?php echo json_encode($courses_trends['data']); ?>,
+                    borderColor: '#6366f1',
+                    backgroundColor: enrollGradient,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#6366f1',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#6366f1',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#94a3b8',
+                        bodyColor: '#f8fafc',
+                        borderColor: 'rgba(148, 163, 184, 0.1)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
 
-    // Trigger backend update (Reload page with params for now)
-    // window.location.href = `?start=${formatDate(startDate)}&end=${formatDate(today)}`;
-    // For now, just log to console as we are in dev mode
-    console.log(`Filter applied: ${range} (${formatDate(startDate)} - ${formatDate(today)})`);
-}
+    // Category Distribution
+    const catEl = document.getElementById('categoryDistChart');
+    if (catEl) {
+        const catCtx = catEl.getContext('2d');
+        const rawCatData = <?php echo json_encode($courses_dist); ?>;
+        const processedCatLabels = [];
+        const processedCatCounts = [];
+        
+        if (Array.isArray(rawCatData)) {
+            rawCatData.forEach(item => {
+                processedCatLabels.push(item.name);
+                processedCatCounts.push(item.count);
+            });
+        } else if (typeof rawCatData === 'object' && rawCatData !== null) {
+             Object.values(rawCatData).forEach(item => {
+                processedCatLabels.push(item.name);
+                processedCatCounts.push(item.count);
+             });
+        }
+
+        new Chart(catCtx, {
+            type: 'doughnut',
+            data: {
+                labels: processedCatLabels,
+                datasets: [{
+                    data: processedCatCounts,
+                    backgroundColor: ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // --- FILTER LOGIC ---
+    const searchInput = document.querySelector('#tab-courses .filter-input[placeholder*="Search"]');
+    const catSelect = document.querySelector('#tab-courses .filter-select');
+    
+    function applyFilters() {
+        const search = searchInput.value;
+        const cat = catSelect.value;
+        const url = new URL(window.location.href);
+        url.searchParams.set('q', search);
+        url.searchParams.set('cat', cat);
+        localStorage.setItem('activeTab', 'courses');
+        window.location.href = url.toString();
+    }
+
+    if (searchInput) searchInput.addEventListener('change', applyFilters);
+    if (catSelect) catSelect.addEventListener('change', applyFilters);
+
+    // Check for persisted tab
+    const persistedTab = localStorage.getItem('activeTab');
+    if (persistedTab) {
+        // Use the global switchTab function
+        switchTab(persistedTab);
+    }
+});
 </script>
 <style>
 @keyframes pulse {
