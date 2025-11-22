@@ -1,4 +1,4 @@
-# Cloud Offload Process Flow (ASCII) - FINAL
+# Cloud Offload Process Flow (ASCII) - FINAL (IOMAD VERIFIED)
 
 This document visualizes how the **Selective Cloud Offload** system intercepts standard IOMAD email processes.
 
@@ -17,13 +17,13 @@ This document visualizes how the **Selective Cloud Offload** system intercepts s
     | (3) Run allocation logic (Internal)
     |
     +---> [ EVENT: \block_iomad_company_admin\event\user_license_assigned ]
-            | (Note: Might be \tool_iomad\event\license_assigned in some versions)
             |
             | (4) Triggered
             v
-    [ Moodle Mailer ]
+    [ IOMAD Email System ]
             |
-            | (5) Sends Email (Slow / Server Load)
+            | (5) Inserts into {email} table (Queue)
+            | (6) Cron sends email later
             v
     [ Admin / User ]
 ```
@@ -38,49 +38,7 @@ This document visualizes how the **Selective Cloud Offload** system intercepts s
     |
     | (2) Insert into {companylicense_users}
     |
-    | (3) Run allocation logic
-    |
     +---> [ EVENT: \block_iomad_company_admin\event\user_license_assigned ]
-            |
-            | (4) INTERCEPTED by ManiReports Observer
-            v
-    [ ManiReports Observer ]
-            |
-            +--- Is Cloud Offload ON? ---+
-            |                            |
-        [ YES ]                       [ NO ]
-            |                            |
-            | (5a) Queue Cloud Job       | (5b) Allow default
-            |     (email payload)        |      Moodle Mail
-            v                            v
-    [ CloudJobManager ]           [ Moodle Mailer ]
-            |                            |
-            | (6) Push to AWS            | (6) Email sent normally
-            v                            v
-       [ AWS Cloud ]              [ End ]
-            |
-            | (7) SES Sends Email
-            v
-       [ User ]
-```
-
----
-
-## 2. New User / Temp Password Flow
-
-### A. Standard IOMAD Flow (Current)
-```text
-[ Admin ]
-    |
-    | (1) Upload User CSV
-    v
-[ Moodle ]
-    |
-    | (2) generate_temporary_password()
-    |     -> Stores Hash in DB (Required for Login)
-    |     -> Stores Plaintext in User Pref (Briefly)
-    |
-    +---> [ Trigger EVENT: user_created ]
             |
             | (3) INTERCEPTED by ManiReports Observer
             v
@@ -90,21 +48,76 @@ This document visualizes how the **Selective Cloud Offload** system intercepts s
             |                            |
         [ YES ]                       [ NO ]
             |                            |
-            | (4a) Create Job            | (4b) Do Nothing
-            | (Fetch TempPass from       |
-            |  mdl_user_preferences)     |
+            | (4a) Create Cloud Job      | (4b) Do Nothing
+            | (4c) DELETE from {email}   |
             v                            v
-    [ CloudJobManager ]           [ Moodle Mailer ]
+    [ CloudJobManager ]           [ IOMAD Email System ]
             |                            |
-            | (5) Send to AWS            | (5) Send Email
+            | (5) Push to AWS            | (5) Cron sends email
             v                            v
-       [ AWS Cloud ]              [ Admin / User ]
-            |
-            | (6) Sends Email
-            v
-      [ Admin / User ]
+       [ AWS Cloud ]              [ End ]
 ```
 
-## Implementation Notes
-1.  **Event Name**: We will listen for `\block_iomad_company_admin\event\user_license_assigned` as seen in `company.php`. We will also add a fallback listener for `\tool_iomad\event\license_assigned` just in case.
-2.  **Password Retrieval**: We use `get_user_preferences('iomad_temporary')` to retrieve the password for the cloud job.
+---
+
+## 2. New User / Temp Password Flow (IOMAD SPECIFIC)
+
+### A. Standard IOMAD Flow (Current)
+```text
+[ Admin ]
+    |
+    | (1) Upload User CSV
+    v
+[ IOMAD (iomad/lib/user.php) ]
+    |
+    | (2) generate_temporary_password()
+    |     -> Stores Hash in {user} (For Login)
+    |     -> Stores Encrypted Pass in {user_preferences} ('iomad_temporary')
+    |
+    +---> [ EmailTemplate::send('user_create') ]
+            |
+            | (3) Inserts into {email} table (Queue)
+            v
+    [ Moodle Event: user_created ]
+```
+
+### B. Cloud Offload Flow (Proposed)
+```text
+[ Admin ]
+    |
+    | (1) Upload User CSV
+    v
+[ IOMAD ]
+    |
+    | (2) Generate Pass & Queue Email (Standard IOMAD)
+    |
+    +---> [ EVENT: user_created ]
+            |
+            | (3) INTERCEPTED by ManiReports Observer
+            v
+    [ ManiReports Observer ]
+            |
+            +--- Is Cloud Offload ON? ---+
+            |                            |
+        [ YES ]                       [ NO ]
+            |                            |
+            | (4a) Fetch Pass from       | (4b) Do Nothing
+            |      {user_preferences}    |
+            |      ('iomad_temporary')   |
+            |                            |
+            | (4b) Create Cloud Job      |
+            |                            |
+            | (4c) DELETE from {email}   |
+            |      (Suppress Local)      |
+            v                            v
+    [ CloudJobManager ]           [ IOMAD Email System ]
+            |                            |
+            | (5) Send to AWS            | (5) Cron sends email
+            v                            v
+       [ AWS Cloud ]              [ Admin / User ]
+```
+
+## Critical Verification Notes (Why this differs from Standard Moodle)
+1.  **Password Storage**: Unlike Standard Moodle, **IOMAD explicitly stores the temp password** in `mdl_user_preferences` (key: `iomad_temporary`). We verified this in `iomad/lib/user.php` line 571.
+2.  **Email Queue**: IOMAD uses its own `{email}` table for queuing these messages, bypassing the standard Moodle `message_send` for this specific flow.
+3.  **Suppression**: Because it uses a DB table `{email}`, we can reliably "suppress" the email by simply **deleting the record** from that table matching the user and template.
