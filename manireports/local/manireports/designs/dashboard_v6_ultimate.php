@@ -285,13 +285,14 @@ body {
 .dropdown-menu {
     display: none; position: absolute; top: 100%; right: 0; margin-top: 8px;
     background: var(--glass-bg); border: 1px solid var(--glass-border);
-    border-radius: 12px; padding: 8px; z-index: 100; min-width: 180px;
+    border-radius: 12px; padding: 8px; z-index: 1000; min-width: 180px;
     backdrop-filter: blur(10px); box-shadow: var(--card-shadow);
+    overflow: hidden; /* Prevent scrollbars */
 }
 .dropdown-item {
     padding: 10px 16px; border-radius: 8px; cursor: pointer;
     color: var(--text-primary); font-size: 13px; display: flex; align-items: center; gap: 10px;
-    transition: var(--transition);
+    transition: var(--transition); white-space: nowrap; /* Prevent text wrapping */
 }
 .dropdown-item:hover { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
 </style>
@@ -918,8 +919,8 @@ function triggerExport(reportType, format) {
     if (dateStart) url += `&datefrom=${dateStart}`;
     if (dateEnd) url += `&dateto=${dateEnd}`;
     
-    // Open in new tab
-    window.open(url, '_blank');
+    // Trigger download in same tab
+    window.location.href = url;
 }
 
 // Close menu when clicking outside
