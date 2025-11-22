@@ -254,7 +254,8 @@ class dashboard_data_loader {
         }
 
         // 1. Active Courses
-        $active_courses = $DB->count_records_select('course', "$sql_where AND visible = 1", $params);
+        // Fixed: Use count_records_sql to support 'c' alias used in $sql_where
+        $active_courses = $DB->count_records_sql("SELECT COUNT(c.id) FROM {course} c WHERE $sql_where AND c.visible = 1", $params);
 
         // 2. Total Enrollments (Approximate)
         $sql_enrol = "SELECT COUNT(ue.id) 
@@ -337,14 +338,39 @@ class dashboard_data_loader {
     public function get_course_enrollment_trends($search = '', $category = 0) {
         global $DB;
         
-        // Mocking trend data for now as it requires complex time-series queries on logstore
-        // In a real implementation, we would query {user_enrolments}.timecreated
-        
         $months = [];
         $data = [];
+        
+        // Generate last 6 months
         for ($i = 5; $i >= 0; $i--) {
-            $months[] = date('M', strtotime("-$i months"));
-            $data[] = rand(50, 150); // Mock data
+            $timestamp = strtotime("-$i months");
+            $month_start = strtotime("first day of this month 00:00:00", $timestamp);
+            $month_end = strtotime("last day of this month 23:59:59", $timestamp);
+            
+            $months[] = date('M', $timestamp);
+            
+            // Build Query
+            $params = ['start' => $month_start, 'end' => $month_end];
+            $sql_where = "ue.timecreated >= :start AND ue.timecreated <= :end";
+            
+            if (!empty($search)) {
+                $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+                $params['search'] = '%' . $search . '%';
+                $params['search2'] = '%' . $search . '%';
+            }
+
+            if ($category > 0) {
+                $sql_where .= " AND c.category = :category";
+                $params['category'] = $category;
+            }
+
+            $sql = "SELECT COUNT(ue.id) 
+                    FROM {user_enrolments} ue
+                    JOIN {enrol} e ON e.id = ue.enrolid
+                    JOIN {course} c ON c.id = e.courseid
+                    WHERE $sql_where";
+
+            $data[] = $DB->count_records_sql($sql, $params);
         }
 
         return [
@@ -376,7 +402,8 @@ class dashboard_data_loader {
         // Fixed: Ensure GROUP BY includes all non-aggregated columns
         $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
-                       COUNT(DISTINCT cc.userid) as completed
+                       COUNT(DISTINCT cc.userid) as completed,
+                       AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
                   FROM {course} c
                   JOIN {course_categories} cat ON cat.id = c.category
                   JOIN {enrol} e ON e.courseid = c.id
@@ -412,7 +439,8 @@ class dashboard_data_loader {
                 'enrolled' => $course->enrolled,
                 'completed' => $course->completed,
                 'progress' => $progress,
-                'avg_time' => rand(10, 40) . 'h', // Mock
+                'progress' => $progress,
+                'avg_time' => ($course->avg_duration > 0) ? round($course->avg_duration / 3600, 1) . 'h' : '-',
                 'status' => $status,
                 'status_class' => $status_class
             ];
