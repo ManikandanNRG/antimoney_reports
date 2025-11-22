@@ -106,15 +106,42 @@ try {
 }
 
 try {
-    $courses_list = $loader->get_comprehensive_course_list(20, $search_param, $category_param);
+    $comprehensive_courses = $loader->get_comprehensive_course_list(20, $search_param, $category_param);
 } catch (\Exception $e) {
-    $courses_list = [];
+    $comprehensive_courses = [];
 }
 
 try {
     $course_categories = $loader->get_course_categories();
 } catch (\Exception $e) {
     $course_categories = [];
+}
+
+// 9. Company Tab Data
+$company_search_param = optional_param('company_q', '', PARAM_TEXT);
+
+try {
+    $company_metrics = $loader->get_company_tab_metrics($company_search_param);
+} catch (\Exception $e) {
+    $company_metrics = ['total_companies' => 0, 'total_users' => 0, 'avg_completion' => 0, 'assigned_courses' => 0];
+}
+
+try {
+    $company_dist = $loader->get_company_distribution_chart();
+} catch (\Exception $e) {
+    $company_dist = [];
+}
+
+try {
+    $company_perf = $loader->get_company_performance_chart();
+} catch (\Exception $e) {
+    $company_perf = [];
+}
+
+try {
+    $company_list = $loader->get_company_analytics(20, $company_search_param);
+} catch (\Exception $e) {
+    $company_list = [];
 }
 
 echo $OUTPUT->header();
@@ -338,11 +365,12 @@ body {
         <!-- Filter Area -->
         <div class="filter-area" style="z-index: 3000;">
             <div class="filter-item">
-                <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
-                <input type="text" id="dateStart" class="filter-input" placeholder="Start Date" style="width: 100px;">
+                <i class="fa-regular fa-calendar" style="color: var(--accent-primary); cursor: pointer;" onclick="document.getElementById('dateStart').showPicker()"></i>
+                <input type="date" id="dateStart" class="filter-input" placeholder="Start Date" style="width: 140px;" value="<?php echo $start_param; ?>">
                 <span style="color: var(--text-secondary);">-</span>
-                <input type="text" id="dateEnd" class="filter-input" placeholder="End Date" style="width: 100px;">
+                <input type="date" id="dateEnd" class="filter-input" placeholder="End Date" style="width: 140px;" value="<?php echo $end_param; ?>">
             </div>
+
             <div class="filter-item">
                 <button class="filter-select quick-filter-btn" onclick="setDateFilter('1W')">1W</button>
                 <button class="filter-select quick-filter-btn" onclick="setDateFilter('1M')">1M</button>
@@ -350,12 +378,34 @@ body {
                 <button class="filter-select quick-filter-btn" onclick="setDateFilter('YTD')">YTD</button>
                 <button class="filter-select quick-filter-btn active" onclick="setDateFilter('ALL')">ALL</button>
             </div>
-            <div class="filter-item" style="margin-left: auto; position: relative;">
-                <button class="export-btn" onclick="toggleExportMenu()"><i class="fa-solid fa-download"></i> Export Report</button>
-                <div id="export-menu" class="dropdown-menu">
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')"><i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> Export PDF</div>
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'excel')"><i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export Excel</div>
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')"><i class="fa-solid fa-file-csv" style="color: #3b82f6;"></i> Export CSV</div>
+
+            <div class="filter-item">
+                <button class="export-btn" onclick="applyDateFilter()" style="padding: 6px 14px; font-size: 13px;">
+                    <i class="fa-solid fa-filter"></i> Apply
+                </button>
+                <button class="export-btn" onclick="clearAllFilters()" style="padding: 6px 14px; font-size: 13px; background: var(--accent-danger);">
+                    <i class="fa-solid fa-xmark"></i> Clear Filters
+                </button>
+            </div>
+
+            <div style="flex: 1;"></div>
+
+            <!-- Export Dropdown -->
+            <div style="position: relative;">
+                <button class="export-btn" onclick="toggleExportMenu()">
+                    <i class="fa-solid fa-download"></i> Export Report
+                    <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
+                </button>
+                <div class="dropdown-menu" id="exportDropdown">
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')">
+                        <i class="fa-solid fa-file-csv"></i> Export as CSV
+                    </div>
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'xlsx')">
+                        <i class="fa-solid fa-file-excel"></i> Export as Excel
+                    </div>
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')">
+                        <i class="fa-solid fa-file-pdf"></i> Export as PDF
+                    </div>
                 </div>
             </div>
         </div>
@@ -814,6 +864,133 @@ body {
             </div>
         </div>
         </div>
+        </div>
+</div>
+
+<!-- COMPANY TAB -->
+<div id="tab-companies" class="tab-content">
+    <div class="content-area">
+        <!-- Company Filter Bar -->
+        <div class="bento-card card-span-4" style="margin-bottom: 24px; padding: 16px 24px;">
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <div class="filter-item" style="flex: 1; min-width: 300px;">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-primary);"></i>
+                    <input type="text" class="filter-input" placeholder="Search Companies..." style="width: 100%; min-width: 250px;" id="companySearchInput">
+                </div>
+            </div>
+        </div>
+
+        <!-- Company KPIs -->
+        <div class="kpi-cards">
+            <div class="bento-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-building" style="color: var(--accent-primary);"></i> Total Companies</div>
+                </div>
+                <div class="card-value"><?php echo $company_metrics['total_companies']; ?></div>
+                <div class="card-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Active</div>
+            </div>
+
+            <div class="bento-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-success);"></i> Total Company Users</div>
+                </div>
+                <div class="card-value"><?php echo $company_metrics['total_users']; ?></div>
+                <div class="card-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Enrolled</div>
+            </div>
+
+            <div class="bento-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-chart-line" style="color: var(--accent-warning);"></i> Avg Completion</div>
+                </div>
+                <div class="card-value"><?php echo $company_metrics['avg_completion']; ?>%</div>
+                <div class="card-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Global</div>
+            </div>
+
+            <div class="bento-card">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-book-open" style="color: var(--accent-secondary);"></i> Assigned Courses</div>
+                </div>
+                <div class="card-value"><?php echo $company_metrics['assigned_courses']; ?></div>
+                <div class="card-trend trend-up"><i class="fa-solid fa-arrow-up"></i> Total</div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="bento-grid">
+            <!-- User Distribution Chart -->
+            <div class="bento-card card-span-2">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie"></i> User Distribution</div>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="companyUserDistChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Performance Leaderboard Chart -->
+            <div class="bento-card card-span-2">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-trophy"></i> Performance Leaderboard</div>
+                </div>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="companyPerfChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Company Performance Matrix Table -->
+        <div class="bento-grid">
+            <div class="bento-card card-span-4">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-table"></i> Company Performance Matrix</div>
+                    <button class="export-btn" onclick="triggerExport('course_completion', 'csv')">
+                        <i class="fa-solid fa-download"></i> Export CSV
+                    </button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th class="table-header">Company Name</th>
+                                <th class="table-header">Users</th>
+                                <th class="table-header">Courses</th>
+                                <th class="table-header">Enrollments</th>
+                                <th class="table-header">Completions</th>
+                                <th class="table-header">Progress</th>
+                                <th class="table-header" style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($company_list)): ?>
+                                <?php foreach ($company_list as $company): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo $company['name']; ?></td>
+                                    <td class="table-cell"><?php echo $company['users']; ?></td>
+                                    <td class="table-cell"><?php echo $company['courses']; ?></td>
+                                    <td class="table-cell"><?php echo $company['enrolled']; ?></td>
+                                    <td class="table-cell"><?php echo $company['completed']; ?></td>
+                                    <td class="table-cell">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <div class="progress-bar-slim" style="flex: 1;">
+                                                <div class="progress-fill" style="width: <?php echo $company['completion_rate']; ?>%; background: var(--accent-success);"></div>
+                                            </div>
+                                            <span style="font-size: 12px; color: var(--text-secondary); min-width: 40px;"><?php echo $company['completion_rate']; ?>%</span>
+                                        </div>
+                                    </td>
+                                    <td class="table-cell" style="text-align: right;">
+                                        <a href="#" class="action-link">View Report</a>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="7" class="table-cell" style="text-align: center;">No companies found.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -898,6 +1075,30 @@ function setDateFilter(range) {
     if (endElem) endElem.value = formatDate(today);
 
     console.log(`Filter applied: ${range}`);
+}
+
+// Apply Date Filter from date inputs
+function applyDateFilter() {
+    const startInput = document.getElementById('dateStart');
+    const endInput = document.getElementById('endEnd');
+    
+    if (startInput && endInput) {
+        const url = new URL(window.location.href);
+        if (startInput.value) {
+            url.searchParams.set('start', startInput.value);
+        }
+        if (endInput.value) {
+            url.searchParams.set('end', endInput.value);
+        }
+        window.location.href = url.toString();
+    }
+}
+
+// Clear All Filters
+function clearAllFilters() {
+    const baseUrl = window.location.origin + window.location.pathname;
+    localStorage.removeItem('activeTab');
+    window.location.href = baseUrl;
 }
 
 // Export Logic
@@ -1321,22 +1522,121 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- COMPANY TAB CHARTS ---
+    
+    // Company User Distribution (Doughnut)
+    const companyDistEl = document.getElementById('companyUserDistChart');
+    if (companyDistEl) {
+        const companyDistCtx = companyDistEl.getContext('2d');
+        const rawCompanyDist = <?php echo json_encode($company_dist); ?>;
+        const companyLabels = [];
+        const companyCounts = [];
+        
+        if (Array.isArray(rawCompanyDist)) {
+            rawCompanyDist.forEach(item => {
+                companyLabels.push(item.name);
+                companyCounts.push(item.count);
+            });
+        }
+
+        new Chart(companyDistCtx, {
+            type: 'doughnut',
+            data: {
+                labels: companyLabels,
+                datasets: [{
+                    data: companyCounts,
+                    backgroundColor: ['#6366f1', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 12 }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // Company Performance (Horizontal Bar)
+    const companyPerfEl = document.getElementById('companyPerfChart');
+    if (companyPerfEl) {
+        const companyPerfCtx = companyPerfEl.getContext('2d');
+        const rawCompanyPerf = <?php echo json_encode($company_perf); ?>;
+        const perfLabels = [];
+        const perfRates = [];
+        
+        if (Array.isArray(rawCompanyPerf)) {
+            rawCompanyPerf.forEach(item => {
+                perfLabels.push(item.name);
+                perfRates.push(item.rate);
+            });
+        }
+
+        new Chart(companyPerfCtx, {
+            type: 'bar',
+            data: {
+                labels: perfLabels,
+                datasets: [{
+                    label: 'Completion Rate (%)',
+                    data: perfRates,
+                    backgroundColor: '#10b981',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                        titleColor: '#94a3b8',
+                        bodyColor: '#f8fafc',
+                        borderColor: 'rgba(148, 163, 184, 0.1)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                        ticks: { color: '#94a3b8' }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: '#94a3b8' }
+                    }
+                }
+            }
+        });
+    }
+
     // --- FILTER LOGIC ---
     const searchInput = document.querySelector('#tab-courses .filter-input[placeholder*="Search"]');
     const catSelect = document.querySelector('#tab-courses .filter-select');
+    // Company Tab Filter
+    const companySearchInput = document.getElementById('companySearchInput');
     
-    function applyFilters() {
-        const search = searchInput.value;
-        const cat = catSelect.value;
+    function applyCompanyFilters() {
+        const search = companySearchInput.value;
         const url = new URL(window.location.href);
-        url.searchParams.set('q', search);
-        url.searchParams.set('cat', cat);
-        localStorage.setItem('activeTab', 'courses');
+        url.searchParams.set('company_q', search);
+        localStorage.setItem('activeTab', 'companies');
         window.location.href = url.toString();
     }
 
-    if (searchInput) searchInput.addEventListener('change', applyFilters);
-    if (catSelect) catSelect.addEventListener('change', applyFilters);
+    if (companySearchInput) companySearchInput.addEventListener('change', applyCompanyFilters);
 
     // Check for persisted tab
     const persistedTab = localStorage.getItem('activeTab');

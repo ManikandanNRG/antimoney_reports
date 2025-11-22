@@ -131,49 +131,212 @@ class dashboard_data_loader {
     }
 
     /**
-     * Get Company Analytics (Mocked for now, would join with IOMAD tables).
+     * Get Company Analytics with REAL data.
      */
-    public function get_company_analytics($limit = 5) {
+    public function get_company_analytics($limit = 5, $search = '') {
         global $DB;
         
-        // Check if IOMAD tables exist
-        $table_exists = $DB->get_manager()->table_exists('company');
-        
-        if (!$table_exists) {
+        if (!$DB->get_manager()->table_exists('company')) {
             return [];
+        }
+
+        $params = [];
+        $search_sql = '';
+        if (!empty($search)) {
+            $search_sql = " WHERE c.name LIKE :search";
+            $params['search'] = '%' . $search . '%';
         }
 
         $sql = "SELECT c.id, c.name, c.shortname,
                        (SELECT COUNT(*) FROM {company_users} cu WHERE cu.companyid = c.id) as users,
-                       (SELECT COUNT(*) FROM {company_course} cc WHERE cc.companyid = c.id) as courses
+                       (SELECT COUNT(*) FROM {company_course} cc WHERE cc.companyid = c.id) as courses,
+                       (SELECT COUNT(DISTINCT ue.id) 
+                        FROM {company_users} cu2
+                        JOIN {user_enrolments} ue ON ue.userid = cu2.userid
+                        WHERE cu2.companyid = c.id AND ue.status = 0) as enrolled,
+                       (SELECT COUNT(DISTINCT cc2.userid)
+                        FROM {company_users} cu3
+                        JOIN {course_completions} cc2 ON cc2.userid = cu3.userid
+                        WHERE cu3.companyid = c.id AND cc2.timecompleted > 0) as completed
                   FROM {company} c
+                  $search_sql
                  ORDER BY users DESC";
         
         try {
-            $companies = $DB->get_records_sql($sql, [], 0, $limit);
+            $companies = $DB->get_records_sql($sql, $params, 0, $limit);
         } catch (\Exception $e) {
             return [];
         }
         
         $rows = [];
         foreach ($companies as $company) {
-            // Mocking some data for now as complex joins are heavy
-            $enrolled = $company->users * 2; // Mock
-            $completed = floor($enrolled * 0.7); // Mock
-            $time = rand(10, 50) . 'h ' . rand(10, 59) . 'm'; // Mock
-
+            $completion_rate = ($company->enrolled > 0) ? round(($company->completed / $company->enrolled) * 100) : 0;
+            
             $rows[] = [
+                'id' => $company->id,
                 'name' => $company->name,
                 'courses' => $company->courses,
                 'users' => $company->users,
-                'enrolled' => $enrolled,
-                'completed' => $completed,
-                'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0,
-                'time' => $time
+                'enrolled' => $company->enrolled,
+                'completed' => $company->completed,
+                'completion_rate' => $completion_rate
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * Get Company Tab Metrics (KPIs).
+     */
+    public function get_company_tab_metrics($search = '') {
+        global $DB;
+        
+        if (!$DB->get_manager()->table_exists('company')) {
+            return [
+                'total_companies' => 0,
+                'total_users' => 0,
+                'avg_completion' => 0,
+                'assigned_courses' => 0
+            ];
+        }
+
+        $params = [];
+        $search_where = '';
+        $search_and = '';
+        if (!empty($search)) {
+            $search_where = " WHERE c.name LIKE :search";
+            $search_and = " AND c.name LIKE :search";
+            $params['search'] = '%' . $search . '%';
+        }
+
+        // Total Companies
+        $total_companies = $DB->count_records_sql("SELECT COUNT(c.id) FROM {company} c $search_where", $params);
+
+        // Total Users in Companies
+        $total_users = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cu.userid) 
+             FROM {company_users} cu
+             JOIN {company} c ON c.id = cu.companyid
+             $search_where",
+            $params
+        );
+
+        // Avg Completion Rate (Global)
+        $total_enrolled = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT ue.id)
+             FROM {company_users} cu
+             JOIN {company} c ON c.id = cu.companyid
+             JOIN {user_enrolments} ue ON ue.userid = cu.userid
+             WHERE ue.status = 0 $search_and",
+            $params
+        );
+
+        $total_completed = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cc.userid)
+             FROM {company_users} cu
+             JOIN {company} c ON c.id = cu.companyid
+             JOIN {course_completions} cc ON cc.userid = cu.userid
+             WHERE cc.timecompleted > 0 $search_and",
+            $params
+        );
+
+        $avg_completion = ($total_enrolled > 0) ? round(($total_completed / $total_enrolled) * 100, 1) : 0;
+
+        // Assigned Courses
+        $assigned_courses = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cc.courseid)
+             FROM {company_course} cc
+             JOIN {company} c ON c.id = cc.companyid
+             $search_where",
+            $params
+        );
+
+        return [
+            'total_companies' => $total_companies,
+            'total_users' => $total_users,
+            'avg_completion' => $avg_completion,
+            'assigned_courses' => $assigned_courses
+        ];
+    }
+
+    /**
+     * Get Company Distribution Chart (Top 5 by Users).
+     */
+    public function get_company_distribution_chart() {
+        global $DB;
+        
+        if (!$DB->get_manager()->table_exists('company')) {
+            return [];
+        }
+
+        $sql = "SELECT c.id, c.name,
+                       (SELECT COUNT(*) FROM {company_users} cu WHERE cu.companyid = c.id) as user_count
+                  FROM {company} c
+                 ORDER BY user_count DESC";
+        
+        try {
+            $companies = $DB->get_records_sql($sql, [], 0, 5);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($companies as $company) {
+            $result[] = [
+                'name' => $company->name,
+                'count' => $company->user_count
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get Company Performance Chart (Top 5 by Completion Rate).
+     */
+    public function get_company_performance_chart() {
+        global $DB;
+        
+        if (!$DB->get_manager()->table_exists('company')) {
+            return [];
+        }
+
+        $sql = "SELECT c.id, c.name,
+                       (SELECT COUNT(DISTINCT ue.id) 
+                        FROM {company_users} cu2
+                        JOIN {user_enrolments} ue ON ue.userid = cu2.userid
+                        WHERE cu2.companyid = c.id AND ue.status = 0) as enrolled,
+                       (SELECT COUNT(DISTINCT cc2.userid)
+                        FROM {company_users} cu3
+                        JOIN {course_completions} cc2 ON cc2.userid = cu3.userid
+                        WHERE cu3.companyid = c.id AND cc2.timecompleted > 0) as completed
+                  FROM {company} c
+                 ORDER BY c.id";
+        
+        try {
+            $companies = $DB->get_records_sql($sql);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $performance = [];
+        foreach ($companies as $company) {
+            if ($company->enrolled > 0) {
+                $rate = round(($company->completed / $company->enrolled) * 100, 1);
+                $performance[] = [
+                    'name' => $company->name,
+                    'rate' => $rate
+                ];
+            }
+        }
+
+        // Sort by rate descending and take top 5
+        usort($performance, function($a, $b) {
+            return $b['rate'] <=> $a['rate'];
+        });
+
+        return array_slice($performance, 0, 5);
     }
 
     /**
