@@ -131,22 +131,19 @@ class dashboard_data_loader {
     }
 
     /**
-     * Get Company Analytics Data.
-     *
-     * @param int $limit Number of rows
-     * @return array Table data
+     * Get Company Analytics (Mocked for now, would join with IOMAD tables).
      */
     public function get_company_analytics($limit = 5) {
         global $DB;
-
-        if (!$this->is_iomad_installed()) {
+        
+        // Check if IOMAD tables exist
+        $table_exists = $DB->get_manager()->table_exists('company');
+        
+        if (!$table_exists) {
             return [];
         }
 
-        // This is a simplified query for IOMAD companies
-        // In a real scenario, we would join with course completions and user enrolments
-        // FIX: Table is company_course, not company_courses
-        $sql = "SELECT c.id, c.shortname as name, 
+        $sql = "SELECT c.id, c.name, c.shortname,
                        (SELECT COUNT(*) FROM {company_users} cu WHERE cu.companyid = c.id) as users,
                        (SELECT COUNT(*) FROM {company_course} cc WHERE cc.companyid = c.id) as courses
                   FROM {company} c
@@ -155,7 +152,6 @@ class dashboard_data_loader {
         try {
             $companies = $DB->get_records_sql($sql, [], 0, $limit);
         } catch (\Exception $e) {
-            // Fallback or log error
             return [];
         }
         
@@ -164,7 +160,7 @@ class dashboard_data_loader {
             // Mocking some data for now as complex joins are heavy
             $enrolled = $company->users * 2; // Mock
             $completed = floor($enrolled * 0.7); // Mock
-            $time = rand(10, 50) . 'h'; // Mock
+            $time = rand(10, 50) . 'h ' . rand(10, 59) . 'm'; // Mock
 
             $rows[] = [
                 'name' => $company->name,
@@ -172,7 +168,65 @@ class dashboard_data_loader {
                 'users' => $company->users,
                 'enrolled' => $enrolled,
                 'completed' => $completed,
+                'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0,
                 'time' => $time
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Get Top Courses Analytics (Aggregated).
+     */
+    public function get_top_courses_analytics($limit = 10) {
+        global $DB;
+
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible,
+                       COUNT(DISTINCT ue.userid) as enrolled,
+                       COUNT(DISTINCT cc.userid) as completed
+                  FROM {course} c
+                  JOIN {enrol} e ON e.courseid = c.id
+                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+             LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                 WHERE c.id > 1
+              GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible
+              ORDER BY enrolled DESC";
+
+        try {
+            $courses = $DB->get_records_sql($sql, [], 0, $limit);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($courses as $course) {
+            $progress = ($course->enrolled > 0) ? round(($course->completed / $course->enrolled) * 100) : 0;
+            
+            // Determine Status
+            $status = 'Active';
+            $status_class = 'status-active';
+            
+            if ($course->visible == 0) {
+                $status = 'Retired';
+                $status_class = 'status-retired';
+            } elseif ($course->startdate > time()) {
+                $status = 'Upcoming';
+                $status_class = 'status-upcoming';
+            } elseif ($progress > 80) {
+                $status = 'Completed'; // Just for visual variety if high completion
+                $status_class = 'status-completed';
+            }
+
+            $rows[] = [
+                'id' => $course->id,
+                'fullname' => $course->fullname,
+                'shortname' => $course->shortname,
+                'enrolled' => $course->enrolled,
+                'completed' => $course->completed,
+                'progress' => $progress,
+                'status' => $status,
+                'status_class' => $status_class
             ];
         }
 

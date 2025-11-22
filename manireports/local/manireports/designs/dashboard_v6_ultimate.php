@@ -51,16 +51,28 @@ if ($end_param) {
 $loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
 
 // Fetch Data
+// 1. KPIs
 $kpi_data = $loader->get_admin_kpis();
-$company_data = $loader->get_company_analytics();
-$course_data = $loader->get_table_data('course_progress', 10);
+
+// 2. System Health
 $system_health = $loader->get_system_health();
+
+// 3. User Roles
 $role_data = $loader->get_user_roles_distribution();
+
+// 4. Trend Data
 $trend_data = $loader->get_completion_trends();
 
+// 5. Company Analytics (New Method)
+$company_data = $loader->get_company_analytics(5);
+
+// 6. Top Courses Analytics (New Method)
+$course_data = $loader->get_top_courses_analytics(10);
+
+// 7. Live Statistics
 try {
     $live_stats = $loader->get_live_statistics();
-} catch (Exception $e) {
+} catch (\Exception $e) {
     $live_stats = [
         'active_users' => 0,
         'peak_today' => 0,
@@ -205,17 +217,21 @@ body {
 .table-row:last-child { border-bottom: none; }
 .table-row:hover { background: rgba(99, 102, 241, 0.05); }
 .table-cell { padding: 16px 12px; color: var(--text-primary); }
-.status-badge { padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-.status-active { background: rgba(16, 185, 129, 0.2); color: var(--accent-success); }
-.status-inactive { background: rgba(239, 68, 68, 0.2); color: var(--accent-danger); }
-.status-warning { background: rgba(245, 158, 11, 0.2); color: var(--accent-warning); }
-.health-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--glass-border); }
-.health-item:last-child { border-bottom: none; }
-.health-info { display: flex; align-items: center; gap: 12px; }
-.health-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(255, 255, 255, 0.05); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); }
-.health-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
-.health-status { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-badge { padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; }
+.status-active { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2); }
+.status-inactive { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+.status-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.2); }
+.status-upcoming { background: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.2); }
+.status-completed { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.2); }
+.status-retired { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
+
+.progress-bar-slim { width: 100%; height: 6px; background: rgba(0,0,0,0.1); border-radius: 3px; overflow: hidden; position: relative; }
+[data-theme="light"] .progress-bar-slim { background: rgba(0,0,0,0.05); }
+.progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-in-out; }
+
+.action-link { color: var(--accent-primary); text-decoration: none; font-weight: 500; font-size: 13px; transition: var(--transition); }
+.action-link:hover { color: var(--accent-secondary); text-decoration: underline; }
+
 .dot-success { background: var(--accent-success); box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
 .dot-warning { background: var(--accent-warning); box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
 .dot-danger { background: var(--accent-danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
@@ -531,29 +547,46 @@ body {
                             <th class="table-header">Company Name</th>
                             <th class="table-header">Course Count</th>
                             <th class="table-header">User Count</th>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th class="table-header">Company Name</th>
+                            <th class="table-header">Courses</th>
+                            <th class="table-header">Users</th>
                             <th class="table-header">Enrolled</th>
                             <th class="table-header">Completed</th>
-                            <th class="table-header">Completion %</th>
-                            <th class="table-header">Avg Time Spent</th>
+                            <th class="table-header" style="width: 200px;">Completion %</th>
+                            <th class="table-header">Avg Time</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php
                         if (!empty($company_data)) {
                             foreach ($company_data as $company) {
-                                $completion_pct = ($company['enrolled'] > 0) ? round(($company['completed'] / $company['enrolled']) * 100) : 0;
+                                $pct = $company['completion_rate'];
+                                $color = '#3b82f6'; // Blue
+                                if ($pct > 70) $color = '#10b981'; // Green
+                                if ($pct < 40) $color = '#f59e0b'; // Amber
+
                                 echo '<tr class="table-row">
                                         <td class="table-cell" style="font-weight: 600;">' . $company['name'] . '</td>
                                         <td class="table-cell">' . $company['courses'] . '</td>
                                         <td class="table-cell">' . $company['users'] . '</td>
                                         <td class="table-cell">' . $company['enrolled'] . '</td>
                                         <td class="table-cell">' . $company['completed'] . '</td>
-                                        <td class="table-cell" style="color: var(--accent-success);">' . $completion_pct . '%</td>
+                                        <td class="table-cell">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div class="progress-bar-slim">
+                                                    <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
+                                                </div>
+                                                <span style="font-weight: 600; font-size: 12px; color: var(--text-primary);">' . $pct . '%</span>
+                                            </div>
+                                        </td>
                                         <td class="table-cell">' . $company['time'] . '</td>
                                       </tr>';
                             }
                         } else {
-                            echo '<tr><td colspan="7" class="table-cell">No company data available.</td></tr>';
+                            echo '<tr><td colspan="7" class="table-cell" style="text-align: center; padding: 24px; color: var(--text-secondary);">No company data available.</td></tr>';
                         }
                         ?>
                     </tbody>
@@ -564,31 +597,53 @@ body {
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Course Analytics (Top 10 Courses)</div>
+                    <a href="#" class="action-link">View All</a>
                 </div>
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr>
-                            <?php 
-                            if (!empty($course_data['headers'])) {
-                                foreach ($course_data['headers'] as $header) {
-                                    echo '<th class="table-header">' . $header . '</th>';
-                                }
-                            }
-                            ?>
+                            <th class="table-header">Course Name</th>
+                            <th class="table-header">Enrolled</th>
+                            <th class="table-header">Completed</th>
+                            <th class="table-header" style="width: 200px;">Progress</th>
+                            <th class="table-header">Status</th>
+                            <th class="table-header" style="text-align: right;">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php
-                        if (!empty($course_data['rows'])) {
-                            foreach ($course_data['rows'] as $row) {
-                                echo '<tr class="table-row">';
-                                foreach ($row as $cell) {
-                                    echo '<td class="table-cell">' . $cell . '</td>';
-                                }
-                                echo '</tr>';
+                        if (!empty($course_data)) {
+                            foreach ($course_data as $course) {
+                                $pct = $course['progress'];
+                                $color = '#3b82f6'; // Blue
+                                if ($pct > 70) $color = '#10b981'; // Green
+                                if ($pct < 40) $color = '#f59e0b'; // Amber
+
+                                echo '<tr class="table-row">
+                                        <td class="table-cell">
+                                            <div style="font-weight: 600;">' . $course['fullname'] . '</div>
+                                            <div style="font-size: 11px; color: var(--text-secondary);">' . $course['shortname'] . '</div>
+                                        </td>
+                                        <td class="table-cell">' . $course['enrolled'] . '</td>
+                                        <td class="table-cell">' . $course['completed'] . '</td>
+                                        <td class="table-cell">
+                                            <div style="display: flex; align-items: center; gap: 12px;">
+                                                <div class="progress-bar-slim">
+                                                    <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
+                                                </div>
+                                                <span style="font-weight: 600; font-size: 12px; color: var(--text-primary);">' . $pct . '%</span>
+                                            </div>
+                                        </td>
+                                        <td class="table-cell">
+                                            <span class="status-badge ' . $course['status_class'] . '">' . $course['status'] . '</span>
+                                        </td>
+                                        <td class="table-cell" style="text-align: right;">
+                                            <a href="#" class="action-link">View</a>
+                                        </td>
+                                      </tr>';
                             }
                         } else {
-                            echo '<tr><td colspan="5" class="table-cell">No course data available.</td></tr>';
+                            echo '<tr><td colspan="6" class="table-cell" style="text-align: center; padding: 24px; color: var(--text-secondary);">No course data available.</td></tr>';
                         }
                         ?>
                     </tbody>
