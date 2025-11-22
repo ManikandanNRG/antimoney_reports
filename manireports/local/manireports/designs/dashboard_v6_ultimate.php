@@ -841,8 +841,8 @@ body {
                             </tr>
                         </thead>
                         <tbody>
-                            <?php if (!empty($courses_list)): ?>
-                                <?php foreach ($courses_list as $course): ?>
+                            <?php if (!empty($comprehensive_courses)): ?>
+                                <?php foreach ($comprehensive_courses as $course): ?>
                                 <tr class="table-row">
                                     <td class="table-cell" style="font-weight: 600;"><?php echo $course['fullname']; ?></td>
                                     <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $course['category']; ?></td>
