@@ -181,6 +181,7 @@ body {
 .filter-area {
     padding: 20px 40px; background: var(--glass-bg); border-bottom: 1px solid var(--glass-border);
     backdrop-filter: blur(10px); display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+    position: relative; z-index: 1000; overflow: visible; /* Ensure it stacks above content and isn't clipped */
 }
 .filter-item { display: flex; align-items: center; gap: 8px; }
 .filter-select, .filter-input {
@@ -285,7 +286,7 @@ body {
 .dropdown-menu {
     display: none; position: absolute; top: 100%; right: 0; margin-top: 8px;
     background: var(--glass-bg); border: 1px solid var(--glass-border);
-    border-radius: 12px; padding: 8px; z-index: 1000; min-width: 180px;
+    border-radius: 12px; padding: 8px; z-index: 2000; min-width: 180px;
     backdrop-filter: blur(10px); box-shadow: var(--card-shadow);
     overflow: hidden; /* Prevent scrollbars */
 }
@@ -335,7 +336,7 @@ body {
         </div>
 
         <!-- Filter Area -->
-        <div class="filter-area">
+        <div class="filter-area" style="z-index: 3000;">
             <div class="filter-item">
                 <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
                 <input type="text" id="dateStart" class="filter-input" placeholder="Start Date" style="width: 100px;">
@@ -725,10 +726,6 @@ body {
                         <option value="0">All Categories</option>
                         <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
                     </select>
-                </div>
-                <div class="filter-item">
-                     <div class="status-badge status-active" style="cursor: pointer;">Active</div>
-                     <div class="status-badge status-retired" style="cursor: pointer; opacity: 0.5;">Past</div>
                 </div>
             </div>
 
