@@ -760,6 +760,7 @@ body {
             </div>
 
             </div>
+        </div>
 
         <!-- COURSES TAB -->
         <div id="tab-courses" class="tab-content">
