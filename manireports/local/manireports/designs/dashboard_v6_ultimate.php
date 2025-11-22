@@ -282,6 +282,18 @@ body {
     .filter-area { padding: 16px 20px; }
     .tab-menu { padding: 12px 20px; }
 }
+.dropdown-menu {
+    display: none; position: absolute; top: 100%; right: 0; margin-top: 8px;
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: 12px; padding: 8px; z-index: 100; min-width: 180px;
+    backdrop-filter: blur(10px); box-shadow: var(--card-shadow);
+}
+.dropdown-item {
+    padding: 10px 16px; border-radius: 8px; cursor: pointer;
+    color: var(--text-primary); font-size: 13px; display: flex; align-items: center; gap: 10px;
+    transition: var(--transition);
+}
+.dropdown-item:hover { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
 </style>
 
 <!-- Dashboard Container -->
@@ -336,8 +348,13 @@ body {
                 <button class="filter-select quick-filter-btn" onclick="setDateFilter('YTD')">YTD</button>
                 <button class="filter-select quick-filter-btn active" onclick="setDateFilter('ALL')">ALL</button>
             </div>
-            <div class="filter-item" style="margin-left: auto;">
-                <button class="export-btn"><i class="fa-solid fa-download"></i> Export Report</button>
+            <div class="filter-item" style="margin-left: auto; position: relative;">
+                <button class="export-btn" onclick="toggleExportMenu()"><i class="fa-solid fa-download"></i> Export Report</button>
+                <div id="export-menu" class="dropdown-menu">
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')"><i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i> Export PDF</div>
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'excel')"><i class="fa-solid fa-file-excel" style="color: #10b981;"></i> Export Excel</div>
+                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')"><i class="fa-solid fa-file-csv" style="color: #3b82f6;"></i> Export CSV</div>
+                </div>
             </div>
         </div>
 
@@ -755,7 +772,7 @@ body {
                 <div class="bento-card card-span-4">
                     <div class="card-header">
                         <div class="card-title">Comprehensive Course List</div>
-                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;">Export CSV</button>
+                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="triggerExport('course_completion', 'csv')">Export CSV</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead>
@@ -884,6 +901,35 @@ function setDateFilter(range) {
 
     console.log(`Filter applied: ${range}`);
 }
+
+// Export Logic
+function toggleExportMenu() {
+    const menu = document.getElementById('export-menu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+function triggerExport(reportType, format) {
+    const baseUrl = '/local/manireports/ui/export.php';
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    
+    // Construct URL
+    let url = `${baseUrl}?report=${reportType}&format=${format}`;
+    if (dateStart) url += `&datefrom=${dateStart}`;
+    if (dateEnd) url += `&dateto=${dateEnd}`;
+    
+    // Open in new tab
+    window.open(url, '_blank');
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', function(event) {
+    const menu = document.getElementById('export-menu');
+    const btn = document.querySelector('.export-btn[onclick="toggleExportMenu()"]');
+    if (menu && btn && !menu.contains(event.target) && !btn.contains(event.target)) {
+        menu.style.display = 'none';
+    }
+});
 
 document.addEventListener('DOMContentLoaded', function() {
     const commonOptions = {
@@ -1057,7 +1103,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const isLightMode = document.body.getAttribute('data-theme') === 'light';
     const gapColor = isLightMode ? '#ffffff' : '#1e293b';
     const gapWidth = 4; 
-
+    
     const roleChartEl = document.getElementById('chartUserRoles');
     if (roleChartEl) {
         window.userRolesChart = new Chart(roleChartEl, {
