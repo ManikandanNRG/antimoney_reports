@@ -61,7 +61,11 @@ class CloudJobManager {
 
         try {
             $job = $DB->get_record('manireports_cloud_jobs', ['id' => $job_id], '*', MUST_EXIST);
-            $connector = new connectors\AwsConnector($job->company_id);
+            
+            // Get Company Settings
+            $settings = $DB->get_record('manireports_cloud_conf', ['company_id' => $job->company_id], '*', MUST_EXIST);
+            
+            $connector = new connectors\AwsConnector($settings);
             
             // Get recipients
             $recipients = $DB->get_records('manireports_cloud_recip', ['job_id' => $job_id]);
