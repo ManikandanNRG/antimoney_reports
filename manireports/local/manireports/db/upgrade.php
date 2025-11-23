@@ -203,46 +203,4 @@ function xmldb_local_manireports_upgrade_cloud_offload($oldversion) {
         $table->add_field('error_log', XMLDB_TYPE_TEXT, null, null, null, null, null);
         $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
         $table->add_key('company_id', XMLDB_KEY_FOREIGN, array('company_id'), 'company', array('id'));
-
-        if (!$dbman->table_exists($table)) {
-            $dbman->create_table($table);
-        }
-
-        // Define table manireports_cloud_recipients.
-        $table = new xmldb_table('manireports_cloud_recipients');
-        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('job_id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('email', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('recipient_data', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        $table->add_field('status', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('sent_at', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
-        $table->add_field('error_message', XMLDB_TYPE_TEXT, null, null, null, null, null);
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
-        $table->add_key('job_id', XMLDB_KEY_FOREIGN, array('job_id'), 'manireports_cloud_jobs', array('id'));
-
-        if (!$dbman->table_exists($table)) {
-            $dbman->create_table($table);
-        }
-
-        // Define table manireports_cloud_company_settings.
-        $table = new xmldb_table('manireports_cloud_company_settings');
-        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('company_id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('provider', XMLDB_TYPE_CHAR, '50', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('aws_access_key', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        $table->add_field('aws_secret_key', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        $table->add_field('aws_region', XMLDB_TYPE_CHAR, '50', null, null, null, null);
-        $table->add_field('sqs_queue_url', XMLDB_TYPE_CHAR, '500', null, null, null, null);
-        $table->add_field('ses_sender_email', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        $table->add_field('cloudflare_api_token', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        $table->add_field('cloudflare_account_id', XMLDB_TYPE_CHAR, '255', null, null, null, null);
-        $table->add_field('enabled', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
-        $table->add_key('company_id', XMLDB_KEY_FOREIGN, array('company_id'), 'company', array('id'));
-
-        if (!$dbman->table_exists($table)) {
-            $dbman->create_table($table);
-        }
-
-        upgrade_plugin_savepoint(true, 2024111705, 'local', 'manireports');
     }

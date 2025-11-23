@@ -212,12 +212,12 @@ if (optional_param('action', '', PARAM_ALPHA) === 'savesettings' && data_submitt
         $settings->cloudflare_account_id = required_param('cloudflare_account_id', PARAM_TEXT);
     }
 
-    $existing = $DB->get_record('manireports_cloud_company_settings', ['company_id' => $settings->company_id]);
+    $existing = $DB->get_record('manireports_cloud_conf', ['company_id' => $settings->company_id]);
     if ($existing) {
         $settings->id = $existing->id;
-        $DB->update_record('manireports_cloud_company_settings', $settings);
+        $DB->update_record('manireports_cloud_conf', $settings);
     } else {
-        $DB->insert_record('manireports_cloud_company_settings', $settings);
+        $DB->insert_record('manireports_cloud_conf', $settings);
     }
     // Redirect to avoid resubmission
     redirect(new moodle_url('/local/manireports/designs/dashboard_v6_ultimate.php', ['companyid' => $settings->company_id]), 'Settings saved', null, \core\output\notification::NOTIFY_SUCCESS);

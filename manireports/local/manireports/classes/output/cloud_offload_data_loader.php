@@ -112,7 +112,7 @@ class cloud_offload_data_loader {
      */
     public function get_company_settings($companyid) {
         global $DB;
-        return $DB->get_record('manireports_cloud_company_settings', ['company_id' => $companyid]);
+        return $DB->get_record('manireports_cloud_conf', ['company_id' => $companyid]);
     }
 
     /**

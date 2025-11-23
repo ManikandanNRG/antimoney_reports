@@ -303,7 +303,7 @@
       </KEYS>
     </TABLE>
 
-    <TABLE NAME="manireports_cloud_recipients" COMMENT="Stores individual recipients for cloud jobs">
+    <TABLE NAME="manireports_cloud_recip" COMMENT="Stores individual recipients for cloud jobs">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="job_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Reference to cloud job"/>
@@ -319,7 +319,7 @@
       </KEYS>
     </TABLE>
 
-    <TABLE NAME="manireports_cloud_company_settings" COMMENT="Stores per-company cloud provider settings">
+    <TABLE NAME="manireports_cloud_conf" COMMENT="Stores per-company cloud provider settings">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="company_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="IOMAD Company ID"/>
