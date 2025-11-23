@@ -69,7 +69,10 @@ class EmailOffloadHandler {
                 $temp_password = $raw_password;
                 error_log("CloudOffload: Found password in request params.");
             } else {
-                error_log("CloudOffload: No password found in request params either. Skipping.");
+                // Auto-generated password case: Moodle generates it internally and hashes it.
+                // We cannot retrieve it to send via Cloud.
+                // We must let Moodle handle this email (or skip offload).
+                error_log("CloudOffload: No password found (likely auto-generated). Skipping Cloud Offload for this user to allow Moodle to send the standard email.");
                 return;
             }
         }

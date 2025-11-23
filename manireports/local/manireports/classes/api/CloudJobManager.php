@@ -30,7 +30,41 @@ class CloudJobManager {
         $job->status = 'pending';
         $job->email_count = count($recipients);
         $job->company_id = $company_id;
-            $recipients = $DB->get_records('manireports_cloud_recipients', ['job_id' => $job_id]);
+        $job->created_at = time();
+        
+        $job_id = $DB->insert_record('manireports_cloud_jobs', $job);
+
+        // Insert recipients
+        foreach ($recipients as $recipient) {
+            $recip = new \stdClass();
+            $recip->job_id = $job_id;
+            $recip->email = $recipient['email'];
+            // Store other data as JSON
+            unset($recipient['email']);
+            $recip->recipient_data = json_encode($recipient);
+            $recip->status = 'pending';
+            
+            $DB->insert_record('manireports_cloud_recip', $recip);
+        }
+
+        return $job_id;
+    }
+
+    /**
+     * Submits a job to the cloud provider.
+     *
+     * @param int $job_id
+     * @return bool
+     */
+    public function submit_job(int $job_id): bool {
+        global $DB;
+
+        try {
+            $job = $DB->get_record('manireports_cloud_jobs', ['id' => $job_id], '*', MUST_EXIST);
+            $connector = new connectors\AwsConnector($job->company_id);
+            
+            // Get recipients
+            $recipients = $DB->get_records('manireports_cloud_recip', ['job_id' => $job_id]);
             
             // Prepare payload
             $payload = [
