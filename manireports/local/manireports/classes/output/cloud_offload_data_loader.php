@@ -92,9 +92,11 @@ class cloud_offload_data_loader {
         $failed_today = $DB->count_records_select('manireports_cloud_jobs', "$where AND status IN ('failed', 'partial_failure') AND completed_at >= $today_start", $params);
 
         // Total Emails Sent (Today) - Sum of emails_sent column
+        // Total Emails Sent (Today) - Sum of emails_sent column
         $emails_sent_today = 0;
-        $sql = "SELECT SUM(emails_sent) FROM {manireports_cloud_jobs} WHERE $where AND completed_at >= :today";
-        $emails_sent_today = $DB->count_records_sql($sql, array_merge($params, ['today' => $today_start])); // count_records_sql returns the first field
+        // Use COALESCE to ensure we get 0 instead of NULL if no records match
+        $sql = "SELECT COALESCE(SUM(emails_sent), 0) FROM {manireports_cloud_jobs} WHERE $where AND completed_at >= :today";
+        $emails_sent_today = $DB->get_field_sql($sql, array_merge($params, ['today' => $today_start]));
 
         return [
             'active_jobs' => $active,

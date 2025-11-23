@@ -739,12 +739,6 @@ body {
                     <thead>
                         <tr>
                             <th class="table-header">Company Name</th>
-                            <th class="table-header">Course Count</th>
-                            <th class="table-header">User Count</th>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th class="table-header">Company Name</th>
                             <th class="table-header">Courses</th>
                             <th class="table-header">Users</th>
                             <th class="table-header">Enrolled</th>
@@ -855,9 +849,103 @@ body {
                     <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
                     <input type="text" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);">
                 </div>
+                <div class="filter-item">
+                    <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
+                    <input type="text" class="filter-input" placeholder="Start Date" style="width: 110px;">
+                    <span style="color: var(--text-secondary);">-</span>
+                    <input type="text" class="filter-input" placeholder="End Date" style="width: 110px;">
+                </div>
+                <div class="filter-item">
+                    <select class="filter-select">
+                        <option value="0">All Categories</option>
+                        <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
+                    </select>
+                </div>
             </div>
-            <!-- Course Tab Content (Placeholder for now) -->
-            <div class="alert alert-info">Course tab content goes here...</div>
+
+            <div class="bento-grid">
+                <!-- Row 1: KPIs -->
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-book-open" style="color: var(--accent-primary);"></i> Active Courses</div>
+                    <div class="card-value"><?php echo $courses_metrics['active_courses']; ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i> Avg Completion</div>
+                    <div class="card-value"><?php echo $courses_metrics['avg_completion']; ?>%</div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Enrollments</div>
+                    <div class="card-value"><?php echo number_format($courses_metrics['total_enrollments']); ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-title"><i class="fa-solid fa-certificate" style="color: var(--accent-secondary);"></i> Certificates</div>
+                    <div class="card-value"><?php echo number_format($courses_metrics['certificates']); ?></div>
+                </div>
+
+                <!-- Row 2: Charts -->
+                <div class="bento-card card-span-3">
+                    <div class="card-header">
+                        <div class="card-title">Enrollment Trends</div>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="enrollmentTrendChart"></canvas>
+                    </div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-header">
+                        <div class="card-title">Categories</div>
+                    </div>
+                    <div style="height: 300px;">
+                        <canvas id="categoryDistChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Row 3: Advanced Table -->
+                <div class="bento-card card-span-4">
+                    <div class="card-header">
+                        <div class="card-title">Comprehensive Course List</div>
+                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="triggerExport('course_completion', 'csv')">Export CSV</button>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th class="table-header">Course Name</th>
+                                <th class="table-header">Category</th>
+                                <th class="table-header">Enrolled</th>
+                                <th class="table-header">Completed</th>
+                                <th class="table-header" style="width: 150px;">Progress</th>
+                                <th class="table-header">Avg Time</th>
+                                <th class="table-header">Status</th>
+                                <th class="table-header" style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (!empty($comprehensive_courses)): ?>
+                                <?php foreach ($comprehensive_courses as $course): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo $course['fullname']; ?></td>
+                                    <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $course['category']; ?></td>
+                                    <td class="table-cell"><?php echo $course['enrolled']; ?></td>
+                                    <td class="table-cell"><?php echo $course['completed']; ?></td>
+                                    <td class="table-cell">
+                                        <div class="progress-bar-slim">
+                                            <div class="progress-fill" style="width: <?php echo $course['progress']; ?>%; background: var(--accent-primary);"></div>
+                                        </div>
+                                    </td>
+                                    <td class="table-cell"><?php echo $course['avg_time']; ?></td>
+                                    <td class="table-cell"><span class="status-badge <?php echo $course['status_class']; ?>"><?php echo $course['status']; ?></span></td>
+                                    <td class="table-cell" style="text-align: right;">
+                                        <a href="#" class="action-link">View Report</a>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr><td colspan="8" class="table-cell" style="text-align: center;">No courses found.</td></tr>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <!-- EMAIL OFFLOAD TAB -->
@@ -1019,105 +1107,9 @@ body {
                     <?php endif; ?>
                 </div>
             </div>
-                <div class="filter-item">
-                    <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
-                    <input type="text" class="filter-input" placeholder="Start Date" style="width: 110px;">
-                    <span style="color: var(--text-secondary);">-</span>
-                    <input type="text" class="filter-input" placeholder="End Date" style="width: 110px;">
-                </div>
-                <div class="filter-item">
-                    <select class="filter-select">
-                        <option value="0">All Categories</option>
-                        <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
-                    </select>
-                </div>
-            </div>
 
-            <div class="bento-grid">
-                <!-- Row 1: KPIs -->
-                <div class="bento-card card-span-1">
-                    <div class="card-title"><i class="fa-solid fa-book-open" style="color: var(--accent-primary);"></i> Active Courses</div>
-                    <div class="card-value"><?php echo $courses_metrics['active_courses']; ?></div>
-                </div>
-                <div class="bento-card card-span-1">
-                    <div class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i> Avg Completion</div>
-                    <div class="card-value"><?php echo $courses_metrics['avg_completion']; ?>%</div>
-                </div>
-                <div class="bento-card card-span-1">
-                    <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Enrollments</div>
-                    <div class="card-value"><?php echo number_format($courses_metrics['total_enrollments']); ?></div>
-                </div>
-                <div class="bento-card card-span-1">
-                    <div class="card-title"><i class="fa-solid fa-certificate" style="color: var(--accent-secondary);"></i> Certificates</div>
-                    <div class="card-value"><?php echo number_format($courses_metrics['certificates']); ?></div>
-                </div>
-
-                <!-- Row 2: Charts -->
-                <div class="bento-card card-span-3">
-                    <div class="card-header">
-                        <div class="card-title">Enrollment Trends</div>
-                    </div>
-                    <div style="height: 300px;">
-                        <canvas id="enrollmentTrendChart"></canvas>
-                    </div>
-                </div>
-                <div class="bento-card card-span-1">
-                    <div class="card-header">
-                        <div class="card-title">Categories</div>
-                    </div>
-                    <div style="height: 300px;">
-                        <canvas id="categoryDistChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- Row 3: Advanced Table -->
-                <div class="bento-card card-span-4">
-                    <div class="card-header">
-                        <div class="card-title">Comprehensive Course List</div>
-                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="triggerExport('course_completion', 'csv')">Export CSV</button>
-                    </div>
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                <th class="table-header">Course Name</th>
-                                <th class="table-header">Category</th>
-                                <th class="table-header">Enrolled</th>
-                                <th class="table-header">Completed</th>
-                                <th class="table-header" style="width: 150px;">Progress</th>
-                                <th class="table-header">Avg Time</th>
-                                <th class="table-header">Status</th>
-                                <th class="table-header" style="text-align: right;">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($comprehensive_courses)): ?>
-                                <?php foreach ($comprehensive_courses as $course): ?>
-                                <tr class="table-row">
-                                    <td class="table-cell" style="font-weight: 600;"><?php echo $course['fullname']; ?></td>
-                                    <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $course['category']; ?></td>
-                                    <td class="table-cell"><?php echo $course['enrolled']; ?></td>
-                                    <td class="table-cell"><?php echo $course['completed']; ?></td>
-                                    <td class="table-cell">
-                                        <div class="progress-bar-slim">
-                                            <div class="progress-fill" style="width: <?php echo $course['progress']; ?>%; background: var(--accent-primary);"></div>
-                                        </div>
-                                    </td>
-                                    <td class="table-cell"><?php echo $course['avg_time']; ?></td>
-                                    <td class="table-cell"><span class="status-badge <?php echo $course['status_class']; ?>"><?php echo $course['status']; ?></span></td>
-                                    <td class="table-cell" style="text-align: right;">
-                                        <a href="#" class="action-link">View Report</a>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr><td colspan="8" class="table-cell" style="text-align: center;">No courses found.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
-</div>
+
 
 <!-- COMPANY TAB -->
 <div id="tab-companies" class="tab-content">
@@ -1241,7 +1233,7 @@ body {
             </div>
         </div>
     </div>
-</div>
+
 
             <!-- USERS TAB -->
             <div id="tab-users" class="tab-content">
@@ -1393,9 +1385,14 @@ body {
                     </div>
                     <?php endif; ?>
                 </div>
-</div>
-</div>
-</div>
+            </div>
+
+            <!-- REPORTS TAB -->
+            <div id="tab-reports" class="tab-content">
+                <div class="alert alert-info">Reports content coming soon...</div>
+            </div>
+        </div>
+    </div>
 
 <script>
 
