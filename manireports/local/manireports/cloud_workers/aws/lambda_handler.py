@@ -1,7 +1,7 @@
 import json
 import boto3
 import os
-import requests
+import urllib.request
 from botocore.exceptions import ClientError
 
 # Initialize AWS clients
@@ -49,7 +49,12 @@ def process_emails(recipients, job_type):
     failed_count = 0
     errors = []
     
-    sender_email = os.environ.get('SES_SENDER_EMAIL', 'noreply@example.com')
+    # SES_SENDER_EMAIL is required for production. 
+    # If not set, it defaults to a dummy, which will likely fail in SES unless verified.
+    sender_email = os.environ.get('SES_SENDER_EMAIL')
+    if not sender_email:
+        print("WARNING: SES_SENDER_EMAIL env var not set. Using default 'noreply@example.com'")
+        sender_email = 'noreply@example.com'
     
     for recipient in recipients:
         try:
@@ -127,7 +132,7 @@ def compose_email(job_type, data):
 
 def send_callback(job_id, results):
     """
-    Sends a callback to Moodle with the results.
+    Sends a callback to Moodle with the results using urllib (standard lib).
     """
     moodle_url = os.environ.get('MOODLE_CALLBACK_URL')
     moodle_token = os.environ.get('MOODLE_TOKEN')
@@ -145,11 +150,14 @@ def send_callback(job_id, results):
     }
     
     try:
-        response = requests.post(
-            moodle_url,
-            json=payload,
-            headers={'Authorization': f'Bearer {moodle_token}'}
-        )
-        print(f"Callback sent: {response.status_code}")
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(moodle_url, data=data, headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {moodle_token}'
+        })
+        
+        with urllib.request.urlopen(req) as response:
+            print(f"Callback sent: {response.getcode()}")
+            
     except Exception as e:
         print(f"Failed to send callback: {str(e)}")
