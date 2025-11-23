@@ -1235,6 +1235,8 @@ body {
     </div>
 
 
+    </div>
+
             <!-- USERS TAB -->
             <div id="tab-users" class="tab-content">
                 <!-- KPI Cards -->
