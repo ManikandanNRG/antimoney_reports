@@ -17,6 +17,7 @@ error_reporting(E_ALL);
 
 require_once(__DIR__ . '/../../../config.php');
 require_once(__DIR__ . '/../classes/output/dashboard_data_loader.php');
+require_once(__DIR__ . '/../classes/output/cloud_offload_data_loader.php');
 require_login();
 
 $context = context_system::instance();
@@ -163,7 +164,63 @@ try {
     $users_pagination = $users_list_data['pagination'];
 } catch (\Exception $e) {
     $users_list = [];
+    $users_list = [];
     $users_pagination = ['total_records' => 0, 'total_pages' => 0, 'current_page' => 1, 'per_page' => 10];
+}
+
+// 11. Cloud Offload Data (Email & Certificates)
+$cloud_loader = new \local_manireports\output\cloud_offload_data_loader($USER->id);
+
+// Email Tab Data
+$email_stats = $cloud_loader->get_job_stats('email');
+$active_email_jobs = $cloud_loader->get_cloud_jobs('email', 'active', 5);
+$email_history = $cloud_loader->get_cloud_jobs('email', 'history', 10);
+
+// Certificate Tab Data
+$cert_stats = $cloud_loader->get_job_stats('certificate');
+$active_cert_jobs = $cloud_loader->get_cloud_jobs('certificate', 'active', 5);
+$cert_history = $cloud_loader->get_cloud_jobs('certificate', 'history', 10);
+
+// Settings Data (Company List)
+$companies_list = $cloud_loader->get_companies();
+$selected_company_id = optional_param('companyid', 0, PARAM_INT);
+$company_settings = null;
+if ($selected_company_id) {
+    $company_settings = $cloud_loader->get_company_settings($selected_company_id);
+} else if (!empty($companies_list)) {
+    // Default to first company
+    $first_company = reset($companies_list);
+    $selected_company_id = $first_company->id;
+    $company_settings = $cloud_loader->get_company_settings($selected_company_id);
+}
+
+// Handle Settings Save (if posted)
+if (optional_param('action', '', PARAM_ALPHA) === 'savesettings' && data_submitted() && confirm_sesskey()) {
+    $settings = new stdClass();
+    $settings->company_id = required_param('company_id', PARAM_INT);
+    $settings->provider = required_param('provider', PARAM_ALPHA);
+    $settings->enabled = optional_param('enabled', 0, PARAM_INT);
+    
+    if ($settings->provider === 'aws') {
+        $settings->aws_access_key = required_param('aws_access_key', PARAM_TEXT);
+        $settings->aws_secret_key = required_param('aws_secret_key', PARAM_TEXT);
+        $settings->aws_region = required_param('aws_region', PARAM_TEXT);
+        $settings->sqs_queue_url = required_param('sqs_queue_url', PARAM_URL);
+        $settings->ses_sender_email = required_param('ses_sender_email', PARAM_EMAIL);
+    } elseif ($settings->provider === 'cloudflare') {
+        $settings->cloudflare_api_token = required_param('cloudflare_api_token', PARAM_TEXT);
+        $settings->cloudflare_account_id = required_param('cloudflare_account_id', PARAM_TEXT);
+    }
+
+    $existing = $DB->get_record('manireports_cloud_company_settings', ['company_id' => $settings->company_id]);
+    if ($existing) {
+        $settings->id = $existing->id;
+        $DB->update_record('manireports_cloud_company_settings', $settings);
+    } else {
+        $DB->insert_record('manireports_cloud_company_settings', $settings);
+    }
+    // Redirect to avoid resubmission
+    redirect(new moodle_url('/local/manireports/designs/dashboard_v6_ultimate.php', ['companyid' => $settings->company_id]), 'Settings saved', null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
 // DEBUG: Check company data
@@ -390,8 +447,8 @@ body {
             <div class="tab-item" onclick="switchTab('courses')"><i class="fa-solid fa-book-open"></i> Courses</div>
             <div class="tab-item" onclick="switchTab('companies')"><i class="fa-solid fa-building"></i> Companies</div>
             <div class="tab-item" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Users</div>
-            <div class="tab-item" onclick="switchTab('email')"><i class="fa-solid fa-envelope"></i> Email</div>
-            <div class="tab-item" onclick="switchTab('certificates')"><i class="fa-solid fa-certificate"></i> Certificates</div>
+            <div class="tab-item" onclick="switchTab('email')"><i class="fa-solid fa-envelope"></i> Email Offload</div>
+            <div class="tab-item" onclick="switchTab('certificates')"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
             <div class="tab-item" onclick="switchTab('reports')"><i class="fa-solid fa-file-lines"></i> Reports</div>
         </div>
 
@@ -798,6 +855,170 @@ body {
                     <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
                     <input type="text" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);">
                 </div>
+            </div>
+            <!-- Course Tab Content (Placeholder for now) -->
+            <div class="alert alert-info">Course tab content goes here...</div>
+        </div>
+
+        <!-- EMAIL OFFLOAD TAB -->
+        <div id="tab-email" class="tab-content">
+            <!-- KPIs -->
+            <div class="kpi-cards">
+                <div class="bento-card card-span-1">
+                    <div class="card-header"><div class="card-title">Active Jobs</div></div>
+                    <div class="card-value"><?php echo $email_stats['active_jobs']; ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-header"><div class="card-title">Sent Today</div></div>
+                    <div class="card-value"><?php echo $email_stats['sent_today']; ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-header"><div class="card-title">Failed Today</div></div>
+                    <div class="card-value"><?php echo $email_stats['failed_today']; ?></div>
+                </div>
+            </div>
+
+            <div class="bento-grid">
+                <!-- Active Jobs Table -->
+                <div class="bento-card card-span-2">
+                    <div class="card-header"><div class="card-title">Active Email Jobs</div></div>
+                    <?php if ($active_email_jobs): ?>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead><tr><th class="table-header">ID</th><th class="table-header">Type</th><th class="table-header">Status</th><th class="table-header">Progress</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($active_email_jobs as $job): 
+                                    $progress = $job->email_count > 0 ? round(($job->emails_sent / $job->email_count) * 100) : 0;
+                                ?>
+                                <tr class="table-row">
+                                    <td class="table-cell"><?php echo $job->id; ?></td>
+                                    <td class="table-cell"><?php echo $job->type; ?></td>
+                                    <td class="table-cell"><span class="status-badge status-active"><?php echo $job->status; ?></span></td>
+                                    <td class="table-cell">
+                                        <div class="progress-bar-slim"><div class="progress-fill" style="width: <?php echo $progress; ?>%; background: var(--accent-primary);"></div></div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">No active jobs.</div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Job History Table -->
+                <div class="bento-card card-span-2">
+                    <div class="card-header"><div class="card-title">Job History</div></div>
+                    <?php if ($email_history): ?>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead><tr><th class="table-header">ID</th><th class="table-header">Type</th><th class="table-header">Status</th><th class="table-header">Completed</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($email_history as $job): 
+                                    $status_class = $job->status === 'completed' ? 'status-completed' : 'status-inactive';
+                                ?>
+                                <tr class="table-row">
+                                    <td class="table-cell"><?php echo $job->id; ?></td>
+                                    <td class="table-cell"><?php echo $job->type; ?></td>
+                                    <td class="table-cell"><span class="status-badge <?php echo $status_class; ?>"><?php echo $job->status; ?></span></td>
+                                    <td class="table-cell"><?php echo userdate($job->completed_at); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">No job history.</div>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Settings Form -->
+                <div class="bento-card card-span-4">
+                    <div class="card-header"><div class="card-title">Email Offload Configuration</div></div>
+                    <form method="get" class="form-inline mb-3">
+                        <label class="mr-2">Select Company:</label>
+                        <select name="companyid" class="filter-select" onchange="this.form.submit()">
+                            <?php foreach ($companies_list as $comp): 
+                                $selected = ($comp->id == $selected_company_id) ? 'selected' : '';
+                            ?>
+                                <option value="<?php echo $comp->id; ?>" <?php echo $selected; ?>><?php echo $comp->name; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+
+                    <?php if ($selected_company_id): ?>
+                        <form method="post" action="">
+                            <input type="hidden" name="action" value="savesettings">
+                            <input type="hidden" name="sesskey" value="<?php echo sesskey(); ?>">
+                            <input type="hidden" name="company_id" value="<?php echo $selected_company_id; ?>">
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div>
+                                    <div class="form-group" style="margin-bottom: 15px;">
+                                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Enable Cloud Offload</label>
+                                        <input type="checkbox" name="enabled" value="1" <?php echo ($company_settings && $company_settings->enabled) ? 'checked' : ''; ?>>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 15px;">
+                                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary);">Provider</label>
+                                        <select name="provider" class="filter-select" style="width: 100%;">
+                                            <option value="aws" <?php echo ($company_settings && $company_settings->provider == 'aws') ? 'selected' : ''; ?>>AWS (SQS + SES)</option>
+                                            <option value="cloudflare" <?php echo ($company_settings && $company_settings->provider == 'cloudflare') ? 'selected' : ''; ?>>Cloudflare (Workers)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h6 style="color: var(--text-primary); margin-bottom: 10px;">AWS Credentials</h6>
+                                    <input type="text" name="aws_access_key" class="filter-input" style="width: 100%; margin-bottom: 10px;" placeholder="Access Key" value="<?php echo $company_settings->aws_access_key ?? ''; ?>">
+                                    <input type="password" name="aws_secret_key" class="filter-input" style="width: 100%; margin-bottom: 10px;" placeholder="Secret Key" value="<?php echo $company_settings->aws_secret_key ?? ''; ?>">
+                                    <input type="text" name="aws_region" class="filter-input" style="width: 100%; margin-bottom: 10px;" placeholder="Region (e.g. us-east-1)" value="<?php echo $company_settings->aws_region ?? 'us-east-1'; ?>">
+                                    <input type="text" name="sqs_queue_url" class="filter-input" style="width: 100%; margin-bottom: 10px;" placeholder="SQS Queue URL" value="<?php echo $company_settings->sqs_queue_url ?? ''; ?>">
+                                    <input type="text" name="ses_sender_email" class="filter-input" style="width: 100%; margin-bottom: 10px;" placeholder="SES Sender Email" value="<?php echo $company_settings->ses_sender_email ?? ''; ?>">
+                                </div>
+                            </div>
+                            <button type="submit" class="export-btn" style="margin-top: 20px;">Save Configuration</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <!-- CERTIFICATES TAB (Similar structure, using cert data) -->
+        <div id="tab-certificates" class="tab-content">
+             <!-- KPIs -->
+             <div class="kpi-cards">
+                <div class="bento-card card-span-1">
+                    <div class="card-header"><div class="card-title">Active Cert Jobs</div></div>
+                    <div class="card-value"><?php echo $cert_stats['active_jobs']; ?></div>
+                </div>
+                <div class="bento-card card-span-1">
+                    <div class="card-header"><div class="card-title">Generated Today</div></div>
+                    <div class="card-value"><?php echo $cert_stats['completed_today']; ?></div>
+                </div>
+            </div>
+            
+            <div class="bento-grid">
+                 <!-- Active Cert Jobs Table -->
+                 <div class="bento-card card-span-2">
+                    <div class="card-header"><div class="card-title">Active Certificate Jobs</div></div>
+                    <?php if ($active_cert_jobs): ?>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead><tr><th class="table-header">ID</th><th class="table-header">Status</th><th class="table-header">Progress</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($active_cert_jobs as $job): 
+                                    $progress = $job->email_count > 0 ? round(($job->emails_sent / $job->email_count) * 100) : 0;
+                                ?>
+                                <tr class="table-row">
+                                    <td class="table-cell"><?php echo $job->id; ?></td>
+                                    <td class="table-cell"><span class="status-badge status-active"><?php echo $job->status; ?></span></td>
+                                    <td class="table-cell">
+                                        <div class="progress-bar-slim"><div class="progress-fill" style="width: <?php echo $progress; ?>%; background: var(--accent-secondary);"></div></div>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <div style="padding: 20px; text-align: center; color: var(--text-secondary);">No active certificate jobs.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
                 <div class="filter-item">
                     <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
                     <input type="text" class="filter-input" placeholder="Start Date" style="width: 110px;">
