@@ -18,22 +18,6 @@ Before testing, ensure the database schema has been updated to include the new c
     ```bash
     php admin/cli/purge_caches.php
     ```
-
-## 2. Configuration
-
-You need to enable cloud offload for a specific company and provide the necessary credentials.
-
-1.  **Access the Dashboard**:
-    Navigate to the ManiReports Dashboard V6 (`/local/manireports/designs/dashboard_v6_ultimate.php`).
-
-2.  **Go to "Email Offload" Tab**:
-    Click on the **"Email Offload"** tab in the dashboard navigation.
-
-3.  **Select a Company**:
-    Use the "Select Company" dropdown to choose the company you want to configure (e.g., "Test Company").
-
-4.  **Enter Provider Settings**:
-    *   **Enable Cloud Offload**: Check the box.
     *   **Provider**: Select **AWS (SQS + SES)** (or Cloudflare if applicable).
     *   **AWS Credentials**:
         *   **Access Key**: Your AWS Access Key ID.

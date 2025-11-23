@@ -23,24 +23,26 @@ class EmailOffloadHandler {
         global $DB;
 
         $user_id = $event->objectid;
+        error_log("CloudOffload: Event triggered for user $user_id");
+
         $user = $DB->get_record('user', ['id' => $user_id]);
 
         if (!$user) {
+            error_log("CloudOffload: User $user_id not found in DB");
             return;
         }
 
-        // Check if this is part of a bulk operation (simple heuristic: check recent creations)
-        // For now, we assume if cloud offload is enabled for the company, we offload ALL new user emails
-        // to ensure consistency, or we can implement a "bulk detection" logic.
-        
         // Determine Company ID (IOMAD specific)
         $company_id = self::get_user_company($user_id);
         if (!$company_id) {
+            error_log("CloudOffload: No company found for user $user_id");
             return; // Not an IOMAD user or no company
         }
+        error_log("CloudOffload: User $user_id belongs to company $company_id");
 
         // Check if offload is enabled for this company
         if (!self::is_offload_enabled($company_id)) {
+            error_log("CloudOffload: Offload NOT enabled for company $company_id");
             return;
         }
 
@@ -51,11 +53,27 @@ class EmailOffloadHandler {
         // If no temp password, it might be a normal registration or manual creation without temp pass.
         // But for CSV upload, it should be there.
         if (empty($temp_password)) {
-            // Fallback: Check if we can get it from the event data or other means?
-            // If we can't get the password, we can't send the "Welcome" email with credentials.
-            // We might skip offload in this case to be safe.
-            return;
+            error_log("CloudOffload: No 'iomad_temporary' preference. Checking request params for password.");
+            
+            // Fallback: Check Request Params (for GUI creation)
+            // Debug: Log all request keys to see what we have
+            error_log("CloudOffload: Request Keys: " . implode(', ', array_keys($_REQUEST)));
+            
+            // Moodle/IOMAD forms often use 'newpassword' or 'password'
+            $raw_password = optional_param('newpassword', '', PARAM_RAW);
+            if (empty($raw_password)) {
+                $raw_password = optional_param('password', '', PARAM_RAW);
+            }
+
+            if (!empty($raw_password)) {
+                $temp_password = $raw_password;
+                error_log("CloudOffload: Found password in request params.");
+            } else {
+                error_log("CloudOffload: No password found in request params either. Skipping.");
+                return;
+            }
         }
+        error_log("CloudOffload: Found temp password for user $user_id. Creating job.");
 
         // 2. Create Cloud Job
         $manager = new CloudJobManager();
@@ -69,6 +87,7 @@ class EmailOffloadHandler {
         ];
 
         $job_id = $manager->create_job('user_created', [$recipient], $company_id);
+        error_log("CloudOffload: Job created with ID $job_id");
         $manager->submit_job($job_id);
 
         // 3. Suppress Default Email (IOMAD Specific)
@@ -128,7 +147,7 @@ class EmailOffloadHandler {
      */
     private static function is_offload_enabled(int $company_id): bool {
         global $DB;
-        $settings = $DB->get_record('manireports_cloud_company_settings', ['company_id' => $company_id]);
+        $settings = $DB->get_record('manireports_cloud_conf', ['company_id' => $company_id]);
         return $settings && $settings->enabled;
     }
 
@@ -140,8 +159,20 @@ class EmailOffloadHandler {
      */
     private static function get_user_company(int $user_id) {
         global $DB;
-        // IOMAD stores user-company relation in mdl_company_users
+        // 1. Try DB lookup (works for existing users or if IOMAD inserted already)
         $record = $DB->get_record('company_users', ['userid' => $user_id]);
-        return $record ? $record->companyid : false;
+        if ($record) {
+            return $record->companyid;
+        }
+
+        // 2. Fallback: Check Request Params (for GUI creation where DB might not be ready yet)
+        // IOMAD forms usually pass 'companyid' or 'company'
+        $company_id = optional_param('companyid', 0, PARAM_INT);
+        if ($company_id) {
+            error_log("CloudOffload: Found company ID $company_id from request params");
+            return $company_id;
+        }
+
+        return false;
     }
 }
