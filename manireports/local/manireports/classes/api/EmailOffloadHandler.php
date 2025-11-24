@@ -198,12 +198,14 @@ class EmailOffloadHandler {
         // 3. Suppress Default Email (IOMAD Specific)
         // IOMAD queues emails in 'mdl_email'. We need to delete the pending email for this user.
         // We look for emails created very recently for this user.
+        // Suppress using userid and modifiedtime (based on provided schema)
         try {
-            $DB->delete_records_select('email', "userid = ? AND timecreated > ?", [$user->id, time() - 120]);
+            $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$user->id, time() - 120]);
             error_log("CloudOffload: Suppressed default Moodle email for user {$user->id}");
         } catch (\Exception $e) {
             // If suppression fails, it's not critical. The user might get a duplicate email, but that's better than a crash.
-            error_log("CloudOffload: Warning - Failed to suppress default email for user {$user->id}: " . $e->getMessage());
+            $debug_info = (isset($e->debuginfo)) ? " Debug: " . $e->debuginfo : "";
+            error_log("CloudOffload: Warning - Failed to suppress default email for user {$user->id}: " . $e->getMessage() . $debug_info);
         }
     }
 
@@ -299,7 +301,13 @@ class EmailOffloadHandler {
         $manager->submit_job($job_id);
 
         // 6. Suppress Default Email
-        $DB->delete_records_select('email', "userid = ? AND timecreated > ?", [$userid, time() - 60]);
+        // Suppress using userid and modifiedtime (based on provided schema)
+        try {
+            $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$userid, time() - 60]);
+        } catch (\Exception $e) {
+             // Log but continue
+             error_log("CloudOffload: Warning - Failed to suppress email for user $userid: " . $e->getMessage());
+        }
     }
 
     /**
