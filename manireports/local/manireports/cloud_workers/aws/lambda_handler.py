@@ -48,6 +48,7 @@ def process_emails(recipients, job_type):
     sent_count = 0
     failed_count = 0
     errors = []
+    recipient_results = []
     
     # SES_SENDER_EMAIL is required for production. 
     # If not set, it defaults to a dummy, which will likely fail in SES unless verified.
@@ -57,8 +58,10 @@ def process_emails(recipients, job_type):
         sender_email = 'noreply@example.com'
     
     for recipient in recipients:
+        email_address = recipient['email']
+        result = {'email': email_address, 'status': 'pending'}
+        
         try:
-            email_address = recipient['email']
             recipient_data = json.loads(recipient['recipient_data'])
             
             # Compose email based on job type
@@ -86,22 +89,32 @@ def process_emails(recipients, job_type):
             
             print(f"Email sent to {email_address}: {response['MessageId']}")
             sent_count += 1
+            result['status'] = 'sent'
+            result['message_id'] = response['MessageId']
             
         except ClientError as e:
             error_msg = e.response['Error']['Message']
             print(f"Failed to send to {recipient.get('email')}: {error_msg}")
             failed_count += 1
             errors.append(f"{recipient.get('email')}: {error_msg}")
+            result['status'] = 'failed'
+            result['error'] = error_msg
+            
         except Exception as e:
             print(f"General error for {recipient.get('email')}: {str(e)}")
             failed_count += 1
             errors.append(f"{recipient.get('email')}: {str(e)}")
+            result['status'] = 'failed'
+            result['error'] = str(e)
+            
+        recipient_results.append(result)
             
     return {
         'status': 'completed' if failed_count == 0 else 'partial_failure',
         'emails_sent': sent_count,
         'emails_failed': failed_count,
-        'errors': errors
+        'errors': errors,
+        'recipients': recipient_results
     }
 
 def compose_email(job_type, data):
@@ -135,7 +148,8 @@ def send_callback(job_id, results):
     Sends a callback to Moodle with the results using urllib (standard lib).
     """
     moodle_url = os.environ.get('MOODLE_CALLBACK_URL')
-    moodle_token = os.environ.get('MOODLE_TOKEN')
+    # Use MOODLE_CALLBACK_TOKEN which should match the aws_secret_key in Moodle
+    moodle_token = os.environ.get('MOODLE_CALLBACK_TOKEN')
     
     if not moodle_url:
         print("Skipping callback: MOODLE_CALLBACK_URL not set")
@@ -144,16 +158,17 @@ def send_callback(job_id, results):
     payload = {
         'job_id': job_id,
         'status': results['status'],
+        'token': moodle_token,
         'emails_sent': results['emails_sent'],
         'emails_failed': results['emails_failed'],
-        'errors': results['errors']
+        'errors': results['errors'],
+        'recipients': results['recipients']
     }
     
     try:
         data = json.dumps(payload).encode('utf-8')
         req = urllib.request.Request(moodle_url, data=data, headers={
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {moodle_token}'
+            'Content-Type': 'application/json'
         })
         
         with urllib.request.urlopen(req) as response:

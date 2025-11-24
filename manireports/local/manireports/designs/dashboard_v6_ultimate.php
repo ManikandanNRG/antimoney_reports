@@ -998,7 +998,7 @@ body {
                     <div class="card-header"><div class="card-title">Job History</div></div>
                     <?php if ($email_history): ?>
                         <table style="width: 100%; border-collapse: collapse;">
-                            <thead><tr><th class="table-header">ID</th><th class="table-header">Type</th><th class="table-header">Status</th><th class="table-header">Completed</th></tr></thead>
+                            <thead><tr><th class="table-header">ID</th><th class="table-header">Type</th><th class="table-header">Status</th><th class="table-header">Completed</th><th class="table-header" style="text-align: right;">Actions</th></tr></thead>
                             <tbody>
                                 <?php foreach ($email_history as $job): 
                                     $status_class = $job->status === 'completed' ? 'status-completed' : 'status-inactive';
@@ -1008,6 +1008,9 @@ body {
                                     <td class="table-cell"><?php echo $job->type; ?></td>
                                     <td class="table-cell"><span class="status-badge <?php echo $status_class; ?>"><?php echo $job->status; ?></span></td>
                                     <td class="table-cell"><?php echo userdate($job->completed_at); ?></td>
+                                    <td class="table-cell" style="text-align: right;">
+                                        <button class="action-link" style="background:none; border:none; cursor:pointer;" onclick="viewJobDetails(<?php echo $job->id; ?>)">View Details</button>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -2087,6 +2090,70 @@ document.addEventListener('DOMContentLoaded', function() {
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 </style>
+
+<!-- Job Details Modal -->
+<div id="jobDetailsModal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; align-items: center; justify-content: center;">
+    <div class="bento-card" style="width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+        <div class="card-header" style="padding: 24px; border-bottom: 1px solid var(--glass-border);">
+            <div class="card-title">Job Details</div>
+            <button onclick="closeJobModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div style="padding: 24px; overflow-y: auto; flex: 1;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th class="table-header">Email</th>
+                        <th class="table-header">Status</th>
+                        <th class="table-header">Sent At</th>
+                        <th class="table-header">Error</th>
+                    </tr>
+                </thead>
+                <tbody id="jobDetailsBody">
+                    <!-- Content loaded via AJAX -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewJobDetails(jobId) {
+    const modal = document.getElementById('jobDetailsModal');
+    const tbody = document.getElementById('jobDetailsBody');
+    modal.style.display = 'flex';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Loading...</td></tr>';
+
+    fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_job_details.php?job_id=' + jobId + '&sesskey=<?php echo sesskey(); ?>')
+        .then(response => response.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            if (data.recipients && data.recipients.length > 0) {
+                data.recipients.forEach(recip => {
+                    let statusColor = recip.status === 'sent' ? 'var(--accent-success)' : 'var(--accent-danger)';
+                    let row = `
+                        <tr class="table-row">
+                            <td class="table-cell">${recip.email}</td>
+                            <td class="table-cell"><span style="color: ${statusColor}; font-weight: 600;">${recip.status}</span></td>
+                            <td class="table-cell">${recip.sent_at}</td>
+                            <td class="table-cell" style="color: var(--accent-danger); font-size: 12px;">${recip.error_msg || '-'}</td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+            } else {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">No details available.</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--accent-danger);">Error loading details.</td></tr>';
+        });
+}
+
+function closeJobModal() {
+    document.getElementById('jobDetailsModal').style.display = 'none';
+}
+</script>
 
 <?php
 echo $OUTPUT->footer();

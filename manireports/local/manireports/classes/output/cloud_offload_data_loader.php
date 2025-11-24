@@ -129,4 +129,15 @@ class cloud_offload_data_loader {
         }
         return [];
     }
+
+    /**
+     * Get recipients for a specific job.
+     *
+     * @param int $job_id
+     * @return array Recipient records
+     */
+    public function get_job_recipients($job_id) {
+        global $DB;
+        return $DB->get_records('manireports_cloud_recip', ['job_id' => $job_id]);
+    }
 }

@@ -142,7 +142,26 @@ class CloudJobManager {
         $DB->update_record('manireports_cloud_jobs', $update);
 
         // Update individual recipients if detailed status provided
-        // (This depends on the granularity of the callback from the worker)
+        if (!empty($data['recipients'])) {
+            foreach ($data['recipients'] as $recip_data) {
+                $recip_record = $DB->get_record('manireports_cloud_recip', ['job_id' => $job_id, 'email' => $recip_data['email']]);
+                if ($recip_record) {
+                    $recip_update = new \stdClass();
+                    $recip_update->id = $recip_record->id;
+                    $recip_update->status = $recip_data['status']; // 'sent' or 'failed'
+                    
+                    if ($recip_data['status'] === 'sent') {
+                        $recip_update->sent_at = time();
+                    }
+                    
+                    if (!empty($recip_data['error'])) {
+                        $recip_update->error_message = $recip_data['error'];
+                    }
+                    
+                    $DB->update_record('manireports_cloud_recip', $recip_update);
+                }
+            }
+        }
     }
 
     /**
