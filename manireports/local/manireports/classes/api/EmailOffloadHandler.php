@@ -15,6 +15,18 @@ defined('MOODLE_INTERNAL') || die();
 class EmailOffloadHandler {
 
     /**
+     * Queue of user IDs to process on shutdown (to handle race conditions).
+     * @var array
+     */
+    private static $user_queue = [];
+
+    /**
+     * Flag to ensure shutdown function is registered only once.
+     * @var bool
+     */
+    private static $shutdown_registered = false;
+
+    /**
      * Handles the user_created event (CSV Import).
      *
      * @param \core\event\user_created $event
@@ -47,17 +59,33 @@ class EmailOffloadHandler {
         }
 
         // 1. Retrieve Temporary Password (IOMAD Specific)
-        // IOMAD stores it in user_preferences with key 'iomad_temporary'
-        $temp_password = get_user_preferences('iomad_temporary', null, $user_id);
+        // IOMAD stores it in user_preferences with key 'iomad_temporary' (Encrypted)
+        $temp_password_enc = get_user_preferences('iomad_temporary', null, $user_id);
+        $temp_password = null;
 
-        // If no temp password, it might be a normal registration or manual creation without temp pass.
-        // But for CSV upload, it should be there.
+        if (!empty($temp_password_enc)) {
+             error_log("CloudOffload: Found encrypted 'iomad_temporary' preference for user $user_id.");
+             
+             // Decrypt using IOMAD's native method
+             if (class_exists('\company_user')) {
+                 $temp_password = \company_user::rc4decrypt($temp_password_enc);
+                 if ($temp_password) {
+                     error_log("CloudOffload: Successfully decrypted temporary password.");
+                 } else {
+                     error_log("CloudOffload: Decryption returned empty result.");
+                 }
+             } else {
+                 error_log("CloudOffload: CRITICAL - \company_user class not found. Cannot decrypt password.");
+             }
+        }
+
+        // If no temp password from preference, check request params (GUI fallback)
         if (empty($temp_password)) {
-            error_log("CloudOffload: No 'iomad_temporary' preference. Checking request params for password.");
+            error_log("CloudOffload: No 'iomad_temporary' preference (or decryption failed). Checking request params for password.");
             
             // Fallback: Check Request Params (for GUI creation)
             // Debug: Log all request keys to see what we have
-            error_log("CloudOffload: Request Keys: " . implode(', ', array_keys($_REQUEST)));
+            // error_log("CloudOffload: Request Keys: " . implode(', ', array_keys($_REQUEST)));
             
             // Moodle/IOMAD forms often use 'newpassword' or 'password'
             $raw_password = optional_param('newpassword', '', PARAM_RAW);
@@ -69,14 +97,77 @@ class EmailOffloadHandler {
                 $temp_password = $raw_password;
                 error_log("CloudOffload: Found password in request params.");
             } else {
-                // Auto-generated password case: Moodle generates it internally and hashes it.
-                // We cannot retrieve it to send via Cloud.
-                // We must let Moodle handle this email (or skip offload).
-                error_log("CloudOffload: No password found (likely auto-generated). Skipping Cloud Offload for this user to allow Moodle to send the standard email.");
+                // [RACE CONDITION FIX]
+                // For CSV uploads, the 'iomad_temporary' preference is set AFTER this event fires.
+                // We must queue this user and check again at the end of the script execution.
+                error_log("CloudOffload: No password found immediately. Queuing user $user_id for shutdown processing (CSV race condition handling).");
+                
+                self::$user_queue[] = $user_id;
+                
+                if (!self::$shutdown_registered) {
+                    register_shutdown_function(['\local_manireports\api\EmailOffloadHandler', 'process_queue']);
+                    self::$shutdown_registered = true;
+                    error_log("CloudOffload: Registered shutdown function for queue processing.");
+                }
                 return;
             }
         }
-        error_log("CloudOffload: Found temp password for user $user_id. Creating job.");
+        
+        // If we found the password immediately (GUI or pre-set), process now.
+        self::process_single_user_offload($user, $company_id, $temp_password);
+    }
+
+    /**
+     * Processes the queue of users at shutdown.
+     */
+    public static function process_queue() {
+        global $DB;
+        
+        if (empty(self::$user_queue)) {
+            return;
+        }
+
+        error_log("CloudOffload: Processing shutdown queue for " . count(self::$user_queue) . " users.");
+
+        foreach (self::$user_queue as $user_id) {
+            error_log("CloudOffload: Processing queued user $user_id");
+            
+            $user = $DB->get_record('user', ['id' => $user_id]);
+            if (!$user) continue;
+
+            $company_id = self::get_user_company($user_id);
+            if (!$company_id) continue;
+
+            // Try to get password again (should be saved now)
+            $temp_password_enc = get_user_preferences('iomad_temporary', null, $user_id);
+            $temp_password = null;
+
+            if (!empty($temp_password_enc)) {
+                 if (class_exists('\company_user')) {
+                     $temp_password = \company_user::rc4decrypt($temp_password_enc);
+                     error_log("CloudOffload: [Queue] Successfully decrypted password for user $user_id.");
+                 }
+            }
+
+            if ($temp_password) {
+                self::process_single_user_offload($user, $company_id, $temp_password);
+            } else {
+                error_log("CloudOffload: [Queue] Still no password found for user $user_id. Skipping offload.");
+            }
+        }
+    }
+
+    /**
+     * Helper to process the offload for a single user.
+     * 
+     * @param \stdClass $user
+     * @param int $company_id
+     * @param string $password
+     */
+    private static function process_single_user_offload($user, $company_id, $password) {
+        global $DB;
+        
+        error_log("CloudOffload: Creating job for user {$user->id} with password.");
 
         // 2. Create Cloud Job
         $manager = new CloudJobManager();
@@ -85,7 +176,7 @@ class EmailOffloadHandler {
             'firstname' => $user->firstname,
             'lastname' => $user->lastname,
             'username' => $user->username,
-            'password' => $temp_password, // Sending the temp password
+            'password' => $password, // Sending the temp password
             'loginurl' => new \moodle_url('/login/index.php')
         ];
 
@@ -96,7 +187,7 @@ class EmailOffloadHandler {
         // 3. Suppress Default Email (IOMAD Specific)
         // IOMAD queues emails in 'mdl_email'. We need to delete the pending email for this user.
         // We look for emails created very recently for this user.
-        $DB->delete_records_select('email', "userid = ? AND timecreated > ?", [$user_id, time() - 60]);
+        $DB->delete_records_select('email', "userid = ? AND timecreated > ?", [$user->id, time() - 120]);
     }
 
     /**
