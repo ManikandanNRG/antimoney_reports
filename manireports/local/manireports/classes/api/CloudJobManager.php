@@ -88,8 +88,13 @@ class CloudJobManager {
             }
 
         } catch (\Exception $e) {
-            $this->log_error($job_id, "Submission failed: " . $e->getMessage());
-            $this->update_job_status($job_id, 'failed');
+            // Try to log to DB, but fallback to system log if DB fails
+            try {
+                $this->log_error($job_id, "Submission failed: " . $e->getMessage());
+                $this->update_job_status($job_id, 'failed');
+            } catch (\Exception $db_e) {
+                error_log("CloudOffload: CRITICAL - Failed to log error to DB for Job $job_id. Original Error: " . $e->getMessage() . ". DB Error: " . $db_e->getMessage());
+            }
             return false;
         }
     }

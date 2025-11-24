@@ -162,7 +162,8 @@ class EmailOffloadHandler {
                     error_log("CloudOffload: [Queue] Still no password found for user $user_id. Skipping offload.");
                 }
             } catch (\Exception $e) {
-                error_log("CloudOffload: [Queue] Exception processing user $user_id: " . $e->getMessage());
+                $debug_info = (isset($e->debuginfo)) ? " Debug: " . $e->debuginfo : "";
+                error_log("CloudOffload: [Queue] Exception processing user $user_id: " . $e->getMessage() . $debug_info);
             }
         }
     }
