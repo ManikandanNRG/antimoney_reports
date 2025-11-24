@@ -40,9 +40,15 @@ class AwsConnector {
     private function initialize_client() {
         // Check if AWS SDK is available
         if (!class_exists('Aws\Sqs\SqsClient')) {
-            // In a real scenario, we might want to load a local vendor autoloader here
-            // require_once($CFG->dirroot . '/local/manireports/vendor/autoload.php');
-            throw new \moodle_exception('awssdkmissing', 'local_manireports');
+            global $CFG;
+            if (file_exists($CFG->dirroot . '/local/manireports/vendor/autoload.php')) {
+                require_once($CFG->dirroot . '/local/manireports/vendor/autoload.php');
+            }
+            
+            // Check again after trying to load
+            if (!class_exists('Aws\Sqs\SqsClient')) {
+                throw new \moodle_exception('awssdkmissing', 'local_manireports');
+            }
         }
 
         try {
