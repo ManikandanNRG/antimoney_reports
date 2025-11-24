@@ -57,4 +57,22 @@ We are performing a "man-in-the-middle" operation. We let Moodle do the heavy li
 **A: No, because `mdl_email` is a Queue, not a Log.**
 *   **Moodle's Behavior:** When Moodle successfully sends an email via Cron, **it deletes the record from `mdl_email`**. It does not keep it.
 *   **The "To-Do" List:** Think of `mdl_email` as a "To-Do List", not a "History Book". If an item is on the list, Moodle *will* try to do it. If we leave it there, Moodle will send it.
-*   **The Real Log:** Moodle does not keep a permanent table of "Sent Emails" content. That is why our **Cloud Jobs** table (`manireports_cloud_jobs`) is so important—it provides a history that Moodle itself does not natively offer.
+### 3. Bulk Uploads & Fallbacks (The 2000 User Scenario)
+**Q: What happens if I upload a CSV with 2000 users? What if AWS is slow or the script times out?**
+
+**A: The system is designed to "Fail Safe" to ensure no user is left behind.**
+
+1.  **The Batch Process:**
+    *   When you upload a CSV, our plugin queues the users in memory instead of processing them instantly.
+    *   Once the CSV is fully read, we process the queue and send jobs to AWS one by one.
+
+2.  **Handling Delays:**
+    *   **AWS Delay:** We only wait for AWS to accept the message (~50ms), not for the email to be delivered. So 2000 users takes roughly 100 seconds.
+    *   **Timeout Risk:** If the script times out (e.g., after 300s) halfway through, the remaining users are simply left in Moodle's `mdl_email` queue.
+
+3.  **The Fallback Safety Net:**
+    *   **AWS Down?** If `submit_job` returns false, we **skip** the suppression step. Moodle sends the email.
+    *   **Script Crash/Timeout?** The suppression step is never reached for the remaining users. Moodle sends the email.
+    *   **Success?** Only when AWS confirms receipt do we delete the Moodle email.
+
+**Result:** In a worst-case scenario, Moodle's default mailer acts as the backup, ensuring every user gets their credentials.
