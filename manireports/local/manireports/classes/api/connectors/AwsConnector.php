@@ -41,13 +41,30 @@ class AwsConnector {
         // Check if AWS SDK is available
         if (!class_exists('Aws\Sqs\SqsClient')) {
             global $CFG;
-            if (file_exists($CFG->dirroot . '/local/manireports/vendor/autoload.php')) {
-                require_once($CFG->dirroot . '/local/manireports/vendor/autoload.php');
+            
+            // 1. Try Local Plugin Vendor
+            $local_autoload = $CFG->dirroot . '/local/manireports/vendor/autoload.php';
+            if (file_exists($local_autoload)) {
+                require_once($local_autoload);
             }
             
+            // 2. Try Global Moodle Vendor (if not found locally)
+            if (!class_exists('Aws\Sqs\SqsClient')) {
+                $global_autoload = $CFG->dirroot . '/vendor/autoload.php';
+                if (file_exists($global_autoload)) {
+                    require_once($global_autoload);
+                }
+            }
+
             // Check again after trying to load
             if (!class_exists('Aws\Sqs\SqsClient')) {
-                throw new \moodle_exception('awssdkmissing', 'local_manireports');
+                // Throw a more helpful error message
+                throw new \moodle_exception(
+                    'awssdkmissing', 
+                    'local_manireports', 
+                    '', 
+                    "AWS SDK not found. Please run 'composer require aws/aws-sdk-php' in " . $CFG->dirroot
+                );
             }
         }
 
