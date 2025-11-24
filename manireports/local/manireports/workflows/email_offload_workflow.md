@@ -40,3 +40,21 @@ Moodle's background worker (the "Postman") arrives a few seconds or minutes late
 
 ## Summary
 We are performing a "man-in-the-middle" operation. We let Moodle do the heavy lifting of creating the user, but we **intercept and destroy** the email task before Moodle can execute it, replacing it with our own superior Cloud delivery.
+
+## Frequently Asked Questions (Technical Deep Dive)
+
+### 1. The "Cron Race" Concern
+**Q: If Moodle's Cron runs at the exact same second (e.g., 10:00:00) that I create a user, will both systems send the email?**
+
+**A: It is extremely unlikely, bordering on impossible.**
+*   **Synchronous Execution:** When you click "Create User", our plugin code runs *inside* that same web request. It happens immediately, millisecond-by-millisecond.
+*   **Transaction Isolation:** In most database setups, the "New Email" record in `mdl_email` is not even visible to other processes (like the Cron) until the entire "Create User" transaction is finished.
+*   **We are "Inside the Room":** Since we are part of the transaction, we delete the email *before* the transaction commits. By the time the Cron (the "Postman") looks at the database, the record was created and destroyed within a split second, effectively never existing for the outside world.
+
+### 2. Why Delete? Why not "Mark as Sent"?
+**Q: Instead of deleting the record from `mdl_email`, can we just mark it as "sent" so we keep the log in Moodle?**
+
+**A: No, because `mdl_email` is a Queue, not a Log.**
+*   **Moodle's Behavior:** When Moodle successfully sends an email via Cron, **it deletes the record from `mdl_email`**. It does not keep it.
+*   **The "To-Do" List:** Think of `mdl_email` as a "To-Do List", not a "History Book". If an item is on the list, Moodle *will* try to do it. If we leave it there, Moodle will send it.
+*   **The Real Log:** Moodle does not keep a permanent table of "Sent Emails" content. That is why our **Cloud Jobs** table (`manireports_cloud_jobs`) is so important—it provides a history that Moodle itself does not natively offer.

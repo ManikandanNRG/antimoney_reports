@@ -193,19 +193,23 @@ class EmailOffloadHandler {
 
         $job_id = $manager->create_job('user_created', [$recipient], $company_id);
         error_log("CloudOffload: Job created with ID $job_id");
-        $manager->submit_job($job_id);
-
-        // 3. Suppress Default Email (IOMAD Specific)
-        // IOMAD queues emails in 'mdl_email'. We need to delete the pending email for this user.
-        // We look for emails created very recently for this user.
-        // Suppress using userid and modifiedtime (based on provided schema)
-        try {
-            $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$user->id, time() - 120]);
-            error_log("CloudOffload: Suppressed default Moodle email for user {$user->id}");
-        } catch (\Exception $e) {
-            // If suppression fails, it's not critical. The user might get a duplicate email, but that's better than a crash.
-            $debug_info = (isset($e->debuginfo)) ? " Debug: " . $e->debuginfo : "";
-            error_log("CloudOffload: Warning - Failed to suppress default email for user {$user->id}: " . $e->getMessage() . $debug_info);
+        
+        // Only suppress Moodle email if Cloud submission succeeds
+        if ($manager->submit_job($job_id)) {
+            // 3. Suppress Default Email (IOMAD Specific)
+            // IOMAD queues emails in 'mdl_email'. We need to delete the pending email for this user.
+            // We look for emails created very recently for this user.
+            // Suppress using userid and modifiedtime (based on provided schema)
+            try {
+                $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$user->id, time() - 120]);
+                error_log("CloudOffload: Suppressed default Moodle email for user {$user->id}");
+            } catch (\Exception $e) {
+                // If suppression fails, it's not critical. The user might get a duplicate email, but that's better than a crash.
+                $debug_info = (isset($e->debuginfo)) ? " Debug: " . $e->debuginfo : "";
+                error_log("CloudOffload: Warning - Failed to suppress default email for user {$user->id}: " . $e->getMessage() . $debug_info);
+            }
+        } else {
+            error_log("CloudOffload: Cloud submission failed for Job $job_id. Letting Moodle send the default email (Fallback).");
         }
     }
 
