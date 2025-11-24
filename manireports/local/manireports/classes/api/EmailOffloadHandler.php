@@ -130,29 +130,39 @@ class EmailOffloadHandler {
         error_log("CloudOffload: Processing shutdown queue for " . count(self::$user_queue) . " users.");
 
         foreach (self::$user_queue as $user_id) {
-            error_log("CloudOffload: Processing queued user $user_id");
-            
-            $user = $DB->get_record('user', ['id' => $user_id]);
-            if (!$user) continue;
+            try {
+                error_log("CloudOffload: Processing queued user $user_id");
+                
+                $user = $DB->get_record('user', ['id' => $user_id]);
+                if (!$user) {
+                    error_log("CloudOffload: [Queue] User $user_id not found in DB. Skipping.");
+                    continue;
+                }
 
-            $company_id = self::get_user_company($user_id);
-            if (!$company_id) continue;
+                $company_id = self::get_user_company($user_id);
+                if (!$company_id) {
+                    error_log("CloudOffload: [Queue] No company found for user $user_id. Skipping.");
+                    continue;
+                }
 
-            // Try to get password again (should be saved now)
-            $temp_password_enc = get_user_preferences('iomad_temporary', null, $user_id);
-            $temp_password = null;
+                // Try to get password again (should be saved now)
+                $temp_password_enc = get_user_preferences('iomad_temporary', null, $user_id);
+                $temp_password = null;
 
-            if (!empty($temp_password_enc)) {
-                 if (class_exists('\company_user')) {
-                     $temp_password = \company_user::rc4decrypt($temp_password_enc);
-                     error_log("CloudOffload: [Queue] Successfully decrypted password for user $user_id.");
-                 }
-            }
+                if (!empty($temp_password_enc)) {
+                     if (class_exists('\company_user')) {
+                         $temp_password = \company_user::rc4decrypt($temp_password_enc);
+                         error_log("CloudOffload: [Queue] Successfully decrypted password for user $user_id.");
+                     }
+                }
 
-            if ($temp_password) {
-                self::process_single_user_offload($user, $company_id, $temp_password);
-            } else {
-                error_log("CloudOffload: [Queue] Still no password found for user $user_id. Skipping offload.");
+                if ($temp_password) {
+                    self::process_single_user_offload($user, $company_id, $temp_password);
+                } else {
+                    error_log("CloudOffload: [Queue] Still no password found for user $user_id. Skipping offload.");
+                }
+            } catch (\Exception $e) {
+                error_log("CloudOffload: [Queue] Exception processing user $user_id: " . $e->getMessage());
             }
         }
     }
