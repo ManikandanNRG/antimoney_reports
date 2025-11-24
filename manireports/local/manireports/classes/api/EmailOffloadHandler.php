@@ -108,25 +108,69 @@ class EmailOffloadHandler {
         global $DB;
 
         $data = $event->get_data();
-        $userid = $data['relateduserid'];
-        $licenseid = $data['objectid'];
-        $companyid = $data['courseid']; // Note: IOMAD events sometimes map courseid to companyid or vice versa, verify event structure.
-        // Assuming standard IOMAD event structure where courseid might be used for company context or we derive it.
+        $assignment_id = $data['objectid'];
         
-        // Better to get company from license
-        $license = $DB->get_record('company_licenses', ['id' => $licenseid]);
-        if ($license) {
-            $companyid = $license->companyid;
-        }
+        error_log("CloudOffload: License Event triggered. Assignment ID: $assignment_id");
 
+        // 1. Get Assignment Record (Links User to License)
+        // Table: mdl_companylicense_users
+        $assignment = $DB->get_record('companylicense_users', ['id' => $assignment_id]);
+        if (!$assignment) {
+            error_log("CloudOffload: Assignment $assignment_id not found in companylicense_users");
+            return;
+        }
+        
+        $userid = $assignment->userid;
+        $licenseid = $assignment->licenseid;
+        error_log("CloudOffload: Found User $userid and License $licenseid from assignment");
+
+        // 2. Get License Details (Links to Company and Course)
+        // Table: mdl_companylicense
+        $license = $DB->get_record('companylicense', ['id' => $licenseid]);
+        if (!$license) {
+            error_log("CloudOffload: License $licenseid not found in companylicense");
+            return;
+        }
+        
+        $companyid = $license->companyid;
+        error_log("CloudOffload: License belongs to Company $companyid");
+
+        // 3. Check Offload Status
         if (!self::is_offload_enabled($companyid)) {
+            error_log("CloudOffload: Offload NOT enabled for company $companyid");
             return;
         }
 
+        // 4. Get User and Course Details
         $user = $DB->get_record('user', ['id' => $userid]);
-        $course = $DB->get_record('course', ['id' => $license->courseid]);
+        
+        // Determine Course ID
+        $courseid = 0;
+        if (!empty($assignment->licensecourseid)) {
+             $courseid = $assignment->licensecourseid;
+             error_log("CloudOffload: Found Course ID $courseid from assignment");
+        } else {
+             // Fallback: Get first course linked to this license
+             $lic_course = $DB->get_record('companylicense_courses', ['licenseid' => $licenseid]);
+             if ($lic_course) {
+                 $courseid = $lic_course->courseid;
+                 error_log("CloudOffload: Found Course ID $courseid from companylicense_courses");
+             }
+        }
 
-        // Create Cloud Job
+        if (!$courseid) {
+             error_log("CloudOffload: No course found for license $licenseid");
+             return;
+        }
+
+        $course = $DB->get_record('course', ['id' => $courseid]);
+        
+        if (!$user || !$course) {
+             error_log("CloudOffload: User or Course record not found (User: " . ($user ? 'OK' : 'MISSING') . ", Course: " . ($course ? 'OK' : 'MISSING') . ")");
+             return;
+        }
+
+        // 5. Create Cloud Job
         $manager = new CloudJobManager();
         $recipient = [
             'email' => $user->email,
@@ -136,14 +180,15 @@ class EmailOffloadHandler {
         ];
 
         $job_id = $manager->create_job('license_allocation', [$recipient], $companyid);
+        error_log("CloudOffload: License Job created with ID $job_id");
         $manager->submit_job($job_id);
 
-        // Suppress Default Email
+        // 6. Suppress Default Email
         $DB->delete_records_select('email', "userid = ? AND timecreated > ?", [$userid, time() - 60]);
     }
 
     /**
-     * Checks if cloud offload is enabled for a company.
+     * Handles the license_allocated event.
      *
      * @param int $company_id
      * @return bool
