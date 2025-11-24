@@ -144,6 +144,13 @@ class EmailOffloadHandler {
         // 4. Get User and Course Details
         $user = $DB->get_record('user', ['id' => $userid]);
         
+        // [NEW LOGIC] Check if user is brand new (created in last 2 minutes)
+        // This handles CSV Create and GUI Create scenarios where we don't want a double email.
+        if ((time() - $user->timecreated) < 120) {
+            error_log("CloudOffload: User $userid is new (created < 2 mins ago). Skipping License Email to avoid spam.");
+            return;
+        }
+        
         // Determine Course ID
         $courseid = 0;
         if (!empty($assignment->licensecourseid)) {
