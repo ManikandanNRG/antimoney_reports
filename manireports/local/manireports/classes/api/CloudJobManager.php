@@ -8,48 +8,6 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Manages the lifecycle of cloud offload jobs: creation, submission, and status updates.
  *
- * @package     local_manireports
- * @copyright   2024 ManiReports
- */
-class CloudJobManager {
-
-    /**
-     * Creates a new cloud job in the database.
-     *
-     * @param string $type The type of job (e.g., 'csv_import', 'license_allocation').
-     * @param array $recipients Array of recipients data. Each item must have 'email'.
-     * @param int $company_id The IOMAD company ID.
-     * @return int The ID of the created job.
-     * @throws \dml_exception
-     */
-    public function create_job(string $type, array $recipients, int $company_id): int {
-        global $DB;
-
-        $job = new \stdClass();
-        $job->type = $type;
-        $job->status = 'pending';
-        $job->email_count = count($recipients);
-        $job->company_id = $company_id;
-        $job->created_at = time();
-        
-        $job_id = $DB->insert_record('manireports_cloud_jobs', $job);
-
-        // Insert recipients
-        foreach ($recipients as $recipient) {
-            $recip = new \stdClass();
-            $recip->job_id = $job_id;
-            $recip->email = $recipient['email'];
-            // Store other data as JSON
-            unset($recipient['email']);
-            $recip->recipient_data = json_encode($recipient);
-            $recip->status = 'pending';
-            
-            $DB->insert_record('manireports_cloud_recip', $recip);
-        }
-
-        return $job_id;
-    }
-
     /**
      * Submits a job to the cloud provider.
      *
@@ -71,11 +29,21 @@ class CloudJobManager {
             $recipients = $DB->get_records('manireports_cloud_recip', ['job_id' => $job_id]);
             
             // Prepare payload
+            $stored_payload = json_decode($job->payload, true);
+            
             $payload = [
                 'job_id' => $job_id,
                 'type' => $job->type,
                 'recipients' => array_values($recipients) // Ensure array is indexed
             ];
+
+            // Add custom content if present in stored payload
+            if (!empty($stored_payload['custom_subject'])) {
+                $payload['custom_subject'] = $stored_payload['custom_subject'];
+            }
+            if (!empty($stored_payload['custom_html'])) {
+                $payload['custom_html'] = $stored_payload['custom_html'];
+            }
 
             $message_id = $connector->submit_job($payload);
 

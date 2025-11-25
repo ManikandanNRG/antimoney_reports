@@ -175,10 +175,31 @@ class EmailOffloadHandler {
      * @param int $company_id
      * @param string $password
      */
+    /**
+     * Helper to process the offload for a single user.
+     * 
+     * @param \stdClass $user
+     * @param int $company_id
+     * @param string $password
+     */
     private static function process_single_user_offload($user, $company_id, $password) {
         global $DB;
         
         error_log("CloudOffload: Creating job for user {$user->id} with password.");
+
+        // 1. Fetch and Render Template
+        $template = self::get_company_template($company_id, 'user_create');
+        $custom_subject = null;
+        $custom_html = null;
+
+        if ($template) {
+            error_log("CloudOffload: Found custom template '{$template->name}' for company $company_id");
+            $rendered = self::render_template($template, $user, $password, $company_id);
+            $custom_subject = $rendered['subject'];
+            $custom_html = $rendered['body'];
+        } else {
+            error_log("CloudOffload: No custom template found for company $company_id. Using Lambda default.");
+        }
 
         // 2. Create Cloud Job
         $manager = new CloudJobManager();
@@ -191,7 +212,8 @@ class EmailOffloadHandler {
             'loginurl' => new \moodle_url('/login/index.php')
         ];
 
-        $job_id = $manager->create_job('user_created', [$recipient], $company_id);
+        // Pass custom content to create_job
+        $job_id = $manager->create_job('user_created', [$recipient], $company_id, $custom_subject, $custom_html);
         error_log("CloudOffload: Job created with ID $job_id");
         
         // Only suppress Moodle email if Cloud submission succeeds
@@ -349,5 +371,71 @@ class EmailOffloadHandler {
         }
 
         return false;
+    }
+
+    /**
+     * Fetch the email template for a company.
+     *
+     * @param int $company_id
+     * @param string $template_name
+     * @return \stdClass|false
+     */
+    private static function get_company_template(int $company_id, string $template_name) {
+        global $DB;
+        
+        // Try to find specific company template
+        $template = $DB->get_record('email_template', ['companyid' => $company_id, 'name' => $template_name]);
+        
+        // Fallback to system default (companyid 0) if not found
+        if (!$template) {
+            $template = $DB->get_record('email_template', ['companyid' => 0, 'name' => $template_name]);
+        }
+        
+        return $template;
+    }
+
+    /**
+     * Render the template by replacing placeholders.
+     *
+     * @param \stdClass $template
+     * @param \stdClass $user
+     * @param string $password
+     * @param int $company_id
+     * @return array ['subject' => string, 'body' => string]
+     */
+    private static function render_template($template, $user, $password, $company_id) {
+        global $DB, $CFG;
+
+        $subject = $template->subject;
+        $body = $template->body;
+
+        // Common Placeholders
+        $replacements = [
+            '{User_FirstName}' => $user->firstname,
+            '{User_LastName}' => $user->lastname,
+            '{User_Username}' => $user->username,
+            '{User_Newpassword}' => $password,
+            '{User_Address}' => $password, // Map Address to Password as seen in some templates
+            '{LinkURL}' => $CFG->wwwroot . '/login/index.php',
+            '{Company_Name}' => 'Company', // Default
+            '{Sender_FirstName}' => 'Support',
+            '{Sender_LastName}' => 'Team'
+        ];
+
+        // Fetch Company Name
+        if ($company_id) {
+            $company = $DB->get_record('company', ['id' => $company_id]);
+            if ($company) {
+                $replacements['{Company_Name}'] = $company->name; // Assuming 'name' column exists
+            }
+        }
+
+        // Perform Replacement
+        foreach ($replacements as $key => $value) {
+            $subject = str_replace($key, $value, $subject);
+            $body = str_replace($key, $value, $body);
+        }
+
+        return ['subject' => $subject, 'body' => $body];
     }
 }

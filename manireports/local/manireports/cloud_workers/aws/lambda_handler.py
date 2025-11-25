@@ -22,36 +22,32 @@ def lambda_handler(event, context):
             job_type = payload.get('type')
             recipients = payload.get('recipients', [])
             
+            # Extract custom content from payload if available
+            custom_subject = payload.get('custom_subject')
+            custom_html = payload.get('custom_html')
+            
             print(f"Processing Job ID: {job_id}, Type: {job_type}, Recipients: {len(recipients)}")
             
             # Process emails
-            results = process_emails(recipients, job_type)
+            results = process_emails(recipients, job_type, custom_subject, custom_html)
             
             # Send callback to Moodle
             send_callback(job_id, results)
             
-            # Delete message from SQS (Lambda does this automatically if no error raised, 
-            # but explicit deletion is safer if we want partial success)
-            # sqs_client.delete_message(...) 
-            
         except Exception as e:
             print(f"Error processing record: {str(e)}")
-            # If we raise exception, Lambda will retry the whole batch. 
-            # For partial failures, we should handle them internally and not raise.
             
     return {
         'statusCode': 200,
         'body': json.dumps('Job processed successfully')
     }
 
-def process_emails(recipients, job_type):
+def process_emails(recipients, job_type, custom_subject=None, custom_html=None):
     sent_count = 0
     failed_count = 0
     errors = []
     recipient_results = []
     
-    # SES_SENDER_EMAIL is required for production. 
-    # If not set, it defaults to a dummy, which will likely fail in SES unless verified.
     sender_email = os.environ.get('SES_SENDER_EMAIL')
     if not sender_email:
         print("WARNING: SES_SENDER_EMAIL env var not set. Using default 'noreply@example.com'")
@@ -64,8 +60,8 @@ def process_emails(recipients, job_type):
         try:
             recipient_data = json.loads(recipient['recipient_data'])
             
-            # Compose email based on job type
-            subject, body = compose_email(job_type, recipient_data)
+            # Compose email
+            subject, body = compose_email(job_type, recipient_data, custom_subject, custom_html)
             
             # Send via SES
             response = ses_client.send_email(
@@ -117,10 +113,15 @@ def process_emails(recipients, job_type):
         'recipients': recipient_results
     }
 
-def compose_email(job_type, data):
+def compose_email(job_type, data, custom_subject=None, custom_html=None):
     """
-    Composes email subject and body based on job type and data.
+    Composes email subject and body.
+    Prioritizes custom content if provided.
     """
+    if custom_subject and custom_html:
+        return custom_subject, custom_html
+
+    # Fallback to hardcoded templates
     if job_type == 'user_created':
         subject = "Welcome to Our Platform"
         body = f"""
@@ -145,10 +146,9 @@ def compose_email(job_type, data):
 
 def send_callback(job_id, results):
     """
-    Sends a callback to Moodle with the results using urllib (standard lib).
+    Sends a callback to Moodle with the results.
     """
     moodle_url = os.environ.get('MOODLE_CALLBACK_URL')
-    # Use MOODLE_CALLBACK_TOKEN which should match the aws_secret_key in Moodle
     moodle_token = os.environ.get('MOODLE_CALLBACK_TOKEN')
     
     if not moodle_url:
