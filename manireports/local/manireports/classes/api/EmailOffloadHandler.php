@@ -308,29 +308,6 @@ class EmailOffloadHandler {
 
         $course = $DB->get_record('course', ['id' => $courseid]);
         
-        if (!$user || !$course) {
-             error_log("CloudOffload: User or Course record not found (User: " . ($user ? 'OK' : 'MISSING') . ", Course: " . ($course ? 'OK' : 'MISSING') . ")");
-             return;
-        }
-
-        // 5. Create Cloud Job
-        $manager = new CloudJobManager();
-        $recipient = [
-            'email' => $user->email,
-            'firstname' => $user->firstname,
-            'course_name' => $course->fullname,
-            'license_name' => $license->name
-        ];
-
-        $job_id = $manager->create_job('license_allocation', [$recipient], $companyid);
-        error_log("CloudOffload: License Job created with ID $job_id");
-        $manager->submit_job($job_id);
-
-        // 6. Suppress Default Email
-        // Suppress using userid and modifiedtime (based on provided schema)
-        try {
-            $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$userid, time() - 60]);
-        } catch (\Exception $e) {
              // Log but continue
              error_log("CloudOffload: Warning - Failed to suppress email for user $userid: " . $e->getMessage());
         }
@@ -401,9 +378,11 @@ class EmailOffloadHandler {
      * @param \stdClass $user
      * @param string $password
      * @param int $company_id
+     * @param \stdClass|null $course
+     * @param \stdClass|null $license
      * @return array ['subject' => string, 'body' => string]
      */
-    private static function render_template($template, $user, $password, $company_id) {
+    private static function render_template($template, $user, $password, $company_id, $course = null, $license = null) {
         global $DB, $CFG;
 
         $subject = $template->subject;
@@ -422,11 +401,23 @@ class EmailOffloadHandler {
             '{Sender_LastName}' => 'Team'
         ];
 
+        // Course & License Placeholders
+        if ($course) {
+            $replacements['{Course_FullName}'] = $course->fullname;
+            $replacements['{Course_ShortName}'] = $course->shortname;
+        }
+        
+        if ($license) {
+            $replacements['{License_Name}'] = $license->name;
+            // Assuming license has a 'validlength' or similar field for days
+            $replacements['{License_Length}'] = isset($license->validlength) ? $license->validlength : '30'; 
+        }
+
         // Fetch Company Name
         if ($company_id) {
             $company = $DB->get_record('company', ['id' => $company_id]);
             if ($company) {
-                $replacements['{Company_Name}'] = $company->name; // Assuming 'name' column exists
+                $replacements['{Company_Name}'] = $company->name; 
             }
         }
 
