@@ -54,14 +54,21 @@ def process_emails(recipients, job_type, custom_subject=None, custom_html=None):
         sender_email = 'noreply@example.com'
     
     for recipient in recipients:
-        email_address = recipient['email']
+        email_address = recipient.get('email', 'unknown')
         result = {'email': email_address, 'status': 'pending'}
         
         try:
+            # Parse recipient data
             recipient_data = json.loads(recipient['recipient_data'])
+            
+            # Validate email address format before sending
+            if not email_address or '@' not in email_address:
+                raise ValueError(f"Invalid email format: {email_address}")
             
             # Compose email
             subject, body = compose_email(job_type, recipient_data, custom_subject, custom_html)
+            
+            print(f"Attempting to send email to: {email_address}")
             
             # Send via SES
             response = ses_client.send_email(
@@ -83,25 +90,64 @@ def process_emails(recipients, job_type, custom_subject=None, custom_html=None):
                 }
             )
             
-            print(f"Email sent to {email_address}: {response['MessageId']}")
-            sent_count += 1
-            result['status'] = 'sent'
-            result['message_id'] = response['MessageId']
+            # Check SES response status
+            http_status = response.get('ResponseMetadata', {}).get('HTTPStatusCode', 0)
+            message_id = response.get('MessageId', 'unknown')
+            
+            if http_status == 200 and message_id:
+                print(f"✅ Email sent successfully to {email_address}: MessageId={message_id}")
+                sent_count += 1
+                result['status'] = 'sent'
+                result['message_id'] = message_id
+            else:
+                # SES returned non-200 status
+                error_msg = f"SES returned status {http_status}"
+                print(f"❌ SES error for {email_address}: {error_msg}")
+                failed_count += 1
+                errors.append(f"{email_address}: {error_msg}")
+                result['status'] = 'failed'
+                result['error'] = error_msg
             
         except ClientError as e:
+            # AWS SES specific errors (bounces, invalid email, etc.)
+            error_code = e.response['Error']['Code']
             error_msg = e.response['Error']['Message']
-            print(f"Failed to send to {recipient.get('email')}: {error_msg}")
+            
+            # Categorize the error
+            if error_code == 'MessageRejected':
+                error_type = "Bounce: Email rejected by SES"
+            elif error_code == 'MailFromDomainNotVerified':
+                error_type = "Configuration: Sender domain not verified"
+            elif error_code == 'ConfigurationSetDoesNotExist':
+                error_type = "Configuration: Invalid configuration set"
+            else:
+                error_type = f"SES Error: {error_code}"
+            
+            full_error = f"{error_type} - {error_msg}"
+            print(f"❌ ClientError for {email_address}: {full_error}")
+            
             failed_count += 1
-            errors.append(f"{recipient.get('email')}: {error_msg}")
+            errors.append(f"{email_address}: {full_error}")
+            result['status'] = 'failed'
+            result['error'] = full_error
+            
+        except ValueError as e:
+            # Invalid email format or data parsing errors
+            error_msg = str(e)
+            print(f"❌ Validation error for {email_address}: {error_msg}")
+            failed_count += 1
+            errors.append(f"{email_address}: {error_msg}")
             result['status'] = 'failed'
             result['error'] = error_msg
             
         except Exception as e:
-            print(f"General error for {recipient.get('email')}: {str(e)}")
+            # Catch-all for unexpected errors
+            error_msg = f"Unexpected error: {str(e)}"
+            print(f"❌ General error for {email_address}: {error_msg}")
             failed_count += 1
-            errors.append(f"{recipient.get('email')}: {str(e)}")
+            errors.append(f"{email_address}: {error_msg}")
             result['status'] = 'failed'
-            result['error'] = str(e)
+            result['error'] = error_msg
             
         recipient_results.append(result)
             
