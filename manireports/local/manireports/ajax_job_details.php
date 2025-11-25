@@ -17,7 +17,7 @@ foreach ($recipients as $recip) {
         'email' => $recip->email,
         'status' => $recip->status,
         'sent_at' => $recip->sent_at ? userdate($recip->sent_at) : '-',
-        'error_msg' => $recip->error_msg
+        'error_message' => $recip->error_message ?? ''
     ];
 }
 

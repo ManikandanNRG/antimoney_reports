@@ -2135,7 +2135,7 @@ function viewJobDetails(jobId) {
                             <td class="table-cell">${recip.email}</td>
                             <td class="table-cell"><span style="color: ${statusColor}; font-weight: 600;">${recip.status}</span></td>
                             <td class="table-cell">${recip.sent_at}</td>
-                            <td class="table-cell" style="color: var(--accent-danger); font-size: 12px;">${recip.error_msg || '-'}</td>
+                            <td class="table-cell" style="color: var(--accent-danger); font-size: 12px;">${recip.error_message || '-'}</td>
                         </tr>
                     `;
                     tbody.innerHTML += row;
