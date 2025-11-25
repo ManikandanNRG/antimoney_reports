@@ -90,10 +90,13 @@ class AwsConnector {
      */
     public function submit_job(array $payload) {
         if (!$this->client) {
+            error_log("CloudOffload: AWS SQS Client not initialized");
             return false;
         }
 
         try {
+            error_log("CloudOffload: Submitting job {$payload['job_id']} to SQS queue: {$this->settings->sqs_queue_url}");
+            
             $result = $this->client->sendMessage([
                 'QueueUrl'    => $this->settings->sqs_queue_url,
                 'MessageBody' => json_encode($payload),
@@ -109,13 +112,16 @@ class AwsConnector {
                 ]
             ]);
 
+            error_log("CloudOffload: Successfully submitted job {$payload['job_id']} to SQS. Message ID: {$result['MessageId']}");
             return $result['MessageId'];
 
         } catch (AwsException $e) {
             // Log AWS specific error
+            error_log("CloudOffload: AWS SQS Error for job {$payload['job_id']}: " . $e->getMessage());
             debugging('AWS SQS Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
         } catch (\Exception $e) {
+            error_log("CloudOffload: General Error sending job {$payload['job_id']} to SQS: " . $e->getMessage());
             debugging('General Error sending to SQS: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return false;
         }
