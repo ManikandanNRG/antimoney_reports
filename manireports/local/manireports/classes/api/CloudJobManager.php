@@ -8,6 +8,77 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Manages the lifecycle of cloud offload jobs: creation, submission, and status updates.
  *
+ * @package     local_manireports
+ * @copyright   2024 ManiReports
+ */
+class CloudJobManager {
+
+    /**
+     * Creates a new cloud job.
+     *
+     * @param string $type Job type (e.g., 'user_created', 'license_allocated')
+     * @param array $recipients Array of recipient data
+     * @param int $company_id Company ID
+     * @param string|null $custom_subject Optional custom subject
+     * @param string|null $custom_html Optional custom HTML content
+     * @return int Job ID
+     */
+    public function create_job(string $type, array $recipients, int $company_id, ?string $custom_subject = null, ?string $custom_html = null): int {
+        global $DB;
+
+        try {
+            // 1. Create Job Record
+            $job = new \stdClass();
+            $job->type = $type;
+            $job->company_id = $company_id;
+            $job->status = 'pending';
+            $job->created_at = time();
+            $job->email_count = count($recipients); // Required NOT NULL field
+            $job->emails_sent = 0;
+            $job->emails_failed = 0;
+
+            $job_id = $DB->insert_record('manireports_cloud_jobs', $job);
+            error_log("CloudOffload: Created job record with ID $job_id");
+
+            // 2. Insert Recipients with custom content stored in recipient_data
+            foreach ($recipients as $recipient) {
+                $recip = new \stdClass();
+                $recip->job_id = $job_id;
+                $recip->email = $recipient['email'];
+                $recip->status = 'pending';
+                
+                // Store all recipient data including custom content in recipient_data JSON field
+                $recipient_data = [
+                    'firstname' => $recipient['firstname'] ?? '',
+                    'lastname' => $recipient['lastname'] ?? '',
+                    'username' => $recipient['username'] ?? '',
+                    'password' => $recipient['password'] ?? '',
+                    'loginurl' => isset($recipient['loginurl']) ? $recipient['loginurl']->out(false) : ''
+                ];
+                
+                // Add custom content if provided (same for all recipients in this job)
+                if ($custom_subject !== null) {
+                    $recipient_data['custom_subject'] = $custom_subject;
+                }
+                if ($custom_html !== null) {
+                    $recipient_data['custom_html'] = $custom_html;
+                }
+                
+                $recip->recipient_data = json_encode($recipient_data);
+
+                $DB->insert_record('manireports_cloud_recip', $recip);
+            }
+
+            error_log("CloudOffload: Inserted " . count($recipients) . " recipients for job $job_id");
+            return $job_id;
+
+        } catch (\Exception $e) {
+            $debug_info = (isset($e->debuginfo)) ? " Debug: " . $e->debuginfo : "";
+            error_log("CloudOffload: CRITICAL - Failed to create job: " . $e->getMessage() . $debug_info);
+            throw $e;
+        }
+    }
+
     /**
      * Submits a job to the cloud provider.
      *
@@ -29,20 +100,24 @@ defined('MOODLE_INTERNAL') || die();
             $recipients = $DB->get_records('manireports_cloud_recip', ['job_id' => $job_id]);
             
             // Prepare payload
-            $stored_payload = json_decode($job->payload, true);
-            
             $payload = [
                 'job_id' => $job_id,
                 'type' => $job->type,
                 'recipients' => array_values($recipients) // Ensure array is indexed
             ];
 
-            // Add custom content if present in stored payload
-            if (!empty($stored_payload['custom_subject'])) {
-                $payload['custom_subject'] = $stored_payload['custom_subject'];
-            }
-            if (!empty($stored_payload['custom_html'])) {
-                $payload['custom_html'] = $stored_payload['custom_html'];
+            // Extract custom content from first recipient's data (same for all recipients in a job)
+            if (!empty($recipients)) {
+                $first_recipient = reset($recipients);
+                if (!empty($first_recipient->recipient_data)) {
+                    $recipient_data = json_decode($first_recipient->recipient_data, true);
+                    if (!empty($recipient_data['custom_subject'])) {
+                        $payload['custom_subject'] = $recipient_data['custom_subject'];
+                    }
+                    if (!empty($recipient_data['custom_html'])) {
+                        $payload['custom_html'] = $recipient_data['custom_html'];
+                    }
+                }
             }
 
             $message_id = $connector->submit_job($payload);

@@ -175,13 +175,6 @@ class EmailOffloadHandler {
      * @param int $company_id
      * @param string $password
      */
-    /**
-     * Helper to process the offload for a single user.
-     * 
-     * @param \stdClass $user
-     * @param int $company_id
-     * @param string $password
-     */
     private static function process_single_user_offload($user, $company_id, $password) {
         global $DB;
         
@@ -301,15 +294,44 @@ class EmailOffloadHandler {
              }
         }
 
-        if (!$courseid) {
-             error_log("CloudOffload: No course found for license $licenseid");
-             return;
+        $course = null;
+        if ($courseid) {
+            $course = $DB->get_record('course', ['id' => $courseid]);
         }
 
-        $course = $DB->get_record('course', ['id' => $courseid]);
+        // 5. Render Template
+        $template = self::get_company_template($companyid, 'license_allocated');
+        $custom_subject = null;
+        $custom_html = null;
+
+        if ($template) {
+            error_log("CloudOffload: Found custom template '{$template->name}' for company $companyid");
+            $rendered = self::render_template($template, $user, '', $companyid, $course, $license);
+            $custom_subject = $rendered['subject'];
+            $custom_html = $rendered['body'];
+        }
+
+        // 6. Create Cloud Job
+        $manager = new CloudJobManager();
+        $recipient = [
+            'email' => $user->email,
+            'firstname' => $user->firstname,
+            'lastname' => $user->lastname,
+            'username' => $user->username,
+            'loginurl' => new \moodle_url('/login/index.php')
+        ];
+
+        $job_id = $manager->create_job('license_allocated', [$recipient], $companyid, $custom_subject, $custom_html);
+        error_log("CloudOffload: Job created with ID $job_id");
         
-             // Log but continue
-             error_log("CloudOffload: Warning - Failed to suppress email for user $userid: " . $e->getMessage());
+        if ($manager->submit_job($job_id)) {
+            // 7. Suppress Default Email
+            try {
+                $DB->delete_records_select('email', "userid = ? AND modifiedtime > ?", [$user->id, time() - 120]);
+                error_log("CloudOffload: Suppressed default license email for user {$user->id}");
+            } catch (\Exception $e) {
+                error_log("CloudOffload: Warning - Failed to suppress email for user {$user->id}: " . $e->getMessage());
+            }
         }
     }
 
