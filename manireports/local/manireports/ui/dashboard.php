@@ -69,6 +69,9 @@ $PAGE->set_pagelayout('standard');
 // Output header.
 echo $OUTPUT->header();
 
+// Print tabs.
+local_manireports_print_tabs('dashboard');
+
 // Render dashboard.
 $renderer = $PAGE->get_renderer('local_manireports', 'dashboard');
 echo $renderer->render_dashboard($USER->id);

@@ -157,6 +157,103 @@ function xmldb_local_manireports_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024111704, 'local', 'manireports');
     }
 
+    // Add reminder feature tables.
+    if ($oldversion < 2024112801) {
+        // Define table manireports_template.
+        $table = new xmldb_table('manireports_template');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('companyid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('subject', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('body_html', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('body_text', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('placeholders', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('enabled', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1');
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_index('companyid_enabled', XMLDB_INDEX_NOTUNIQUE, array('companyid', 'enabled'));
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Define table manireports_reminder_rule.
+        $table = new xmldb_table('manireports_reminder_rule');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('companyid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('name', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, null, null, '0');
+        $table->add_field('activityid', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('trigger_type', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('trigger_value', XMLDB_TYPE_TEXT, null, null, XMLDB_NOTNULL, null, null);
+        $table->add_field('emaildelay', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('remindercount', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('send_to_user', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('send_to_managers', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('thirdparty_emails', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('templateid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('enabled', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '1');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('templateid', XMLDB_KEY_FOREIGN, array('templateid'), 'manireports_template', array('id'));
+        $table->add_index('companyid', XMLDB_INDEX_NOTUNIQUE, array('companyid'));
+        $table->add_index('enabled', XMLDB_INDEX_NOTUNIQUE, array('enabled'));
+        $table->add_index('courseid', XMLDB_INDEX_NOTUNIQUE, array('courseid'));
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Define table manireports_reminder_instance.
+        $table = new xmldb_table('manireports_reminder_instance');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('ruleid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('activityid', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('next_send', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('emailsent', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('completed', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('deadline', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('ruleid', XMLDB_KEY_FOREIGN, array('ruleid'), 'manireports_reminder_rule', array('id'));
+        $table->add_key('userid', XMLDB_KEY_FOREIGN, array('userid'), 'user', array('id'));
+        $table->add_key('courseid', XMLDB_KEY_FOREIGN, array('courseid'), 'course', array('id'));
+        $table->add_index('next_send_completed', XMLDB_INDEX_NOTUNIQUE, array('next_send', 'completed'));
+        $table->add_index('ruleid_userid', XMLDB_INDEX_NOTUNIQUE, array('ruleid', 'userid'));
+        $table->add_index('userid_courseid', XMLDB_INDEX_NOTUNIQUE, array('userid', 'courseid'));
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Define table manireports_reminder_job.
+        $table = new xmldb_table('manireports_reminder_job');
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('instanceid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('message_id', XMLDB_TYPE_CHAR, '36', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('job_id', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
+        $table->add_field('recipient_email', XMLDB_TYPE_CHAR, '255', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('status', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('attempts', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('last_attempt_ts', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('payload', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_field('error', XMLDB_TYPE_TEXT, null, null, null, null, null);
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, array('id'));
+        $table->add_key('instanceid', XMLDB_KEY_FOREIGN, array('instanceid'), 'manireports_reminder_instance', array('id'));
+        $table->add_key('job_id', XMLDB_KEY_FOREIGN, array('job_id'), 'manireports_cloud_jobs', array('id'));
+        $table->add_index('status_last_attempt', XMLDB_INDEX_NOTUNIQUE, array('status', 'last_attempt_ts'));
+        $table->add_index('message_id', XMLDB_INDEX_UNIQUE, array('message_id'));
+        $table->add_index('instanceid', XMLDB_INDEX_NOTUNIQUE, array('instanceid'));
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2024112801, 'local', 'manireports');
+    }
+
     return true;
 }
 

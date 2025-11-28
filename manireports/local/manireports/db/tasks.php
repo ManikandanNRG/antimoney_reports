@@ -81,4 +81,15 @@ $tasks = array(
         'month' => '*'
     ),
 
+    // Process reminders task - runs every 5 minutes to send due reminders.
+    array(
+        'classname' => 'local_manireports\task\process_reminders',
+        'blocking' => 0,
+        'minute' => '*/5',
+        'hour' => '*',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*'
+    ),
+
 );

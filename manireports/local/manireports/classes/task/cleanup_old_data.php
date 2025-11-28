@@ -75,6 +75,11 @@ class cleanup_old_data extends \core\task\scheduled_task {
         mtrace("Cleaned up {$orphanscleaned} orphaned records");
         $totalcleaned += $orphanscleaned;
 
+        // Clean up old reminder jobs.
+        $remindercleaned = $this->cleanup_reminder_jobs();
+        mtrace("Cleaned up {$remindercleaned} old reminder jobs");
+        $totalcleaned += $remindercleaned;
+
         mtrace("Data cleanup task completed. Total records cleaned: {$totalcleaned}");
     }
 
@@ -276,6 +281,23 @@ class cleanup_old_data extends \core\task\scheduled_task {
         } catch (\dml_exception $e) {
             mtrace('Error cleaning orphaned at-risk acknowledgments: ' . $e->getMessage());
         }
+
+        return $count;
+    }
+
+    /**
+     * Clean up old reminder jobs.
+     *
+     * @return int Number of records deleted
+     */
+    protected function cleanup_reminder_jobs() {
+        global $DB;
+
+        // Retention: 90 days
+        $cutoff = time() - (90 * 24 * 60 * 60);
+        
+        $count = $DB->count_records_select('manireports_reminder_job', 'last_attempt_ts < ?', [$cutoff]);
+        $DB->delete_records_select('manireports_reminder_job', 'last_attempt_ts < ?', [$cutoff]);
 
         return $count;
     }
