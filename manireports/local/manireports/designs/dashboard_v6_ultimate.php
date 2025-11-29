@@ -194,6 +194,9 @@ if ($selected_company_id) {
     $company_settings = $cloud_loader->get_company_settings($selected_company_id);
 }
 
+// 12. Reminder Data
+$reminder_data = $loader->get_reminder_data();
+
 // Handle Settings Save (if posted)
 if (optional_param('action', '', PARAM_ALPHA) === 'savesettings' && data_submitted() && confirm_sesskey()) {
     $settings = new stdClass();
@@ -450,6 +453,7 @@ body {
             <div class="tab-item" onclick="switchTab('email')"><i class="fa-solid fa-envelope"></i> Email Offload</div>
             <div class="tab-item" onclick="switchTab('certificates')"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
             <div class="tab-item" onclick="switchTab('reports')"><i class="fa-solid fa-file-lines"></i> Reports</div>
+            <div class="tab-item" onclick="switchTab('reminders')"><i class="fa-solid fa-bell"></i> Reminders</div>
         </div>
 
         <!-- Filter Area -->
@@ -2096,25 +2100,155 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="bento-card" style="width: 600px; max-height: 80vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
         <div class="card-header" style="padding: 24px; border-bottom: 1px solid var(--glass-border);">
             <div class="card-title">Job Details</div>
-            <button onclick="closeJobModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px;"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div style="padding: 24px; overflow-y: auto; flex: 1;">
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th class="table-header">Email</th>
-                        <th class="table-header">Status</th>
-                        <th class="table-header">Sent At</th>
-                        <th class="table-header">Error</th>
-                    </tr>
-                </thead>
-                <tbody id="jobDetailsBody">
-                    <!-- Content loaded via AJAX -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+            <!-- Reminders Tab Content -->
+            <div id="tab-reminders" class="tab-content">
+                <!-- Reminder KPIs -->
+                <div class="kpi-cards">
+                    <div class="bento-card card-span-1">
+                        <div class="card-header"><div class="card-title"><i class="fa-solid fa-bell" style="color: var(--accent-primary);"></i> Active Rules</div></div>
+                        <div class="card-value"><?php echo $reminder_data['kpis']['active_rules']; ?> <span style="font-size: 14px; color: var(--text-secondary);">/ <?php echo $reminder_data['kpis']['total_rules']; ?></span></div>
+                    </div>
+                    <div class="bento-card card-span-1">
+                        <div class="card-header"><div class="card-title"><i class="fa-solid fa-file-code" style="color: var(--accent-success);"></i> Templates</div></div>
+                        <div class="card-value"><?php echo $reminder_data['kpis']['total_templates']; ?></div>
+                    </div>
+                    <div class="bento-card card-span-1">
+                        <div class="card-header"><div class="card-title"><i class="fa-solid fa-paper-plane" style="color: var(--accent-warning);"></i> Sent Today</div></div>
+                        <div class="card-value"><?php echo $reminder_data['kpis']['activity_today']; ?></div>
+                    </div>
+                    <div class="bento-card card-span-1">
+                        <div class="card-header"><div class="card-title"><i class="fa-solid fa-clock" style="color: var(--accent-secondary);"></i> Status</div></div>
+                        <div class="card-value" style="font-size: 18px;">Active</div>
+                    </div>
+                </div>
+
+                <div class="bento-grid">
+                    <!-- Rules List -->
+                    <div class="bento-card card-span-2">
+                        <div class="card-header">
+                            <div class="card-title">Reminder Rules</div>
+                            <a href="<?php echo new moodle_url('/local/manireports/ui/reminders.php'); ?>" class="action-link">Manage Rules</a>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th class="table-header">Name</th>
+                                    <th class="table-header">Trigger</th>
+                                    <th class="table-header">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($reminder_data['rules'] as $rule): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo format_string($rule->name); ?></td>
+                                    <td class="table-cell"><?php echo $rule->trigger_type; ?></td>
+                                    <td class="table-cell">
+                                        <?php if ($rule->enabled): ?>
+                                            <span class="status-badge status-active">Enabled</span>
+                                        <?php else: ?>
+                                            <span class="status-badge status-inactive">Disabled</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($reminder_data['rules'])): ?>
+                                    <tr><td colspan="3" class="table-cell" style="text-align: center;">No rules found.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Templates List -->
+                    <div class="bento-card card-span-2">
+                        <div class="card-header">
+                            <div class="card-title">Email Templates</div>
+                            <a href="<?php echo new moodle_url('/local/manireports/ui/templates.php'); ?>" class="action-link">Manage Templates</a>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th class="table-header">Name</th>
+                                    <th class="table-header">Subject</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($reminder_data['templates'] as $tmpl): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo format_string($tmpl->name); ?></td>
+                                    <td class="table-cell"><?php echo format_string($tmpl->subject); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($reminder_data['templates'])): ?>
+                                    <tr><td colspan="2" class="table-cell" style="text-align: center;">No templates found.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bento-card card-span-4">
+                        <div class="card-header">
+                            <div class="card-title">Recent Reminder Activity</div>
+                            <a href="<?php echo new moodle_url('/local/manireports/ui/reminder_dashboard.php'); ?>" class="action-link">View Full Log</a>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th class="table-header">Recipient</th>
+                                    <th class="table-header">Status</th>
+                                    <th class="table-header">Time</th>
+                                    <th class="table-header">Message ID</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($reminder_data['logs'] as $log): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell"><?php echo $log['recipient']; ?></td>
+                                    <td class="table-cell">
+                                        <?php 
+                                            $status_class = 'status-warning';
+                                            if ($log['status'] == 'delivered' || $log['status'] == 'local_sent') $status_class = 'status-active';
+                                            if ($log['status'] == 'failed') $status_class = 'status-inactive';
+                                        ?>
+                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $log['status']; ?></span>
+                                    </td>
+                                    <td class="table-cell"><?php echo $log['time']; ?></td>
+                                    <td class="table-cell" style="font-family: monospace; font-size: 12px;"><?php echo $log['message_id']; ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($reminder_data['logs'])): ?>
+                                    <tr><td colspan="4" class="table-cell" style="text-align: center;">No recent activity.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job Details Modal -->
+            <div id="jobDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; align-items: center; justify-content: center; backdrop-filter: blur(5px);">
+                <div style="background: var(--glass-bg); border: 1px solid var(--glass-border); width: 600px; max-height: 80vh; border-radius: 24px; display: flex; flex-direction: column; box-shadow: var(--card-shadow);">
+                    <div style="padding: 24px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 18px;">Job Details</h3>
+                        <button onclick="closeJobModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 18px;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div style="padding: 24px; overflow-y: auto; flex: 1;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th class="table-header">Email</th>
+                                    <th class="table-header">Status</th>
+                                    <th class="table-header">Sent At</th>
+                                    <th class="table-header">Error</th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobDetailsBody">
+                                <!-- Content loaded via AJAX -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
 <script>
 function viewJobDetails(jobId) {

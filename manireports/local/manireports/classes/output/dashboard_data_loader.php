@@ -813,16 +813,6 @@ class dashboard_data_loader {
      * Check if IOMAD is installed.
      */
     protected function is_iomad_installed() {
-        global $CFG;
-        return file_exists($CFG->dirroot . '/local/iomad/lib.php');
-    }
-
-    /**
-     * Get Live Statistics (Active Users, Peak, Top Courses, Timeline).
-     *
-     * @return array Live stats data
-     */
-    public function get_live_statistics() {
         global $DB;
         
         // Time windows
