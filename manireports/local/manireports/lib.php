@@ -167,7 +167,6 @@ function local_manireports_print_tabs($active) {
         new tabobject('dashboard', new moodle_url('/local/manireports/ui/dashboard.php'), get_string('dashboard', 'local_manireports')),
         new tabobject('reminders', new moodle_url('/local/manireports/ui/reminders.php'), get_string('reminders', 'local_manireports')),
         new tabobject('templates', new moodle_url('/local/manireports/ui/templates.php'), get_string('templates', 'local_manireports')),
-        new tabobject('analytics', new moodle_url('/local/manireports/ui/reminder_dashboard.php'), get_string('reminderdashboard', 'local_manireports')),
     ];
     print_tabs([$tabs], $active);
 }

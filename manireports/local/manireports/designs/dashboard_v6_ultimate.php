@@ -1490,7 +1490,6 @@ body {
                     <div class="bento-card card-span-4">
                         <div class="card-header">
                             <div class="card-title">Recent Reminder Activity</div>
-                            <a href="<?php echo new moodle_url('/local/manireports/ui/reminder_dashboard.php'); ?>" class="action-link">View Full Log</a>
                         </div>
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
