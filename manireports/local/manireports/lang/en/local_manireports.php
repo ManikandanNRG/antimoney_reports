@@ -819,6 +819,15 @@ $string['emaildelay_help'] = 'Time interval between sending reminder emails (in 
 $string['remindercount'] = 'Number of Reminders';
 $string['remindercount_help'] = 'How many reminder emails to send (maximum 5)';
 $string['templateid'] = 'Email Template';
+$string['templateid_help'] = 'Select the email template to use for this reminder';
+$string['sendtousers'] = 'Send to Users';
+$string['sendtousers_help'] = 'Send reminder emails to enrolled users';
+$string['sendtomanagers'] = 'Send to Managers';
+$string['sendtomanagers_help'] = 'Also send reminder emails to user managers (requires IOMAD)';
+$string['thirdpartyemails'] = 'Recipients (To)';
+$string['thirdpartyemails_help'] = 'Comma-separated list of email addresses to receive the reminder.';
+$string['cc_emails'] = 'Recipients (CC)';
+$string['cc_emails_help'] = 'Comma-separated list of email addresses to receive a copy.';
 $string['bodyhtml'] = 'Email Body (HTML)';
 $string['bodyhtml_help'] = 'HTML content of the email. Available placeholders: {firstname}, {lastname}, {email}, {coursename}, {courseurl}, {completiondate}';
 
