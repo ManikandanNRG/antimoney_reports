@@ -840,4 +840,13 @@ $string['ruleupdated'] = 'Reminder rule updated successfully';
 $string['editrule'] = 'Edit Reminder Rule';
 $string['createrule'] = 'Create Reminder Rule';
 
+// Company-specific reminder strings
+$string['company'] = 'Company';
+$string['company_help'] = 'Select the company for this reminder rule. Courses will be filtered based on this selection.';
+$string['targetactivity'] = 'Target Activity';
+$string['targetactivity_help'] = 'Stop reminders when user completes this activity. Select "Course Completion" to check overall course completion status (useful when course has ANY completion criteria).';
+$string['coursecompletion'] = 'Course Completion';
+$string['selectcompanyfirst'] = 'Please select a company first';
+$string['selectcoursefirst'] = 'Please select a course first';
+
 

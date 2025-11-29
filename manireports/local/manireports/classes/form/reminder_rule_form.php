@@ -24,16 +24,16 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('rulename_help', 'local_manireports') . '</div>');
 
 
-        // Company (hidden for now)
-        $mform->addElement('hidden', 'companyid', 0);
-        $mform->setType('companyid', PARAM_INT);
+        // Company Dropdown (REQUIRED - shows ALL companies)
+        $companies = $DB->get_records_menu('company', null, 'name ASC', 'id, name');
+        $mform->addElement('select', 'companyid', get_string('company', 'local_manireports'), $companies);
+        $mform->addRule('companyid', null, 'required', null, 'client');
+        $mform->addElement('static', 'companyid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('company_help', 'local_manireports') . '</div>');
 
-        // Course Dropdown (User-Friendly)
-        $courses = $DB->get_records_menu('course', null, 'fullname ASC', 'id, fullname');
-        $course_options = [0 => get_string('allcourses', 'local_manireports')] + $courses;
-        $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), $course_options);
-
-        $mform->setDefault('courseid', 0);
+        // Course Dropdown (filtered by company via AJAX)
+        $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), 
+            ['' => get_string('selectcompanyfirst', 'local_manireports')]);
+        $mform->addRule('courseid', null, 'required', null, 'client');
         $mform->addElement('static', 'courseid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('courseid_help', 'local_manireports') . '</div>');
 
 
@@ -61,6 +61,12 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('trigger_days', 7);
         $mform->addElement('static', 'trigger_days_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggerdays_help', 'local_manireports') . '</div>');
 
+        
+        // Target Activity (MANDATORY - includes "Course Completion" option)
+        $mform->addElement('select', 'activityid', get_string('targetactivity', 'local_manireports'),
+            ['' => get_string('selectcoursefirst', 'local_manireports')]);
+        $mform->addRule('activityid', null, 'required', null, 'client');
+        $mform->addElement('static', 'activityid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('targetactivity_help', 'local_manireports') . '</div>');
 
         // Schedule Settings
         // Schedule Settings
@@ -132,10 +138,47 @@ class reminder_rule_form extends \moodleform {
 
         $this->add_action_buttons();
 
-        // Add inline JavaScript for dynamic field handling
+                // Add inline JavaScript for dynamic field handling
         $js = "
         <script>
         require(['jquery'], function($) {
+            // Cascading dropdowns for Company -> Course -> Activity
+            $('#id_companyid').change(function() {
+                var companyid = $(this).val();
+                if (!companyid) {
+                    $('#id_courseid').html('<option value=\"\">Select company first</option>');
+                    $('#id_activityid').html('<option value=\"\">Select course first</option>');
+                    return;
+                }
+                
+                $.ajax({
+                    url: M.cfg.wwwroot + '/local/manireports/ajax/get_company_courses.php',
+                    data: { companyid: companyid, sesskey: M.cfg.sesskey },
+                    success: function(response) {
+                        $('#id_courseid').html(response);
+                        $('#id_activityid').html('<option value=\"\">Select course first</option>');
+                    }
+                });
+            });
+            
+            $('#id_courseid').change(function() {
+                var courseid = $(this).val();
+                if (!courseid) {
+                    $('#id_activityid').html('<option value=\"\">Select course first</option>');
+                    return;
+                }
+                
+                $.ajax({
+                    url: M.cfg.wwwroot + '/local/manireports/ajax/get_course_activities.php',
+                    data: { courseid: courseid, sesskey: M.cfg.sesskey },
+                    success: function(response) {
+                        var options = '<option value=\"-1\">Course Completion</option>';
+                        options += response;
+                        $('#id_activityid').html(options);
+                    }
+                });
+            });
+            
             function updateFormFields() {
                 var trigger = $('#id_trigger_type').val();
                 var isLicense = (trigger === 'license_expiry' || trigger === 'license_utilization');
@@ -163,17 +206,11 @@ class reminder_rule_form extends \moodleform {
                     $('#fitem_id_send_to_user').show();
                     $('#fitem_id_send_to_managers').show();
                     
-                    // Hide CC (optional, but let's hide it for standard rules to keep it simple)
+                    // Hide CC
                     $('#fitem_id_cc_emails').hide();
                     
                     // Revert Labels
-                    $('label[for=\"id_thirdparty_emails\"]').text('" . get_string('thirdpartyemails', 'local_manireports') . "'); // Additional Recipients (Wait, string is shared. Let's use JS to set specific text if needed)
-                    // Actually, I changed the string key 'thirdpartyemails' to 'Recipients (To)' globally. 
-                    // If I want different labels, I should have used different keys.
-                    // For now, 'Recipients (To)' is fine for both, or 'Additional Recipients' for standard.
-                    // Let's force 'Additional Recipients' for standard if I can get the string.
-                    // Since I can't easily get the old string here without passing it, I'll stick to 'Recipients (To)' or just 'Recipients'.
-                    
+                    $('label[for=\"id_thirdparty_emails\"]').text('" . get_string('thirdpartyemails', 'local_manireports') . "');
                     $('label[for=\"id_trigger_days\"]').text('" . get_string('triggerdays', 'local_manireports') . "');
                 }
             }

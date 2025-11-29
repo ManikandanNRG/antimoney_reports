@@ -394,6 +394,7 @@
         <FIELD NAME="ruleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_rem_rule"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
+        <FIELD NAME="companyid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Company ID for scoping"/>
         <FIELD NAME="activityid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Activity ID"/>
         <FIELD NAME="next_send" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp for next send"/>
         <FIELD NAME="emailsent" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Count of emails sent so far"/>
@@ -410,6 +411,7 @@
       <INDEXES>
         <INDEX NAME="next_send_completed" UNIQUE="false" FIELDS="next_send, completed"/>
         <INDEX NAME="ruleid_userid" UNIQUE="false" FIELDS="ruleid, userid"/>
+        <INDEX NAME="ruleid_userid_company" UNIQUE="false" FIELDS="ruleid, userid, companyid"/>
         <INDEX NAME="userid_courseid" UNIQUE="false" FIELDS="userid, courseid"/>
       </INDEXES>
     </TABLE>

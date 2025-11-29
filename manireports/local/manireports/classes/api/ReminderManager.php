@@ -87,14 +87,17 @@ class ReminderManager {
         $hours = isset($trigger_value['hours']) ? (int)$trigger_value['hours'] : 0;
         $offset_seconds = ($days * 86400) + ($hours * 3600);
 
-        // Base query for enrolled users
+        // Base query for enrolled users with company filtering
         // Added JOIN to {course} to get startdate for start_date trigger
-        $sql = "SELECT ue.userid, e.courseid, ue.timecreated as enroltime, c.startdate
+        // Added JOIN to {company_users} for company-scoped reminders
+        $sql = "SELECT ue.userid, e.courseid, ue.timecreated as enroltime, c.startdate, cu.companyid
                 FROM {user_enrolments} ue
                 JOIN {enrol} e ON e.id = ue.enrolid
                 JOIN {user} u ON u.id = ue.userid
                 JOIN {course} c ON c.id = e.courseid
-                WHERE u.deleted = 0 AND u.suspended = 0 AND ue.status = 0";
+                JOIN {company_users} cu ON cu.userid = u.id
+                WHERE u.deleted = 0 AND u.suspended = 0 AND ue.status = 0
+                  AND cu.companyid = :companyid";
 
         if ($rule->courseid > 0) {
             $sql .= " AND e.courseid = :courseid";
@@ -103,7 +106,7 @@ class ReminderManager {
         // Filter by company if applicable (requires IOMAD or custom logic)
         // For now, assuming standard Moodle or IOMAD handling via other means if needed.
 
-        $params = ['courseid' => $rule->courseid];
+        $params = ['courseid' => $rule->courseid, 'companyid' => $rule->companyid];
 
         // Apply Trigger Logic
         switch ($rule->trigger_type) {
@@ -180,7 +183,8 @@ class ReminderManager {
             $check_params = [
                 'ruleid' => $rule->id,
                 'userid' => $candidate->userid,
-                'courseid' => $candidate->courseid
+                'courseid' => $candidate->courseid,
+                'companyid' => $rule->companyid  // Company-scoped uniqueness
             ];
             
             // If activityid (licenseid) is present, include it in uniqueness check
@@ -226,6 +230,7 @@ class ReminderManager {
             $instance->ruleid = $rule->id;
             $instance->userid = $user->userid;
             $instance->courseid = $user->courseid;
+            $instance->companyid = $rule->companyid;  // Company-scoped instance
             // Use activityid from candidate (for licenses) or from rule
             $instance->activityid = isset($user->activityid) ? $user->activityid : $rule->activityid;
             $instance->emailsent = 0;

@@ -349,5 +349,33 @@ function xmldb_local_manireports_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024112902, 'local', 'manireports');
     }
 
+    // Add companyid to manireports_rem_inst for company-scoped reminders.
+    if ($oldversion < 2024112903) {
+        $table = new xmldb_table('manireports_rem_inst');
+        
+        // Add companyid column
+        $field = new xmldb_field('companyid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'courseid');
+        
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+            
+            // Populate companyid from rules
+            $DB->execute("
+                UPDATE {manireports_rem_inst} i
+                JOIN {manireports_rem_rule} r ON r.id = i.ruleid
+                SET i.companyid = r.companyid
+            ");
+        }
+        
+        // Add index for uniqueness (ruleid, userid, companyid)
+        $index = new xmldb_index('ruleid_userid_company', XMLDB_INDEX_NOTUNIQUE, ['ruleid', 'userid', 'companyid']);
+        
+        if (!$dbman->index_exists($table, $index)) {
+            $dbman->add_index($table, $index);
+        }
+
+        upgrade_plugin_savepoint(true, 2024112903, 'local', 'manireports');
+    }
+
     return true;
 }
