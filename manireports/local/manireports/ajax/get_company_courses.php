@@ -37,9 +37,13 @@ $courses = $DB->get_records_sql_menu($sql, [
 ]);
 
 // Return as HTML options
-$html = '<option value="">'.get_string('selectcourse', 'local_manireports').'</option>';
-foreach ($courses as $id => $name) {
-    $html .= '<option value="' . $id . '">' . s($name) . '</option>';
+$html = '<option value="">Select a course...</option>';
+if (empty($courses)) {
+    $html = '<option value="">No courses found for this company</option>';
+} else {
+    foreach ($courses as $id => $name) {
+        $html .= '<option value="' . $id . '">' . s($name) . '</option>';
+    }
 }
 
 echo $html;

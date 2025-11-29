@@ -136,51 +136,6 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('enabled', 1);
 
 
-        $this->add_action_buttons();
-
-                // Add inline JavaScript for dynamic field handling
-        $js = "
-        <script>
-        require(['jquery'], function($) {
-            // Cascading dropdowns for Company -> Course -> Activity
-            $('#id_companyid').change(function() {
-                var companyid = $(this).val();
-                if (!companyid) {
-                    $('#id_courseid').html('<option value=\"\">Select company first</option>');
-                    $('#id_activityid').html('<option value=\"\">Select course first</option>');
-                    return;
-                }
-                
-                $.ajax({
-                    url: M.cfg.wwwroot + '/local/manireports/ajax/get_company_courses.php',
-                    data: { companyid: companyid, sesskey: M.cfg.sesskey },
-                    success: function(response) {
-                        $('#id_courseid').html(response);
-                        $('#id_activityid').html('<option value=\"\">Select course first</option>');
-                    }
-                });
-            });
-            
-            $('#id_courseid').change(function() {
-                var courseid = $(this).val();
-                if (!courseid) {
-                    $('#id_activityid').html('<option value=\"\">Select course first</option>');
-                    return;
-                }
-                
-                $.ajax({
-                    url: M.cfg.wwwroot + '/local/manireports/ajax/get_course_activities.php',
-                    data: { courseid: courseid, sesskey: M.cfg.sesskey },
-                    success: function(response) {
-                        var options = '<option value=\"-1\">Course Completion</option>';
-                        options += response;
-                        $('#id_activityid').html(options);
-                    }
-                });
-            });
-            
-            function updateFormFields() {
-                var trigger = $('#id_trigger_type').val();
                 var isLicense = (trigger === 'license_expiry' || trigger === 'license_utilization');
                 
                 if (isLicense) {

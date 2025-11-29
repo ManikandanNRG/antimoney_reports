@@ -848,5 +848,6 @@ $string['targetactivity_help'] = 'Stop reminders when user completes this activi
 $string['coursecompletion'] = 'Course Completion';
 $string['selectcompanyfirst'] = 'Please select a company first';
 $string['selectcoursefirst'] = 'Please select a course first';
+$string['selectcourse'] = 'Select a course...';
 
 

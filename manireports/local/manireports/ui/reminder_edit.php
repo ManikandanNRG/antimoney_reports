@@ -10,6 +10,7 @@ $id = optional_param('id', 0, PARAM_INT);
 $PAGE->set_url(new moodle_url('/local/manireports/ui/reminder_edit.php', ['id' => $id]));
 $PAGE->set_title($id ? 'Edit Reminder Rule' : 'Create Reminder Rule');
 $PAGE->set_heading($id ? 'Edit Reminder Rule' : 'Create Reminder Rule');
+$PAGE->requires->jquery();  // Load jQuery for AJAX
 $PAGE->set_pagelayout('embedded');
 
 $form = new \local_manireports\form\reminder_rule_form(null, ['id' => $id]);
@@ -49,6 +50,14 @@ if ($form->is_cancelled()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $id ? 'Edit' : 'Create'; ?> Reminder Rule - ManiReports</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        // Moodle config for AJAX
+        var M = M || {};
+        M.cfg = M.cfg || {};
+        M.cfg.wwwroot = '<?php echo $CFG->wwwroot; ?>';
+        M.cfg.sesskey = '<?php echo sesskey(); ?>';
+    </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
