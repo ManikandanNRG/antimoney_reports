@@ -249,38 +249,61 @@ if ($form->is_cancelled()) {
             gap: 12px;
         }
 
-        /* Help Icon Styling */
-        .mform .iconhelp {
-            color: #6366f1;
-            font-size: 16px;
-            margin-left: 8px;
+        /* Help Icon Styling - Universal Fix */
+        .mform .iconhelp,
+        .mform .btn-link,
+        .mform .btn-link i,
+        .mform .btn-link .icon,
+        .mform a[data-toggle="popover"],
+        .mform a[data-toggle="popover"] i,
+        .mform .fitemtitle i,
+        .mform .fitemtitle .icon,
+        .mform label i,
+        .mform label .icon,
+        .mform legend i,
+        .mform legend .icon {
+            color: #6366f1 !important;
+            font-size: 16px !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            display: inline-block !important;
+            text-decoration: none !important;
         }
 
-        .mform .btn-link {
-            color: #6366f1;
-            text-decoration: none;
+        .mform .btn-link:hover,
+        .mform .btn-link:focus,
+        .mform a[data-toggle="popover"]:hover,
+        .mform .iconhelp:hover {
+            color: #8b5cf6 !important;
+            cursor: pointer !important;
         }
 
-        .mform .btn-link:hover {
-            color: #8b5cf6;
+        /* Ensure the container of the icon doesn't hide it */
+        .mform .form-label-addon {
+            opacity: 1 !important;
+            visibility: visible !important;
+            color: #6366f1 !important;
+            display: inline-block !important;
         }
 
         /* Popover Styling */
         .popover {
-            background: #1e293b;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-            color: #f8fafc;
+            background: #1e293b !important;
+            border: 1px solid rgba(148, 163, 184, 0.2) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+            color: #f8fafc !important;
+            z-index: 10000 !important; /* Ensure on top */
         }
 
         .popover-header {
-            background: rgba(30, 41, 59, 0.8);
-            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-            color: #f8fafc;
+            background: rgba(30, 41, 59, 0.9) !important;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1) !important;
+            color: #f8fafc !important;
+            font-weight: 700 !important;
         }
 
         .popover-body {
-            color: #cbd5e1;
+            color: #cbd5e1 !important;
         }
 
         .bs-popover-right .arrow::after,

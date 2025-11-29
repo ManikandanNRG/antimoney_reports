@@ -19,7 +19,7 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('text', 'name', get_string('rulename', 'local_manireports'));
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
-        $mform->addHelpButton('name', 'rulename', 'local_manireports');
+
 
         // Company (hidden for now)
         $mform->addElement('hidden', 'companyid', 0);
@@ -30,7 +30,7 @@ class reminder_rule_form extends \moodleform {
         $course_options = [0 => get_string('allcourses', 'local_manireports')] + $courses;
         $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), $course_options);
         $mform->setDefault('courseid', 0);
-        $mform->addHelpButton('courseid', 'courseid', 'local_manireports');
+
 
         // Trigger Settings
         $mform->addElement('header', 'trigger_settings', 'Trigger Settings');
@@ -41,13 +41,13 @@ class reminder_rule_form extends \moodleform {
             'incomplete_after' => get_string('triggertype_incomplete', 'local_manireports'),
         ];
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
-        $mform->addHelpButton('trigger_type', 'triggertype', 'local_manireports');
+
 
         // Trigger Days
         $mform->addElement('text', 'trigger_days', get_string('triggerdays', 'local_manireports'));
         $mform->setType('trigger_days', PARAM_INT);
         $mform->setDefault('trigger_days', 7);
-        $mform->addHelpButton('trigger_days', 'triggerdays', 'local_manireports');
+
 
         // Schedule Settings
         $mform->addElement('header', 'schedule_settings', 'Schedule Settings');
@@ -55,13 +55,13 @@ class reminder_rule_form extends \moodleform {
         // Email Delay
         $mform->addElement('duration', 'emaildelay', get_string('emaildelay', 'local_manireports'));
         $mform->setDefault('emaildelay', 86400); // 1 day
-        $mform->addHelpButton('emaildelay', 'emaildelay', 'local_manireports');
+
 
         // Reminder Count
         $mform->addElement('text', 'remindercount', get_string('remindercount', 'local_manireports'));
         $mform->setType('remindercount', PARAM_INT);
         $mform->setDefault('remindercount', 1);
-        $mform->addHelpButton('remindercount', 'remindercount', 'local_manireports');
+
 
         // Recipient Settings
         $mform->addElement('header', 'recipient_settings', 'Recipient Settings');
@@ -69,17 +69,17 @@ class reminder_rule_form extends \moodleform {
         // Send to User
         $mform->addElement('checkbox', 'send_to_user', get_string('sendtousers', 'local_manireports'));
         $mform->setDefault('send_to_user', 1);
-        $mform->addHelpButton('send_to_user', 'sendtousers', 'local_manireports');
+
 
         // Send to Managers
         $mform->addElement('checkbox', 'send_to_managers', get_string('sendtomanagers', 'local_manireports'));
         $mform->setDefault('send_to_managers', 0);
-        $mform->addHelpButton('send_to_managers', 'sendtomanagers', 'local_manireports');
+
 
         // Third Party Emails
         $mform->addElement('textarea', 'thirdparty_emails', get_string('thirdpartyemails', 'local_manireports'), 'rows="3" cols="50"');
         $mform->setType('thirdparty_emails', PARAM_TEXT);
-        $mform->addHelpButton('thirdparty_emails', 'thirdpartyemails', 'local_manireports');
+
 
         // Content Settings
         $mform->addElement('header', 'content_settings', 'Content Settings');
@@ -91,12 +91,12 @@ class reminder_rule_form extends \moodleform {
         }
         $mform->addElement('select', 'templateid', get_string('templateid', 'local_manireports'), $templates);
         $mform->addRule('templateid', null, 'required', null, 'client');
-        $mform->addHelpButton('templateid', 'templateid', 'local_manireports');
+
 
         // Enabled
         $mform->addElement('selectyesno', 'enabled', get_string('enabled', 'local_manireports'));
         $mform->setDefault('enabled', 1);
-        $mform->addHelpButton('enabled', 'enabled', 'local_manireports');
+
 
         $this->add_action_buttons();
     }

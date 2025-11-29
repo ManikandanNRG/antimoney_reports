@@ -1,0 +1,40 @@
+/* Help Icon Styling for Reminder Forms */
+.mform .iconhelp,
+.mform .btn-link,
+.mform .btn-link i,
+.mform .btn-link .icon,
+.mform a[data-toggle="popover"],
+.mform a[data-toggle="popover"] i,
+.mform .fitemtitle i,
+.mform .fitemtitle .icon,
+.mform label i,
+.mform label .icon,
+.mform legend i,
+.mform legend .icon,
+.mform .form-label-addon,
+.mform .form-label-addon i {
+    color: #6366f1 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.mform .btn-link:hover,
+.mform .iconhelp:hover {
+    color: #8b5cf6 !important;
+}
+
+/* Popover Styling */
+.popover {
+    background: #1e293b !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    color: #f8fafc !important;
+}
+
+.popover-header {
+    background: rgba(30, 41, 59, 0.9) !important;
+    color: #f8fafc !important;
+}
+
+.popover-body {
+    color: #cbd5e1 !important;
+}

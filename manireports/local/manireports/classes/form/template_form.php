@@ -16,19 +16,19 @@ class template_form extends \moodleform {
         $mform->addElement('text', 'name', get_string('templatename', 'local_manireports'));
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
-        $mform->addHelpButton('name', 'templatename', 'local_manireports');
+
 
         // Email Subject
         $mform->addElement('text', 'subject', get_string('subject', 'local_manireports'));
         $mform->setType('subject', PARAM_TEXT);
         $mform->addRule('subject', null, 'required', null, 'client');
-        $mform->addHelpButton('subject', 'subject', 'local_manireports');
+
 
         // Email Body (HTML Editor)
         $mform->addElement('editor', 'body_html', get_string('bodyhtml', 'local_manireports'));
         $mform->setType('body_html', PARAM_RAW);
         $mform->addRule('body_html', null, 'required', null, 'client');
-        $mform->addHelpButton('body_html', 'bodyhtml', 'local_manireports');
+
 
         // Placeholders Information (Static Help Text)
         $placeholders_html = '<div style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; padding: 12px; margin-top: 8px;">
@@ -45,7 +45,7 @@ class template_form extends \moodleform {
         // Enabled
         $mform->addElement('selectyesno', 'enabled', get_string('enabled', 'local_manireports'));
         $mform->setDefault('enabled', 1);
-        $mform->addHelpButton('enabled', 'enabled', 'local_manireports');
+
 
         // Hidden ID field
         $mform->addElement('hidden', 'id');
