@@ -248,6 +248,60 @@ if ($form->is_cancelled()) {
             display: flex;
             gap: 12px;
         }
+
+        /* Help Icon Styling */
+        .mform .iconhelp {
+            color: #6366f1;
+            font-size: 16px;
+            margin-left: 8px;
+        }
+
+        .mform .btn-link {
+            color: #6366f1;
+            text-decoration: none;
+        }
+
+        .mform .btn-link:hover {
+            color: #8b5cf6;
+        }
+
+        /* Popover Styling */
+        .popover {
+            background: #1e293b;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            color: #f8fafc;
+        }
+
+        .popover-header {
+            background: rgba(30, 41, 59, 0.8);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            color: #f8fafc;
+        }
+
+        .popover-body {
+            color: #cbd5e1;
+        }
+
+        .bs-popover-right .arrow::after,
+        .bs-popover-auto[x-placement^="right"] .arrow::after {
+            border-right-color: #1e293b;
+        }
+
+        .bs-popover-left .arrow::after,
+        .bs-popover-auto[x-placement^="left"] .arrow::after {
+            border-left-color: #1e293b;
+        }
+
+        .bs-popover-top .arrow::after,
+        .bs-popover-auto[x-placement^="top"] .arrow::after {
+            border-top-color: #1e293b;
+        }
+
+        .bs-popover-bottom .arrow::after,
+        .bs-popover-auto[x-placement^="bottom"] .arrow::after {
+            border-bottom-color: #1e293b;
+        }
     </style>
 </head>
 <body>
