@@ -10,24 +10,30 @@ class template_form extends \moodleform {
     public function definition() {
         $mform = $this->_form;
 
-        $mform->addElement('header', 'general', get_string('general', 'form'));
+        $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-2 border-b border-gray-200 dark:border-gray-700 pb-2">' . get_string('general', 'form') . '</h4>');
 
         // Template Name
         $mform->addElement('text', 'name', get_string('templatename', 'local_manireports'));
         $mform->setType('name', PARAM_TEXT);
+
         $mform->addRule('name', null, 'required', null, 'client');
+        $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('templatename_help', 'local_manireports') . '</div>');
 
 
         // Email Subject
         $mform->addElement('text', 'subject', get_string('subject', 'local_manireports'));
         $mform->setType('subject', PARAM_TEXT);
+
         $mform->addRule('subject', null, 'required', null, 'client');
+        $mform->addElement('static', 'subject_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('subject_help', 'local_manireports') . '</div>');
 
 
         // Email Body (HTML Editor)
         $mform->addElement('editor', 'body_html', get_string('bodyhtml', 'local_manireports'));
         $mform->setType('body_html', PARAM_RAW);
+
         $mform->addRule('body_html', null, 'required', null, 'client');
+        $mform->addElement('static', 'body_html_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('bodyhtml_help', 'local_manireports') . '</div>');
 
 
         // Placeholders Information (Static Help Text)

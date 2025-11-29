@@ -387,9 +387,14 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
         <?php if ($action === 'edit' || $action === 'add'): ?>
             <!-- Form View -->
             <div class="action-bar">
-                <a href="<?php echo new moodle_url('/local/manireports/ui/templates.php'); ?>" class="btn btn-secondary">
-                    <i class="fa-solid fa-arrow-left"></i> Back to List
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/designs/dashboard_v6_ultimate.php" class="btn btn-secondary text-white">
+                        <i class="fa fa-arrow-left mr-2"></i> Back to Dashboard
+                    </a>
+                    <a href="templates.php" class="btn btn-secondary text-white">
+                        <i class="fa fa-list mr-2"></i> Back to Templates
+                    </a>
+                </div>
             </div>
 
             <div class="form-container">
