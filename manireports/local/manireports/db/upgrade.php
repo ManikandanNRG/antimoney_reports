@@ -337,5 +337,17 @@ function xmldb_local_manireports_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024112901, 'local', 'manireports');
     }
 
+    // Add cc_emails column to manireports_rem_rule.
+    if ($oldversion < 2024112902) {
+        $table = new xmldb_table('manireports_rem_rule');
+        $field = new xmldb_field('cc_emails', XMLDB_TYPE_TEXT, null, null, null, null, null, 'thirdparty_emails');
+
+        if ($dbman->table_exists($table) && !$dbman->field_exists($table, $field)) {
+            $dbman->add_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2024112902, 'local', 'manireports');
+    }
+
     return true;
 }

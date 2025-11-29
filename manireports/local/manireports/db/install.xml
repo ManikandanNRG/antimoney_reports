@@ -371,6 +371,7 @@
         <FIELD NAME="send_to_user" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Send to learner"/>
         <FIELD NAME="send_to_managers" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Send to managers"/>
         <FIELD NAME="thirdparty_emails" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="CSV of external emails"/>
+        <FIELD NAME="cc_emails" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="CSV of CC emails"/>
         <FIELD NAME="templateid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_rem_tmpl"/>
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether rule is enabled"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>

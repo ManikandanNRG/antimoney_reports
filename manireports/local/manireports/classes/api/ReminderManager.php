@@ -128,22 +128,67 @@ class ReminderManager {
                 $params['cutoff'] = $cutoff;
                 break;
 
+            case 'license_expiry':
+                // IOMAD License Expiry
+                // Check for licenses expiring in X days (within next 24 hours window of that target)
+                // We use activityid to store licenseid for uniqueness
+                $days = isset($trigger_value['days']) ? (int)$trigger_value['days'] : 30;
+                $target_time = time() + ($days * 86400);
+                $window_start = $target_time; 
+                $window_end = $target_time + 86400; // 24 hour window
+
+                // Query IOMAD licenses
+                // We return Admin User (ID 2) as placeholder, with license ID in activityid
+                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.expirydate
+                        FROM {block_iomad_company_licenses} l
+                        WHERE l.expirydate >= :start AND l.expirydate < :end";
+                
+                $params = ['start' => $window_start, 'end' => $window_end];
+                
+                // Override candidates fetch
+                $candidates = $DB->get_records_sql($sql, $params);
+                break;
+
+            case 'license_utilization':
+                // IOMAD License Utilization
+                // Check if usage >= X%
+                $percent = isset($trigger_value['percent']) ? (int)$trigger_value['percent'] : 80;
+                
+                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.allocated, l.used
+                        FROM {block_iomad_company_licenses} l
+                        WHERE l.allocated > 0 AND ((l.used / l.allocated) * 100) >= :percent";
+                
+                $params = ['percent' => $percent];
+                
+                // Override candidates fetch
+                $candidates = $DB->get_records_sql($sql, $params);
+                break;
+
             case 'custom':
                 // Custom logic placeholder - currently no-op or requires specific implementation
                 // For now, we return empty to avoid sending incorrectly
                 return [];
         }
 
-        $candidates = $DB->get_records_sql($sql, $params);
+        if (!isset($candidates)) {
+            $candidates = $DB->get_records_sql($sql, $params);
+        }
 
         // Filter out those who already have an instance for this rule
         $eligible = [];
         foreach ($candidates as $candidate) {
-            if (!$DB->record_exists('manireports_rem_inst', [
+            $check_params = [
                 'ruleid' => $rule->id,
                 'userid' => $candidate->userid,
                 'courseid' => $candidate->courseid
-            ])) {
+            ];
+            
+            // If activityid (licenseid) is present, include it in uniqueness check
+            if (isset($candidate->activityid)) {
+                $check_params['activityid'] = $candidate->activityid;
+            }
+
+            if (!$DB->record_exists('manireports_rem_inst', $check_params)) {
                 $eligible[] = $candidate;
             }
         }
@@ -181,6 +226,8 @@ class ReminderManager {
             $instance->ruleid = $rule->id;
             $instance->userid = $user->userid;
             $instance->courseid = $user->courseid;
+            // Use activityid from candidate (for licenses) or from rule
+            $instance->activityid = isset($user->activityid) ? $user->activityid : $rule->activityid;
             $instance->emailsent = 0;
             $instance->next_send = time() + $rule->emaildelay;
             $instance->timecreated = time();

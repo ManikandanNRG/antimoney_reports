@@ -46,13 +46,15 @@ class reminder_rule_form extends \moodleform {
             'enrol' => get_string('triggertype_enrol', 'local_manireports'),
             'start_date' => get_string('triggertype_startdate', 'local_manireports'),
             'incomplete_after' => get_string('triggertype_incomplete', 'local_manireports'),
+            'license_expiry' => get_string('triggertype_license_expiry', 'local_manireports'),
+            'license_utilization' => get_string('triggertype_license_utilization', 'local_manireports'),
             'custom' => get_string('triggertype_custom', 'local_manireports'),
         ];
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
         $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');
 
 
-        // Trigger Days
+        // Trigger Days / Value
         $mform->addElement('text', 'trigger_days', get_string('triggerdays', 'local_manireports'));
         $mform->setType('trigger_days', PARAM_INT);
 
@@ -97,11 +99,15 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('static', 'send_to_managers_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('sendtomanagers_help', 'local_manireports') . '</div>');
 
 
-        // Third Party Emails
+        // Third Party Emails (Recipients)
         $mform->addElement('textarea', 'thirdparty_emails', get_string('thirdpartyemails', 'local_manireports'), 'rows="3" cols="50"');
-
         $mform->setType('thirdparty_emails', PARAM_TEXT);
         $mform->addElement('static', 'thirdparty_emails_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('thirdpartyemails_help', 'local_manireports') . '</div>');
+
+        // CC Emails
+        $mform->addElement('textarea', 'cc_emails', get_string('cc_emails', 'local_manireports'), 'rows="3" cols="50"');
+        $mform->setType('cc_emails', PARAM_TEXT);
+        $mform->addElement('static', 'cc_emails_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('cc_emails_help', 'local_manireports') . '</div>');
 
 
         // Content Settings
@@ -125,6 +131,60 @@ class reminder_rule_form extends \moodleform {
 
 
         $this->add_action_buttons();
+
+        // Add inline JavaScript for dynamic field handling
+        $js = "
+        <script>
+        require(['jquery'], function($) {
+            function updateFormFields() {
+                var trigger = $('#id_trigger_type').val();
+                var isLicense = (trigger === 'license_expiry' || trigger === 'license_utilization');
+                
+                if (isLicense) {
+                    // Hide Course, Send to User, Send to Manager
+                    $('#fitem_id_courseid').hide();
+                    $('#fitem_id_send_to_user').hide();
+                    $('#fitem_id_send_to_managers').hide();
+                    
+                    // Show CC
+                    $('#fitem_id_cc_emails').show();
+                    
+                    // Update Labels
+                    $('label[for=\"id_thirdparty_emails\"]').text('" . get_string('thirdpartyemails', 'local_manireports') . "'); // Recipients (To)
+                    
+                    if (trigger === 'license_expiry') {
+                        $('label[for=\"id_trigger_days\"]').text('" . get_string('trigger_days_expiry', 'local_manireports') . "');
+                    } else {
+                        $('label[for=\"id_trigger_days\"]').text('" . get_string('trigger_utilization', 'local_manireports') . "');
+                    }
+                } else {
+                    // Show Course, Send to User, Send to Manager
+                    $('#fitem_id_courseid').show();
+                    $('#fitem_id_send_to_user').show();
+                    $('#fitem_id_send_to_managers').show();
+                    
+                    // Hide CC (optional, but let's hide it for standard rules to keep it simple)
+                    $('#fitem_id_cc_emails').hide();
+                    
+                    // Revert Labels
+                    $('label[for=\"id_thirdparty_emails\"]').text('" . get_string('thirdpartyemails', 'local_manireports') . "'); // Additional Recipients (Wait, string is shared. Let's use JS to set specific text if needed)
+                    // Actually, I changed the string key 'thirdpartyemails' to 'Recipients (To)' globally. 
+                    // If I want different labels, I should have used different keys.
+                    // For now, 'Recipients (To)' is fine for both, or 'Additional Recipients' for standard.
+                    // Let's force 'Additional Recipients' for standard if I can get the string.
+                    // Since I can't easily get the old string here without passing it, I'll stick to 'Recipients (To)' or just 'Recipients'.
+                    
+                    $('label[for=\"id_trigger_days\"]').text('" . get_string('triggerdays', 'local_manireports') . "');
+                }
+            }
+
+            // Run on load and change
+            $('#id_trigger_type').change(updateFormFields);
+            updateFormFields();
+        });
+        </script>
+        ";
+        $mform->addElement('html', $js);
     }
 
     public function validation($data, $files) {

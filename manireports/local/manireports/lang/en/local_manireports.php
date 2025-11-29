@@ -807,27 +807,18 @@ $string['triggertype_enrol'] = 'After Enrollment';
 $string['triggertype_enrol'] = 'After Enrollment';
 $string['triggertype_startdate'] = 'After Course Start Date';
 $string['triggertype_incomplete'] = 'Incomplete After Period';
+$string['triggertype_license_expiry'] = 'License Expiry (Days Before)';
+$string['triggertype_license_utilization'] = 'License Utilization (%)';
 $string['triggertype_custom'] = 'Custom Logic';
-$string['triggerdays'] = 'Trigger After (Days)';
-$string['triggerdays_help'] = 'Number of days after enrollment or deadline before sending the first reminder';
+$string['triggerdays'] = 'Trigger Value';
+$string['triggerdays_help'] = 'Enter the number of days, hours, or percentage depending on the trigger type.';
+$string['trigger_days_expiry'] = 'Days Before Expiry';
+$string['trigger_utilization'] = 'Utilization %';
 $string['emaildelay'] = 'Email Delay';
 $string['emaildelay_help'] = 'Time interval between sending reminder emails (in seconds)';
 $string['remindercount'] = 'Number of Reminders';
 $string['remindercount_help'] = 'How many reminder emails to send (maximum 5)';
 $string['templateid'] = 'Email Template';
-$string['templateid_help'] = 'Select the email template to use for this reminder';
-$string['sendtousers'] = 'Send to Users';
-$string['sendtousers_help'] = 'Send reminder emails to enrolled users';
-$string['sendtomanagers'] = 'Send to Managers';
-$string['sendtomanagers_help'] = 'Also send reminder emails to user managers (requires IOMAD)';
-$string['thirdpartyemails'] = 'Additional Recipients';
-$string['thirdpartyemails_help'] = 'Comma-separated list of additional email addresses to receive reminders';
-
-// Template Form strings
-$string['templatename'] = 'Template Name';
-$string['templatename_help'] = 'A descriptive name for this email template';
-$string['subject'] = 'Email Subject';
-$string['subject_help'] = 'Subject line for the email. Use placeholders like {firstname}, {coursename}';
 $string['bodyhtml'] = 'Email Body (HTML)';
 $string['bodyhtml_help'] = 'HTML content of the email. Available placeholders: {firstname}, {lastname}, {email}, {coursename}, {courseurl}, {completiondate}';
 

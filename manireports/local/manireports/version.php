@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_manireports';
-$plugin->version = 2024112901;
+$plugin->version = 2024112902;
 $plugin->requires = 2022041900; // Moodle 4.0.
 $plugin->maturity = MATURITY_BETA;
 $plugin->release = 'v1.0.0-beta';

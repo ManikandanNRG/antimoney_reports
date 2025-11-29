@@ -44,7 +44,7 @@ class process_reminders extends scheduled_task {
 
         // 2. Process due instances
         $now = time();
-        $sql = "SELECT i.*, r.remindercount, r.emaildelay, r.templateid, r.send_to_user, r.send_to_managers, r.companyid, r.name as rulename
+        $sql = "SELECT i.*, r.remindercount, r.emaildelay, r.templateid, r.send_to_user, r.send_to_managers, r.companyid, r.name as rulename, r.trigger_type, r.thirdparty_emails, r.cc_emails
                 FROM {manireports_rem_inst} i
                 JOIN {manireports_rem_rule} r ON r.id = i.ruleid
                 WHERE i.next_send <= :now 
@@ -72,12 +72,80 @@ class process_reminders extends scheduled_task {
             mtrace("Processing instance {$instance->id} for user {$instance->userid}");
 
             try {
+                // Get the rule to check trigger type
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $instance->ruleid]);
+                $is_license_trigger = in_array($rule->trigger_type, ['license_expiry', 'license_utilization']);
+
+                // For license triggers, skip completion check and use manual recipients
+                if ($is_license_trigger) {
+                    // License triggers don't have real users/courses
+                    // Get manual recipients from rule
+                    $to_emails = !empty($rule->thirdparty_emails) ? array_map('trim', explode(',', $rule->thirdparty_emails)) : [];
+                    $cc_emails = !empty($rule->cc_emails) ? array_map('trim', explode(',', $rule->cc_emails)) : [];
+                    
+                    if (empty($to_emails)) {
+                        mtrace("No recipients configured for license trigger, skipping.");
+                        continue;
+                    }
+
+                    // Create a dummy user for template rendering
+                    $dummy_user = new \stdClass();
+                    $dummy_user->firstname = 'License';
+                    $dummy_user->lastname = 'Manager';
+                    $dummy_user->email = $to_emails[0]; // Use first recipient
+                    
+                    // Create a dummy course
+                    $dummy_course = new \stdClass();
+                    $dummy_course->id = 0;
+                    $dummy_course->fullname = 'License Notification';
+                    
+                    // Render Template
+                    $rendered = $template_engine->render($instance->templateid, $dummy_user, $dummy_course);
+
+                    // Send to all recipients
+                    $all_recipients = array_merge($to_emails, $cc_emails);
+                    foreach ($all_recipients as $email) {
+                        if (validate_email($email)) {
+                            email_to_user(
+                                (object)['email' => $email, 'firstname' => '', 'lastname' => '', 'mailformat' => 1],
+                                \core_user::get_noreply_user(),
+                                $rendered['subject'],
+                                $rendered['body_text'],
+                                $rendered['body_html']
+                            );
+                            
+                            // Audit log
+                            $audit = new \stdClass();
+                            $audit->instanceid = $instance->id;
+                            $audit->message_id = \core\uuid::generate();
+                            $audit->recipient_email = $email;
+                            $audit->status = 'local_sent';
+                            $audit->attempts = 1;
+                            $audit->last_attempt_ts = time();
+                            $DB->insert_record('manireports_rem_job', $audit);
+                            
+                            mtrace("Sent license notification to {$email}");
+                        }
+                    }
+
+                    // Update instance state
+                    $next_run = time() + $instance->emaildelay;
+                    $DB->execute("UPDATE {manireports_rem_inst} 
+                                  SET emailsent = emailsent + 1, next_send = ? 
+                                  WHERE id = ?", [$next_run, $instance->id]);
+                    
+                    continue; // Skip to next instance
+                }
+
+                // Standard trigger logic (existing code)
                 // Check completion
-                $completion = new \completion_info($DB->get_record('course', ['id' => $instance->courseid]));
-                if ($completion->is_course_complete($instance->userid)) {
-                    $DB->set_field('manireports_rem_inst', 'completed', 1, ['id' => $instance->id]);
-                    mtrace("User {$instance->userid} completed course, skipping.");
-                    continue;
+                if ($instance->courseid > 0) {
+                    $completion = new \completion_info($DB->get_record('course', ['id' => $instance->courseid]));
+                    if ($completion->is_course_complete($instance->userid)) {
+                        $DB->set_field('manireports_rem_inst', 'completed', 1, ['id' => $instance->id]);
+                        mtrace("User {$instance->userid} completed course, skipping.");
+                        continue;
+                    }
                 }
 
                 // Get user and course data
