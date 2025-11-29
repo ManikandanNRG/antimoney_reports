@@ -14,10 +14,10 @@ echo $OUTPUT->header();
 local_manireports_print_tabs('analytics');
 
 // KPIs
-$total_sent = $DB->count_records('manireports_reminder_job', ['status' => 'delivered']); // or local_sent
-$total_queued = $DB->count_records('manireports_reminder_job', ['status' => 'enqueued']);
-$total_failed = $DB->count_records('manireports_reminder_job', ['status' => 'failed']);
-$today_sent = $DB->count_records_select('manireports_reminder_job', 'last_attempt_ts > ?', [strtotime('today')]);
+$total_sent = $DB->count_records('manireports_rem_job', ['status' => 'delivered']); // or local_sent
+$total_queued = $DB->count_records('manireports_rem_job', ['status' => 'enqueued']);
+$total_failed = $DB->count_records('manireports_rem_job', ['status' => 'failed']);
+$today_sent = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts > ?', [strtotime('today')]);
 
 echo '<div class="row mb-4">';
 echo '<div class="col-md-3"><div class="card bg-primary text-white"><div class="card-body"><h3>' . $total_sent . '</h3><p>Total Sent</p></div></div></div>';
@@ -35,7 +35,7 @@ for ($i = 6; $i >= 0; $i--) {
     $date = date('Y-m-d', strtotime("-$i days"));
     $start = strtotime($date);
     $end = $start + 86400;
-    $count = $DB->count_records_select('manireports_reminder_job', 'last_attempt_ts >= ? AND last_attempt_ts < ?', [$start, $end]);
+    $count = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts >= ? AND last_attempt_ts < ?', [$start, $end]);
     $series->add_data($count);
     $labels[] = date('D', $start);
 }
@@ -46,7 +46,7 @@ echo $OUTPUT->render($chart);
 
 // Recent Jobs Table
 echo '<h3>Recent Activity</h3>';
-$jobs = $DB->get_records('manireports_reminder_job', null, 'last_attempt_ts DESC', '*', 0, 20);
+$jobs = $DB->get_records('manireports_rem_job', null, 'last_attempt_ts DESC', '*', 0, 20);
 
 if ($jobs) {
     $table = new html_table();

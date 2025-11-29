@@ -22,10 +22,10 @@ if ($form->is_cancelled()) {
     $data->body_html = $data->body_html['text']; // Extract text from editor array
 
     if ($data->id) {
-        $DB->update_record('manireports_template', $data);
+        $DB->update_record('manireports_rem_tmpl', $data);
         $msg = get_string('templateupdated', 'local_manireports');
     } else {
-        $DB->insert_record('manireports_template', $data);
+        $DB->insert_record('manireports_rem_tmpl', $data);
         $msg = get_string('templatecreated', 'local_manireports');
     }
     redirect(new moodle_url('/local/manireports/ui/templates.php'), $msg, null, \core\output\notification::NOTIFY_SUCCESS);
@@ -38,7 +38,7 @@ local_manireports_print_tabs('templates');
 
 if ($action === 'edit' || $action === 'add') {
     if ($id && $action === 'edit') {
-        $template = $DB->get_record('manireports_template', ['id' => $id], '*', MUST_EXIST);
+        $template = $DB->get_record('manireports_rem_tmpl', ['id' => $id], '*', MUST_EXIST);
         $template->body_html = ['text' => $template->body_html, 'format' => FORMAT_HTML];
         $form->set_data($template);
     }
@@ -48,7 +48,7 @@ if ($action === 'edit' || $action === 'add') {
     // List View
     echo $OUTPUT->single_button(new moodle_url($PAGE->url, ['action' => 'add']), get_string('addtemplate', 'local_manireports'), 'get', ['class' => 'btn-primary mb-3']);
 
-    $templates = $DB->get_records('manireports_template', null, 'name ASC');
+    $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
     if ($templates) {
         $table = new html_table();
         $table->head = ['Name', 'Subject', 'Enabled', 'Actions'];

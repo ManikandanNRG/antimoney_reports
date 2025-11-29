@@ -296,8 +296,8 @@ class cleanup_old_data extends \core\task\scheduled_task {
         // Retention: 90 days
         $cutoff = time() - (90 * 24 * 60 * 60);
         
-        $count = $DB->count_records_select('manireports_reminder_job', 'last_attempt_ts < ?', [$cutoff]);
-        $DB->delete_records_select('manireports_reminder_job', 'last_attempt_ts < ?', [$cutoff]);
+        $count = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts < ?', [$cutoff]);
+        $DB->delete_records_select('manireports_rem_job', 'last_attempt_ts < ?', [$cutoff]);
 
         return $count;
     }

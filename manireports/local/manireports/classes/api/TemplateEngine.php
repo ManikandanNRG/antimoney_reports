@@ -25,7 +25,7 @@ class TemplateEngine {
     public function render($templateid, $user, $course, $activity = null) {
         global $DB;
 
-        $template = $DB->get_record('manireports_template', ['id' => $templateid, 'enabled' => 1]);
+        $template = $DB->get_record('manireports_rem_tmpl', ['id' => $templateid, 'enabled' => 1]);
         if (!$template) {
             throw new \moodle_exception('Template not found or disabled');
         }

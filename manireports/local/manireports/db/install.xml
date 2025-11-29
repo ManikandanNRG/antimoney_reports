@@ -338,7 +338,7 @@
         <KEY NAME="company_id" TYPE="foreign" FIELDS="company_id" REFTABLE="company" REFFIELDS="id"/>
       </KEYS>
     </TABLE>
-    <TABLE NAME="manireports_template" COMMENT="Reusable email templates for reminders">
+    <TABLE NAME="manireports_rem_tmpl" COMMENT="Reusable email templates for reminders">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="companyid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Company ID (0 = global)"/>
@@ -357,7 +357,7 @@
       </INDEXES>
     </TABLE>
 
-    <TABLE NAME="manireports_reminder_rule" COMMENT="Configuration for reminder rules">
+    <TABLE NAME="manireports_rem_rule" COMMENT="Configuration for reminder rules">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="companyid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="IOMAD Company ID (0 = global)"/>
@@ -371,14 +371,14 @@
         <FIELD NAME="send_to_user" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Send to learner"/>
         <FIELD NAME="send_to_managers" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Send to managers"/>
         <FIELD NAME="thirdparty_emails" TYPE="text" NOTNULL="false" SEQUENCE="false" COMMENT="CSV of external emails"/>
-        <FIELD NAME="templateid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_template"/>
+        <FIELD NAME="templateid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_rem_tmpl"/>
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="1" SEQUENCE="false" COMMENT="Whether rule is enabled"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when created"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when last modified"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="templateid" TYPE="foreign" FIELDS="templateid" REFTABLE="manireports_template" REFFIELDS="id"/>
+        <KEY NAME="templateid" TYPE="foreign" FIELDS="templateid" REFTABLE="manireports_rem_tmpl" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>
         <INDEX NAME="companyid" UNIQUE="false" FIELDS="companyid"/>
@@ -387,10 +387,10 @@
       </INDEXES>
     </TABLE>
 
-    <TABLE NAME="manireports_reminder_instance" COMMENT="Tracks the state of a reminder for a specific user">
+    <TABLE NAME="manireports_rem_inst" COMMENT="Tracks the state of a reminder for a specific user">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="ruleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_reminder_rule"/>
+        <FIELD NAME="ruleid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_rem_rule"/>
         <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="User ID"/>
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID"/>
         <FIELD NAME="activityid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Activity ID"/>
@@ -402,7 +402,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="ruleid" TYPE="foreign" FIELDS="ruleid" REFTABLE="manireports_reminder_rule" REFFIELDS="id"/>
+        <KEY NAME="ruleid" TYPE="foreign" FIELDS="ruleid" REFTABLE="manireports_rem_rule" REFFIELDS="id"/>
         <KEY NAME="userid" TYPE="foreign" FIELDS="userid" REFTABLE="user" REFFIELDS="id"/>
         <KEY NAME="courseid" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
       </KEYS>
@@ -413,10 +413,10 @@
       </INDEXES>
     </TABLE>
 
-    <TABLE NAME="manireports_reminder_job" COMMENT="Audit log for every send attempt">
+    <TABLE NAME="manireports_rem_job" COMMENT="Audit log for every send attempt">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_reminder_instance"/>
+        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="FK to manireports_rem_inst"/>
         <FIELD NAME="message_id" TYPE="char" LENGTH="36" NOTNULL="true" SEQUENCE="false" COMMENT="UUID for deduplication"/>
         <FIELD NAME="job_id" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Cloud Job ID"/>
         <FIELD NAME="recipient_email" TYPE="char" LENGTH="255" NOTNULL="true" SEQUENCE="false" COMMENT="Email address"/>
@@ -428,7 +428,7 @@
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-        <KEY NAME="instanceid" TYPE="foreign" FIELDS="instanceid" REFTABLE="manireports_reminder_instance" REFFIELDS="id"/>
+        <KEY NAME="instanceid" TYPE="foreign" FIELDS="instanceid" REFTABLE="manireports_rem_inst" REFFIELDS="id"/>
         <KEY NAME="job_id" TYPE="foreign" FIELDS="job_id" REFTABLE="manireports_cloud_jobs" REFFIELDS="id"/>
       </KEYS>
       <INDEXES>

@@ -34,25 +34,11 @@ class process_reminders extends scheduled_task {
 
         // 1. Create new instances for eligible users
         $manager = new ReminderManager();
-        $rules = $DB->get_records('manireports_reminder_rule', ['enabled' => 1]);
+        $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
         foreach ($rules as $rule) {
             $count = $manager->create_instances($rule->id);
             if ($count > 0) {
                 mtrace("Created {$count} instances for rule '{$rule->name}'");
-            }
-        }
-
-        // 2. Process due instances
-        $now = time();
-        $sql = "SELECT i.*, r.remindercount, r.emaildelay, r.templateid, r.send_to_user, r.send_to_managers, r.companyid, r.name as rulename
-                FROM {manireports_reminder_instance} i
-                JOIN {manireports_reminder_rule} r ON r.id = i.ruleid
-                WHERE i.next_send <= :now 
-                  AND i.completed = 0 
-                  AND i.emailsent < r.remindercount
-                  AND r.enabled = 1";
-        
-        $instances = $DB->get_records_sql($sql, ['now' => $now]);
         mtrace("Found " . count($instances) . " due instances.");
 
         $template_engine = new TemplateEngine();
@@ -60,7 +46,7 @@ class process_reminders extends scheduled_task {
         foreach ($instances as $instance) {
             // Atomic Claiming - Lock by updating next_send
             $lock_time = $now + 300; // Lock for 5 minutes
-            $claimed = $DB->execute("UPDATE {manireports_reminder_instance} 
+            $claimed = $DB->execute("UPDATE {manireports_rem_inst} 
                                      SET next_send = ? 
                                      WHERE id = ? AND next_send = ?", 
                                      [$lock_time, $instance->id, $instance->next_send]);
@@ -75,7 +61,7 @@ class process_reminders extends scheduled_task {
                 // Check completion
                 $completion = new \completion_info($DB->get_record('course', ['id' => $instance->courseid]));
                 if ($completion->is_course_complete($instance->userid)) {
-                    $DB->set_field('manireports_reminder_instance', 'completed', 1, ['id' => $instance->id]);
+                    $DB->set_field('manireports_rem_inst', 'completed', 1, ['id' => $instance->id]);
                     mtrace("User {$instance->userid} completed course, skipping.");
                     continue;
                 }
@@ -145,7 +131,7 @@ class process_reminders extends scheduled_task {
                             $audit->attempts = 1;
                             $audit->last_attempt_ts = time();
                             $audit->payload = json_encode(['subject' => $rendered['subject'], 'type' => 'reminder']);
-                            $DB->insert_record('manireports_reminder_job', $audit);
+                            $DB->insert_record('manireports_rem_job', $audit);
                         }
                         
                         mtrace("Offloaded to cloud (Job ID: $job_id) for " . count($recipients) . " recipients");
@@ -162,7 +148,7 @@ class process_reminders extends scheduled_task {
                         $audit->status = 'local_sent';
                         $audit->attempts = 1;
                         $audit->last_attempt_ts = time();
-                        $DB->insert_record('manireports_reminder_job', $audit);
+                        $DB->insert_record('manireports_rem_job', $audit);
                     }
 
                 } else {
@@ -176,20 +162,20 @@ class process_reminders extends scheduled_task {
                     $audit->status = 'local_sent';
                     $audit->attempts = 1;
                     $audit->last_attempt_ts = time();
-                    $DB->insert_record('manireports_reminder_job', $audit);
+                    $DB->insert_record('manireports_rem_job', $audit);
                     
                     mtrace("Sent locally to {$user->email}");
                 }
 
                 // Update instance state
                 $next_run = time() + $instance->emaildelay;
-                $DB->execute("UPDATE {manireports_reminder_instance} 
+                $DB->execute("UPDATE {manireports_rem_inst} 
                               SET emailsent = emailsent + 1, next_send = ? 
                               WHERE id = ?", [$next_run, $instance->id]);
 
             } catch (\Exception $e) {
                 mtrace("Error processing instance {$instance->id}: " . $e->getMessage());
-                $DB->set_field('manireports_reminder_instance', 'next_send', time() + 3600, ['id' => $instance->id]);
+                $DB->set_field('manireports_rem_inst', 'next_send', time() + 3600, ['id' => $instance->id]);
             }
         }
         

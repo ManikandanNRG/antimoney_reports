@@ -14,7 +14,7 @@ $PAGE->set_heading(get_string('editrule', 'local_manireports'));
 $form = new \local_manireports\form\reminder_rule_form(null, ['id' => $id]);
 
 if ($id) {
-    $rule = $DB->get_record('manireports_reminder_rule', ['id' => $id], '*', MUST_EXIST);
+    $rule = $DB->get_record('manireports_rem_rule', ['id' => $id], '*', MUST_EXIST);
     // Unpack trigger value
     $trigger_value = json_decode($rule->trigger_value, true);
     $rule->trigger_days = isset($trigger_value['days']) ? $trigger_value['days'] : 0;

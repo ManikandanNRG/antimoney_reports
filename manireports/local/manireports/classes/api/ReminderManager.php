@@ -32,7 +32,7 @@ class ReminderManager {
             $data->trigger_value = json_encode($data->trigger_value);
         }
 
-        return $DB->insert_record('manireports_reminder_rule', $data);
+        return $DB->insert_record('manireports_rem_rule', $data);
     }
 
     /**
@@ -52,7 +52,7 @@ class ReminderManager {
             $data->trigger_value = json_encode($data->trigger_value);
         }
 
-        return $DB->update_record('manireports_reminder_rule', $data);
+        return $DB->update_record('manireports_rem_rule', $data);
     }
 
     /**
@@ -64,7 +64,7 @@ class ReminderManager {
     public function delete_rule($id) {
         global $DB;
         // Soft delete by disabling
-        return $DB->set_field('manireports_reminder_rule', 'enabled', 0, ['id' => $id]);
+        return $DB->set_field('manireports_rem_rule', 'enabled', 0, ['id' => $id]);
     }
 
     /**
@@ -76,7 +76,7 @@ class ReminderManager {
     public function get_eligible_users($ruleid) {
         global $DB;
 
-        $rule = $DB->get_record('manireports_reminder_rule', ['id' => $ruleid]);
+        $rule = $DB->get_record('manireports_rem_rule', ['id' => $ruleid]);
         if (!$rule || !$rule->enabled) {
             return [];
         }
@@ -136,7 +136,7 @@ class ReminderManager {
         // Filter out those who already have an instance for this rule
         $eligible = [];
         foreach ($candidates as $candidate) {
-            if (!$DB->record_exists('manireports_reminder_instance', [
+            if (!$DB->record_exists('manireports_rem_inst', [
                 'ruleid' => $rule->id,
                 'userid' => $candidate->userid,
                 'courseid' => $candidate->courseid
@@ -157,7 +157,7 @@ class ReminderManager {
     public function create_instances($ruleid) {
         global $DB;
 
-        $rule = $DB->get_record('manireports_reminder_rule', ['id' => $ruleid]);
+        $rule = $DB->get_record('manireports_rem_rule', ['id' => $ruleid]);
         if (!$rule) {
             return 0;
         }
@@ -178,19 +178,6 @@ class ReminderManager {
             $instance->ruleid = $rule->id;
             $instance->userid = $user->userid;
             $instance->courseid = $user->courseid;
-            $instance->activityid = $rule->activityid;
-            $instance->next_send = time(); // Ready to send immediately (or calculate based on delay)
-            $instance->emailsent = 0;
-            $instance->completed = 0;
-            $instance->timecreated = time();
-
-            $DB->insert_record('manireports_reminder_instance', $instance);
-            $count++;
-        }
-
-        return $count;
-    }
-
     /**
      * Get managers for a user (IOMAD support).
      *

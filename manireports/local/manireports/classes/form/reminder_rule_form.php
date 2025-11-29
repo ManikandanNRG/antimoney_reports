@@ -70,7 +70,7 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('header', 'content_settings', get_string('contentsettings', 'local_manireports'));
 
         // Template Select
-        $templates = $DB->get_records_menu('manireports_template', ['enabled' => 1], 'name ASC', 'id, name');
+        $templates = $DB->get_records_menu('manireports_rem_tmpl', ['enabled' => 1], 'name ASC', 'id, name');
         $mform->addElement('select', 'templateid', get_string('template', 'local_manireports'), $templates);
         $mform->addRule('templateid', null, 'required', null, 'client');
 

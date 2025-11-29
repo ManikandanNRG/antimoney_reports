@@ -1049,4 +1049,52 @@ class dashboard_data_loader {
             ]
         ];
     }
+    /**
+     * Get Reminder Data for Dashboard.
+     */
+    public function get_reminder_data() {
+        global $DB;
+
+        // KPIs
+        $total_rules = $DB->count_records('manireports_rem_rule');
+        $active_rules = $DB->count_records('manireports_rem_rule', ['enabled' => 1]);
+        $total_templates = $DB->count_records('manireports_rem_tmpl');
+        
+        // Sent Today
+        $today_start = strtotime('today midnight');
+        $sent_today = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts >= ? AND status = ?', [$today_start, 'delivered']); // or local_sent
+        // Note: status might be 'local_sent' or 'delivered' (if cloud updated it). Let's count both successful states.
+        // Actually, let's just count all attempts today for activity.
+        $activity_today = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts >= ?', [$today_start]);
+
+        // Rules List
+        $rules = $DB->get_records('manireports_rem_rule', null, 'id DESC', '*', 0, 10);
+        
+        // Templates List
+        $templates = $DB->get_records('manireports_rem_tmpl', null, 'id DESC', '*', 0, 10);
+
+        // Recent Logs
+        $logs = $DB->get_records('manireports_rem_job', null, 'last_attempt_ts DESC', '*', 0, 10);
+        $formatted_logs = [];
+        foreach ($logs as $log) {
+            $formatted_logs[] = [
+                'recipient' => $log->recipient_email,
+                'status' => $log->status,
+                'time' => userdate($log->last_attempt_ts),
+                'message_id' => $log->message_id
+            ];
+        }
+
+        return [
+            'kpis' => [
+                'total_rules' => $total_rules,
+                'active_rules' => $active_rules,
+                'total_templates' => $total_templates,
+                'activity_today' => $activity_today
+            ],
+            'rules' => array_values($rules),
+            'templates' => array_values($templates),
+            'logs' => $formatted_logs
+        ];
+    }
 }

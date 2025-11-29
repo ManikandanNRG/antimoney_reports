@@ -13,7 +13,7 @@ $PAGE->set_heading(get_string('reminders', 'local_manireports'));
 
 // Handle Actions
 if ($action === 'delete' && $id && confirm_sesskey()) {
-    $DB->set_field('manireports_reminder_rule', 'enabled', 0, ['id' => $id]);
+    $DB->set_field('manireports_rem_rule', 'enabled', 0, ['id' => $id]);
     redirect($PAGE->url, get_string('ruledeleted', 'local_manireports'), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
@@ -33,7 +33,7 @@ local_manireports_print_tabs('reminders');
 echo $OUTPUT->single_button(new moodle_url('/local/manireports/ui/reminder_edit.php'), get_string('addnewrule', 'local_manireports'), 'get', ['class' => 'btn-primary mb-3']);
 
 // List Rules
-$rules = $DB->get_records('manireports_reminder_rule', ['enabled' => 1]);
+$rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
 
 if ($rules) {
     $table = new html_table();
