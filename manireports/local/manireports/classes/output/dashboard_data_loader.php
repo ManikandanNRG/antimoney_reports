@@ -1050,6 +1050,53 @@ class dashboard_data_loader {
         ];
     }
     /**
+     * Get Live Statistics for Dashboard.
+     */
+    public function get_live_statistics() {
+        global $DB;
+        
+        // Active Users (last 5 mins)
+        $active_users = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [time() - 300]);
+        
+        // Users Active Today
+        $today_start = strtotime('today midnight');
+        $peak_today = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [$today_start]);
+        
+        // Active Courses
+        $active_courses_count = $DB->count_records('course', ['visible' => 1]);
+        
+        // Top Courses
+        $top_courses = $DB->get_records_sql("SELECT c.id, c.fullname, COUNT(ue.id) as enrollments 
+                                             FROM {course} c 
+                                             JOIN {enrol} e ON e.courseid = c.id 
+                                             JOIN {user_enrolments} ue ON ue.enrolid = e.id 
+                                             GROUP BY c.id, c.fullname 
+                                             ORDER BY enrollments DESC", null, 0, 5);
+        $formatted_top_courses = [];
+        foreach ($top_courses as $c) {
+            $formatted_top_courses[] = ['name' => $c->fullname, 'students' => $c->enrollments];
+        }
+
+        // Timeline (Mock data for now to prevent heavy log queries, or simple random distribution based on active users)
+        // In a real scenario, we'd query mdl_logstore_standard_log
+        $timeline_labels = [];
+        $timeline_data = [];
+        for ($i = 0; $i <= 23; $i++) {
+            $timeline_labels[] = sprintf("%02d:00", $i);
+            $timeline_data[] = 0; // Default to 0
+        }
+        
+        return [
+            'active_users' => $active_users,
+            'peak_today' => $peak_today,
+            'active_courses_count' => $active_courses_count,
+            'top_courses' => $formatted_top_courses,
+            'timeline_labels' => $timeline_labels,
+            'timeline_data' => $timeline_data
+        ];
+    }
+
+    /**
      * Get Reminder Data for Dashboard.
      */
     public function get_reminder_data() {

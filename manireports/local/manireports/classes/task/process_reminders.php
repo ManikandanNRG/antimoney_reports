@@ -39,6 +39,20 @@ class process_reminders extends scheduled_task {
             $count = $manager->create_instances($rule->id);
             if ($count > 0) {
                 mtrace("Created {$count} instances for rule '{$rule->name}'");
+            }
+        }
+
+        // 2. Process due instances
+        $now = time();
+        $sql = "SELECT i.*, r.remindercount, r.emaildelay, r.templateid, r.send_to_user, r.send_to_managers, r.companyid, r.name as rulename
+                FROM {manireports_rem_inst} i
+                JOIN {manireports_rem_rule} r ON r.id = i.ruleid
+                WHERE i.next_send <= :now 
+                  AND i.completed = 0 
+                  AND i.emailsent < r.remindercount
+                  AND r.enabled = 1";
+        
+        $instances = $DB->get_records_sql($sql, ['now' => $now]);
         mtrace("Found " . count($instances) . " due instances.");
 
         $template_engine = new TemplateEngine();
