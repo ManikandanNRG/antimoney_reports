@@ -178,6 +178,18 @@ class ReminderManager {
             $instance->ruleid = $rule->id;
             $instance->userid = $user->userid;
             $instance->courseid = $user->courseid;
+            $instance->emailsent = 0;
+            $instance->next_send = time() + $rule->emaildelay;
+            $instance->timecreated = time();
+            $instance->timemodified = time();
+            $instance->completed = 0; // Initial state
+
+            $DB->insert_record('manireports_rem_inst', $instance);
+            $count++;
+        }
+
+        return $count;
+    }
     /**
      * Get managers for a user (IOMAD support).
      *

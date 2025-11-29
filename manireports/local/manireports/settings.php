@@ -297,4 +297,12 @@ if ($hassiteconfig) {
         new moodle_url('/local/manireports/ui/failed_jobs.php'),
         'local/manireports:viewadmindashboard'
     ));
+
+    // Reminders link.
+    $ADMIN->add('manireportsmanage', new admin_externalpage(
+        'manireports_reminders',
+        get_string('reminders', 'local_manireports'),
+        new moodle_url('/local/manireports/ui/reminders.php'),
+        'local/manireports:viewadmindashboard'
+    ));
 }

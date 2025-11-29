@@ -780,3 +780,19 @@ $string['manireports:viewstudentdashboard_desc'] = 'View personal progress and t
 $string['manireports:managereports_desc'] = 'Create, edit, and delete custom reports';
 $string['manireports:schedule_desc'] = 'Schedule reports for automatic generation and delivery';
 $string['manireports:customreports_desc'] = 'Create custom SQL reports with access to whitelisted tables';
+
+// Reminder feature strings.
+$string['reminders'] = 'Reminders';
+$string['templates'] = 'Templates';
+$string['reminderdashboard'] = 'Reminder Dashboard';
+$string['addnewrule'] = 'Add New Rule';
+$string['norulesfound'] = 'No reminder rules found';
+$string['ruledeleted'] = 'Reminder rule deleted successfully';
+$string['instancescreated'] = '{$a} reminder instances created';
+$string['addtemplate'] = 'Add Template';
+$string['edittemplate'] = 'Edit Template';
+$string['templatecreated'] = 'Template created successfully';
+$string['templateupdated'] = 'Template updated successfully';
+$string['notemplates'] = 'No templates found';
+$string['task_process_reminders'] = 'Process Reminders';
+
