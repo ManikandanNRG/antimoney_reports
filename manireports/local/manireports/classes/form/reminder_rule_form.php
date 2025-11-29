@@ -44,7 +44,9 @@ class reminder_rule_form extends \moodleform {
         // Trigger Type
         $triggers = [
             'enrol' => get_string('triggertype_enrol', 'local_manireports'),
+            'start_date' => get_string('triggertype_startdate', 'local_manireports'),
             'incomplete_after' => get_string('triggertype_incomplete', 'local_manireports'),
+            'custom' => get_string('triggertype_custom', 'local_manireports'),
         ];
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
         $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');

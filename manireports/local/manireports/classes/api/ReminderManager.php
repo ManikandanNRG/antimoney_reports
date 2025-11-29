@@ -88,10 +88,12 @@ class ReminderManager {
         $offset_seconds = ($days * 86400) + ($hours * 3600);
 
         // Base query for enrolled users
-        $sql = "SELECT ue.userid, e.courseid, ue.timecreated as enroltime
+        // Added JOIN to {course} to get startdate for start_date trigger
+        $sql = "SELECT ue.userid, e.courseid, ue.timecreated as enroltime, c.startdate
                 FROM {user_enrolments} ue
                 JOIN {enrol} e ON e.id = ue.enrolid
                 JOIN {user} u ON u.id = ue.userid
+                JOIN {course} c ON c.id = e.courseid
                 WHERE u.deleted = 0 AND u.suspended = 0 AND ue.status = 0";
 
         if ($rule->courseid > 0) {
@@ -100,7 +102,6 @@ class ReminderManager {
         
         // Filter by company if applicable (requires IOMAD or custom logic)
         // For now, assuming standard Moodle or IOMAD handling via other means if needed.
-        // If IOMAD, we might need to join block_iomad_company_users.
 
         $params = ['courseid' => $rule->courseid];
 
@@ -108,15 +109,7 @@ class ReminderManager {
         switch ($rule->trigger_type) {
             case 'enrol':
                 // User enrolled X time ago
-                // We want users where (enroltime + offset) <= now
-                // AND who haven't completed the course (optional check here, but handled in instance creation too)
                 $cutoff = time() - $offset_seconds;
-                // To avoid processing very old enrolments, maybe add a lower bound? 
-                // For now, let's just check if they hit the mark.
-                // Actually, we should check if they are *past* the mark but not *too* far past?
-                // Or just process everyone who matches and let the instance logic handle duplicates.
-                
-                // Better approach: Find users who enrolled before cutoff
                 $sql .= " AND ue.timecreated <= :cutoff";
                 $params['cutoff'] = $cutoff;
                 break;
@@ -128,7 +121,17 @@ class ReminderManager {
                 $params['cutoff'] = $cutoff;
                 break;
 
-            // Add other triggers as needed
+            case 'start_date':
+                // Course start date + offset <= now
+                $cutoff = time() - $offset_seconds;
+                $sql .= " AND c.startdate <= :cutoff";
+                $params['cutoff'] = $cutoff;
+                break;
+
+            case 'custom':
+                // Custom logic placeholder - currently no-op or requires specific implementation
+                // For now, we return empty to avoid sending incorrectly
+                return [];
         }
 
         $candidates = $DB->get_records_sql($sql, $params);
