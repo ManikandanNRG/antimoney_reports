@@ -26,6 +26,7 @@ class reminder_rule_form extends \moodleform {
 
         // Company Dropdown (REQUIRED - shows ALL companies)
         $companies = $DB->get_records_menu('company', null, 'name ASC', 'id, name');
+        $companies = ['' => get_string('selectcompany', 'local_manireports')] + $companies;
         $mform->addElement('select', 'companyid', get_string('company', 'local_manireports'), $companies);
         $mform->addRule('companyid', null, 'required', null, 'client');
         $mform->addElement('static', 'companyid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('company_help', 'local_manireports') . '</div>');

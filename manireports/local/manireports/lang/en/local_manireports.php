@@ -849,5 +849,6 @@ $string['coursecompletion'] = 'Course Completion';
 $string['selectcompanyfirst'] = 'Please select a company first';
 $string['selectcoursefirst'] = 'Please select a course first';
 $string['selectcourse'] = 'Select a course...';
+$string['selectcompany'] = 'Select a company...';
 
 
