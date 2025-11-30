@@ -62,9 +62,10 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('trigger_value', 7);
         
         $units = [
+            'minutes' => get_string('minutes'),
+            'hours' => get_string('hours'),
             'days' => get_string('days'),
             'weeks' => get_string('weeks'),
-            'hours' => get_string('hours'),
             'percent' => '%'
         ];
         $mform->addElement('select', 'trigger_unit', '', $units, ['style' => 'margin: 0; min-width: 120px;']);
@@ -92,6 +93,7 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('emaildelay_value', 1);
         
         $delay_units = [
+            'minutes' => get_string('minutes'),
             'hours' => get_string('hours'),
             'days' => get_string('days'),
             'weeks' => get_string('weeks')
@@ -229,9 +231,10 @@ class reminder_rule_form extends \moodleform {
                     if (trigger === 'license_expiry') {
                         $('label[for=\"id_trigger_value\"]').text('" . get_string('trigger_days_expiry', 'local_manireports') . "');
                         // Enable time units, disable percent
+                        $('#id_trigger_unit option[value=\"minutes\"]').prop('disabled', false);
+                        $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', false);
                         $('#id_trigger_unit option[value=\"days\"]').prop('disabled', false);
                         $('#id_trigger_unit option[value=\"weeks\"]').prop('disabled', false);
-                        $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', false);
                         $('#id_trigger_unit option[value=\"percent\"]').prop('disabled', true);
                         if ($('#id_trigger_unit').val() === 'percent') {
                             $('#id_trigger_unit').val('days');
@@ -239,9 +242,10 @@ class reminder_rule_form extends \moodleform {
                     } else {
                         $('label[for=\"id_trigger_value\"]').text('" . get_string('trigger_utilization', 'local_manireports') . "');
                         // Disable time units, enable percent
+                        $('#id_trigger_unit option[value=\"minutes\"]').prop('disabled', true);
+                        $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', true);
                         $('#id_trigger_unit option[value=\"days\"]').prop('disabled', true);
                         $('#id_trigger_unit option[value=\"weeks\"]').prop('disabled', true);
-                        $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', true);
                         $('#id_trigger_unit option[value=\"percent\"]').prop('disabled', false);
                         $('#id_trigger_unit').val('percent');
                     }
@@ -259,9 +263,10 @@ class reminder_rule_form extends \moodleform {
                     $('label[for=\"id_trigger_value\"]').text('" . get_string('triggervalue', 'local_manireports') . "');
                     
                     // Enable time units, disable percent
+                    $('#id_trigger_unit option[value=\"minutes\"]').prop('disabled', false);
+                    $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', false);
                     $('#id_trigger_unit option[value=\"days\"]').prop('disabled', false);
                     $('#id_trigger_unit option[value=\"weeks\"]').prop('disabled', false);
-                    $('#id_trigger_unit option[value=\"hours\"]').prop('disabled', false);
                     $('#id_trigger_unit option[value=\"percent\"]').prop('disabled', true);
                     if ($('#id_trigger_unit').val() === 'percent') {
                         $('#id_trigger_unit').val('days');

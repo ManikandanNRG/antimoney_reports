@@ -23,7 +23,11 @@ if ($id) {
     $hours = isset($trigger_value['hours']) ? $trigger_value['hours'] : 0;
     
     // Convert to value + unit format
-    if ($hours > 0 && $days == 0) {
+    $total_minutes = ($days * 1440) + ($hours * 60);
+    if ($total_minutes < 60 && $total_minutes > 0) {
+        $rule->trigger_value = $total_minutes;
+        $rule->trigger_unit = 'minutes';
+    } else if ($hours > 0 && $days == 0) {
         $rule->trigger_value = $hours;
         $rule->trigger_unit = 'hours';
     } else if ($days % 7 == 0 && $days > 0) {
@@ -42,9 +46,12 @@ if ($id) {
     } else if ($emaildelay_seconds % 86400 == 0) { // Days
         $rule->emaildelay_value = $emaildelay_seconds / 86400;
         $rule->emaildelay_unit = 'days';
-    } else { // Hours
+    } else if ($emaildelay_seconds % 3600 == 0) { // Hours
         $rule->emaildelay_value = $emaildelay_seconds / 3600;
         $rule->emaildelay_unit = 'hours';
+    } else { // Minutes
+        $rule->emaildelay_value = $emaildelay_seconds / 60;
+        $rule->emaildelay_unit = 'minutes';
     }
     
     $form->set_data($rule);
@@ -60,6 +67,9 @@ if ($form->is_cancelled()) {
     $hours = 0;
     
     switch ($data->trigger_unit) {
+        case 'minutes':
+            $hours = $data->trigger_value / 60; // Convert minutes to hours
+            break;
         case 'hours':
             $hours = $data->trigger_value;
             break;
@@ -79,6 +89,9 @@ if ($form->is_cancelled()) {
     
     // Convert emaildelay value + unit to seconds
     switch ($data->emaildelay_unit) {
+        case 'minutes':
+            $data->emaildelay = $data->emaildelay_value * 60;
+            break;
         case 'hours':
             $data->emaildelay = $data->emaildelay_value * 3600;
             break;
