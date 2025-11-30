@@ -54,26 +54,23 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
         $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');
 
-        // Trigger Value (Number + Unit Dropdown)
-        $mform->addElement('html', '<div style="display: flex; gap: 12px; align-items: flex-start;">');
+        // Trigger Value (Number + Unit Dropdown) - Side by side layout
+        $mform->addElement('html', '<div class="fitem"><div class="fitemtitle"><label>' . get_string('triggervalue', 'local_manireports') . ' <span class="text-danger">*</span></label></div><div class="felement" style="display: flex; gap: 8px;">');
         
-        // Number input
-        $mform->addElement('text', 'trigger_value', get_string('triggervalue', 'local_manireports'), 'style="width: 150px;"');
+        $mform->addElement('text', 'trigger_value', '', ['size' => 10, 'style' => 'margin: 0;']);
         $mform->setType('trigger_value', PARAM_INT);
         $mform->setDefault('trigger_value', 7);
-        $mform->addRule('trigger_value', null, 'required', null, 'client');
         
-        // Unit dropdown
         $units = [
             'days' => get_string('days'),
             'weeks' => get_string('weeks'),
             'hours' => get_string('hours'),
-            'percent' => get_string('percent', 'local_manireports')
+            'percent' => '%'
         ];
-        $mform->addElement('select', 'trigger_unit', get_string('unit', 'local_manireports'), $units, 'style="width: 150px;"');
+        $mform->addElement('select', 'trigger_unit', '', $units, ['style' => 'margin: 0; min-width: 120px;']);
         $mform->setDefault('trigger_unit', 'days');
         
-        $mform->addElement('html', '</div>');
+        $mform->addElement('html', '</div></div>');
         $mform->addElement('static', 'trigger_value_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggervalue_help', 'local_manireports') . '</div>');
 
         
@@ -87,11 +84,24 @@ class reminder_rule_form extends \moodleform {
         // Schedule Settings
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-700 pb-2">Schedule Settings</h4>');
 
-        // Email Delay
-        $mform->addElement('duration', 'emaildelay', get_string('emaildelay', 'local_manireports'));
-
-        $mform->setDefault('emaildelay', 86400); // 1 day
+        // Email Delay (Number + Unit Dropdown) - Side by side layout
+        $mform->addElement('html', '<div class="fitem"><div class="fitemtitle"><label>' . get_string('emaildelay', 'local_manireports') . '</label></div><div class="felement" style="display: flex; gap: 8px;">');
+        
+        $mform->addElement('text', 'emaildelay_value', '', ['size' => 10, 'style' => 'margin: 0;']);
+        $mform->setType('emaildelay_value', PARAM_INT);
+        $mform->setDefault('emaildelay_value', 1);
+        
+        $delay_units = [
+            'hours' => get_string('hours'),
+            'days' => get_string('days'),
+            'weeks' => get_string('weeks')
+        ];
+        $mform->addElement('select', 'emaildelay_unit', '', $delay_units, ['style' => 'margin: 0; min-width: 120px;']);
+        $mform->setDefault('emaildelay_unit', 'days');
+        
+        $mform->addElement('html', '</div></div>');
         $mform->addElement('static', 'emaildelay_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('emaildelay_help', 'local_manireports') . '</div>');
+
 
 
         // Reminder Count

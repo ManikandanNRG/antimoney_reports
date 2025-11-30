@@ -813,7 +813,6 @@ $string['triggertype_custom'] = 'Custom Logic';
 $string['triggervalue'] = 'Trigger Value';
 $string['triggervalue_help'] = 'Enter the number and select the unit. For License Utilization, use Percent.';
 $string['unit'] = 'Unit';
-$string['percent'] = '%';
 $string['trigger_days_expiry'] = 'Days Before Expiry';
 $string['trigger_utilization'] = 'Utilization %';
 $string['emaildelay'] = 'Email Delay';

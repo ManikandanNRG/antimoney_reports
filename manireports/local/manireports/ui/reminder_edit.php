@@ -34,6 +34,19 @@ if ($id) {
         $rule->trigger_unit = 'days';
     }
     
+    // Convert emaildelay to value + unit format
+    $emaildelay_seconds = $rule->emaildelay;
+    if ($emaildelay_seconds % 604800 == 0) { // Weeks
+        $rule->emaildelay_value = $emaildelay_seconds / 604800;
+        $rule->emaildelay_unit = 'weeks';
+    } else if ($emaildelay_seconds % 86400 == 0) { // Days
+        $rule->emaildelay_value = $emaildelay_seconds / 86400;
+        $rule->emaildelay_unit = 'days';
+    } else { // Hours
+        $rule->emaildelay_value = $emaildelay_seconds / 3600;
+        $rule->emaildelay_unit = 'hours';
+    }
+    
     $form->set_data($rule);
 }
 
@@ -63,6 +76,21 @@ if ($form->is_cancelled()) {
     
     $data->trigger_value = json_encode(['days' => $days, 'hours' => $hours]);
     unset($data->trigger_unit);
+    
+    // Convert emaildelay value + unit to seconds
+    switch ($data->emaildelay_unit) {
+        case 'hours':
+            $data->emaildelay = $data->emaildelay_value * 3600;
+            break;
+        case 'days':
+            $data->emaildelay = $data->emaildelay_value * 86400;
+            break;
+        case 'weeks':
+            $data->emaildelay = $data->emaildelay_value * 604800;
+            break;
+    }
+    unset($data->emaildelay_value);
+    unset($data->emaildelay_unit);
 
     if ($id) {
         $manager->update_rule($id, $data);
