@@ -19,7 +19,21 @@ if ($id) {
     $rule = $DB->get_record('manireports_rem_rule', ['id' => $id], '*', MUST_EXIST);
     // Unpack trigger value
     $trigger_value = json_decode($rule->trigger_value, true);
-    $rule->trigger_days = isset($trigger_value['days']) ? $trigger_value['days'] : 0;
+    $days = isset($trigger_value['days']) ? $trigger_value['days'] : 0;
+    $hours = isset($trigger_value['hours']) ? $trigger_value['hours'] : 0;
+    
+    // Convert to value + unit format
+    if ($hours > 0 && $days == 0) {
+        $rule->trigger_value = $hours;
+        $rule->trigger_unit = 'hours';
+    } else if ($days % 7 == 0 && $days > 0) {
+        $rule->trigger_value = $days / 7;
+        $rule->trigger_unit = 'weeks';
+    } else {
+        $rule->trigger_value = $days;
+        $rule->trigger_unit = 'days';
+    }
+    
     $form->set_data($rule);
 }
 
@@ -28,9 +42,27 @@ if ($form->is_cancelled()) {
 } else if ($data = $form->get_data()) {
     $manager = new \local_manireports\api\ReminderManager();
     
-    // Pack trigger value
-    $data->trigger_value = json_encode(['days' => $data->trigger_days]);
-    unset($data->trigger_days);
+    // Convert value + unit to days/hours for storage
+    $days = 0;
+    $hours = 0;
+    
+    switch ($data->trigger_unit) {
+        case 'hours':
+            $hours = $data->trigger_value;
+            break;
+        case 'days':
+            $days = $data->trigger_value;
+            break;
+        case 'weeks':
+            $days = $data->trigger_value * 7;
+            break;
+        case 'percent':
+            $days = $data->trigger_value; // For percentage, store as days field
+            break;
+    }
+    
+    $data->trigger_value = json_encode(['days' => $days, 'hours' => $hours]);
+    unset($data->trigger_unit);
 
     if ($id) {
         $manager->update_rule($id, $data);
