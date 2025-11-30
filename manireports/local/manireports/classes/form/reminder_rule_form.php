@@ -21,7 +21,7 @@ class reminder_rule_form extends \moodleform {
         $mform->setType('name', PARAM_TEXT);
 
         $mform->addRule('name', null, 'required', null, 'client');
-        $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('rulename_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('rulename_help', 'local_manireports') . '</div>');
 
 
         // Company Dropdown (REQUIRED - shows ALL companies)
@@ -29,13 +29,13 @@ class reminder_rule_form extends \moodleform {
         $companies = ['' => get_string('selectcompany', 'local_manireports')] + $companies;
         $mform->addElement('select', 'companyid', get_string('company', 'local_manireports'), $companies);
         $mform->addRule('companyid', null, 'required', null, 'client');
-        $mform->addElement('static', 'companyid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('company_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'companyid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('company_help', 'local_manireports') . '</div>');
 
         // Course Dropdown (filtered by company via AJAX)
         $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), 
             ['' => get_string('selectcompanyfirst', 'local_manireports')]);
         $mform->addRule('courseid', null, 'required', null, 'client');
-        $mform->addElement('static', 'courseid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('courseid_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'courseid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('courseid_help', 'local_manireports') . '</div>');
 
 
         // Trigger Settings
@@ -52,7 +52,7 @@ class reminder_rule_form extends \moodleform {
             'custom' => get_string('triggertype_custom', 'local_manireports'),
         ];
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
-        $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');
 
         // Trigger Value (Number + Unit Dropdown) - Side by side layout
         $mform->addElement('html', '<div class="fitem"><div class="fitemtitle"><label>' . get_string('triggervalue', 'local_manireports') . ' <span class="text-danger">*</span></label></div><div class="felement" style="display: flex; gap: 8px;">');
@@ -72,14 +72,14 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('trigger_unit', 'days');
         
         $mform->addElement('html', '</div></div>');
-        $mform->addElement('static', 'trigger_value_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('triggervalue_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'trigger_value_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('triggervalue_help', 'local_manireports') . '</div>');
 
         
         // Target Activity (MANDATORY - includes "Course Completion" option)
         $mform->addElement('select', 'activityid', get_string('targetactivity', 'local_manireports'),
             ['' => get_string('selectcoursefirst', 'local_manireports')]);
         $mform->addRule('activityid', null, 'required', null, 'client');
-        $mform->addElement('static', 'activityid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('targetactivity_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'activityid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('targetactivity_help', 'local_manireports') . '</div>');
 
         // Schedule Settings
         // Schedule Settings
@@ -102,7 +102,7 @@ class reminder_rule_form extends \moodleform {
         $mform->setDefault('emaildelay_unit', 'days');
         
         $mform->addElement('html', '</div></div>');
-        $mform->addElement('static', 'emaildelay_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('emaildelay_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'emaildelay_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('emaildelay_help', 'local_manireports') . '</div>');
 
 
 
@@ -111,7 +111,7 @@ class reminder_rule_form extends \moodleform {
         $mform->setType('remindercount', PARAM_INT);
 
         $mform->setDefault('remindercount', 1);
-        $mform->addElement('static', 'remindercount_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('remindercount_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'remindercount_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('remindercount_help', 'local_manireports') . '</div>');
 
 
         // Recipient Settings
@@ -122,25 +122,25 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('checkbox', 'send_to_user', get_string('sendtousers', 'local_manireports'));
 
         $mform->setDefault('send_to_user', 1);
-        $mform->addElement('static', 'send_to_user_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('sendtousers_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'send_to_user_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('sendtousers_help', 'local_manireports') . '</div>');
 
 
         // Send to Managers
         $mform->addElement('checkbox', 'send_to_managers', get_string('sendtomanagers', 'local_manireports'));
 
         $mform->setDefault('send_to_managers', 0);
-        $mform->addElement('static', 'send_to_managers_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('sendtomanagers_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'send_to_managers_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('sendtomanagers_help', 'local_manireports') . '</div>');
 
 
         // Third Party Emails (Recipients)
         $mform->addElement('textarea', 'thirdparty_emails', get_string('thirdpartyemails', 'local_manireports'), 'rows="3" cols="50"');
         $mform->setType('thirdparty_emails', PARAM_TEXT);
-        $mform->addElement('static', 'thirdparty_emails_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('thirdpartyemails_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'thirdparty_emails_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('thirdpartyemails_help', 'local_manireports') . '</div>');
 
         // CC Emails
         $mform->addElement('textarea', 'cc_emails', get_string('cc_emails', 'local_manireports'), 'rows="3" cols="50"');
         $mform->setType('cc_emails', PARAM_TEXT);
-        $mform->addElement('static', 'cc_emails_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('cc_emails_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'cc_emails_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('cc_emails_help', 'local_manireports') . '</div>');
 
 
         // Content Settings
@@ -155,7 +155,7 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('select', 'templateid', get_string('templateid', 'local_manireports'), $templates);
 
         $mform->addRule('templateid', null, 'required', null, 'client');
-        $mform->addElement('static', 'templateid_help', '', '<div class="text-sm text-gray-500 dark:text-gray-400 mt-1">' . get_string('templateid_help', 'local_manireports') . '</div>');
+        $mform->addElement('static', 'templateid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('templateid_help', 'local_manireports') . '</div>');
 
 
         // Enabled
