@@ -42,6 +42,7 @@ class reminder_rule_form extends \moodleform {
         }
 
         if ($companyid) {
+            error_log("Form Definition: Found companyid $companyid. Fetching courses...");
             $courses = $DB->get_records_sql_menu("
                 SELECT c.id, c.fullname
                 FROM {course} c
@@ -49,10 +50,14 @@ class reminder_rule_form extends \moodleform {
                 WHERE cc.companyid = :companyid AND c.id != :siteid
                 ORDER BY c.fullname", ['companyid' => $companyid, 'siteid' => SITEID]);
             if ($courses) {
+                error_log("Form Definition: Found " . count($courses) . " courses.");
                 $course_options = ['' => get_string('selectcourse', 'local_manireports')] + $courses;
             } else {
+                error_log("Form Definition: No courses found for company $companyid.");
                 $course_options = ['' => 'No courses found'];
             }
+        } else {
+            error_log("Form Definition: No companyid found.");
         }
 
         $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), $course_options);
@@ -264,8 +269,9 @@ class reminder_rule_form extends \moodleform {
                 var isLicense = (trigger === 'license_expiry' || trigger === 'license_utilization');
                 
                 if (isLicense) {
-                    // Hide Course, Send to User, Send to Manager
+                    // Hide Course, Activity, Send to User, Send to Manager
                     $('#fitem_id_courseid').hide();
+                    $('#fitem_id_activityid').hide();
                     $('#fitem_id_send_to_user').hide();
                     $('#fitem_id_send_to_managers').hide();
                     
@@ -297,8 +303,9 @@ class reminder_rule_form extends \moodleform {
                         $('#id_trigger_unit').val('percent');
                     }
                 } else {
-                    // Show Course, Send to User, Send to Manager
+                    // Show Course, Activity, Send to User, Send to Manager
                     $('#fitem_id_courseid').show();
+                    $('#fitem_id_activityid').show();
                     $('#fitem_id_send_to_user').show();
                     $('#fitem_id_send_to_managers').show();
                     
@@ -324,6 +331,18 @@ class reminder_rule_form extends \moodleform {
             // Run on load and change
             $('#id_trigger_type').change(updateFormFields);
             updateFormFields();
+
+            // Force selection if values exist (Fallback for pre-selection issues)
+            var initialCourseId = '" . $courseid . "';
+            var initialActivityId = '" . (isset($rule->activityid) ? $rule->activityid : '') . "';
+            
+            if (initialCourseId && $('#id_courseid option[value=\"' + initialCourseId + '\"]').length > 0) {
+                $('#id_courseid').val(initialCourseId);
+            }
+            
+            if (initialActivityId && $('#id_activityid option[value=\"' + initialActivityId + '\"]').length > 0) {
+                $('#id_activityid').val(initialActivityId);
+            }
         });
         </script>
         ";
