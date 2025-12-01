@@ -104,6 +104,25 @@ if ($form->is_cancelled()) {
     }
     unset($data->emaildelay_value);
     unset($data->emaildelay_unit);
+    
+    // DEBUG: Log form data
+    error_log("=== REMINDER FORM DEBUG ===");
+    error_log("courseid: " . ($data->courseid ?? 'NULL'));
+    error_log("activityid: " . ($data->activityid ?? 'NULL'));
+    error_log("companyid: " . ($data->companyid ?? 'NULL'));
+    error_log("trigger_type: " . ($data->trigger_type ?? 'NULL'));
+    
+    // Server-side validation for courseid
+    if (empty($data->courseid) || $data->courseid == 0 || $data->courseid === '') {
+        error_log("ERROR: courseid is empty or zero");
+        redirect($PAGE->url, 'Error: Please select a valid course. The course dropdown may not have loaded properly.', null, \core\output\notification::NOTIFY_ERROR);
+    }
+    
+    // Server-side validation for activityid
+    if (!isset($data->activityid) || $data->activityid === '' || $data->activityid === null) {
+        error_log("ERROR: activityid is empty or null");
+        redirect($PAGE->url, 'Error: Please select a target activity. The activity dropdown may not have loaded properly.', null, \core\output\notification::NOTIFY_ERROR);
+    }
 
     if ($id) {
         $manager->update_rule($id, $data);

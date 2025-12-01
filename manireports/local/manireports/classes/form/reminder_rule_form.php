@@ -13,16 +13,13 @@ class reminder_rule_form extends \moodleform {
         $mform = $this->_form;
 
         // General Section
-        // General Section
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-2 border-b border-gray-200 dark:border-gray-700 pb-2">' . get_string('general', 'form') . '</h4>');
 
         // Rule Name
         $mform->addElement('text', 'name', get_string('rulename', 'local_manireports'));
         $mform->setType('name', PARAM_TEXT);
-
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('rulename_help', 'local_manireports') . '</div>');
-
 
         // Company Dropdown (REQUIRED - shows ALL companies)
         $companies = $DB->get_records_menu('company', null, 'name ASC', 'id, name');
@@ -32,13 +29,37 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('static', 'companyid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('company_help', 'local_manireports') . '</div>');
 
         // Course Dropdown (filtered by company via AJAX)
-        $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), 
-            ['' => get_string('selectcompanyfirst', 'local_manireports')]);
+        // Populate options server-side if companyid is submitted (for validation)
+        $course_options = ['' => get_string('selectcompanyfirst', 'local_manireports')];
+        $companyid = optional_param('companyid', 0, PARAM_INT);
+        
+        // Also check if we are editing an existing rule and have data
+        if (!$companyid && $this->_customdata && isset($this->_customdata['id']) && $this->_customdata['id']) {
+            $rule = $DB->get_record('manireports_rem_rule', ['id' => $this->_customdata['id']]);
+            if ($rule) {
+                $companyid = $rule->companyid;
+            }
+        }
+
+        if ($companyid) {
+            $courses = $DB->get_records_sql_menu("
+                SELECT c.id, c.fullname
+                FROM {course} c
+                JOIN {company_course} cc ON cc.courseid = c.id
+                WHERE cc.companyid = :companyid AND c.id != :siteid
+                ORDER BY c.fullname", ['companyid' => $companyid, 'siteid' => SITEID]);
+            if ($courses) {
+                $course_options = ['' => get_string('selectcourse', 'local_manireports')] + $courses;
+            } else {
+                $course_options = ['' => 'No courses found'];
+            }
+        }
+
+        $mform->addElement('select', 'courseid', get_string('courseid', 'local_manireports'), $course_options);
         $mform->addRule('courseid', null, 'required', null, 'client');
         $mform->addElement('static', 'courseid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('courseid_help', 'local_manireports') . '</div>');
 
 
-        // Trigger Settings
         // Trigger Settings
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-700 pb-2">Trigger Settings</h4>');
 
@@ -54,7 +75,7 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('select', 'trigger_type', get_string('triggertype', 'local_manireports'), $triggers);
         $mform->addElement('static', 'trigger_type_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('triggertype_help', 'local_manireports') . '</div>');
 
-        // Trigger Value (Number + Unit Dropdown) - Side by side layout
+        // Trigger Value (Number + Unit Dropdown)
         $mform->addElement('html', '<div class="fitem"><div class="fitemtitle"><label>' . get_string('triggervalue', 'local_manireports') . ' <span class="text-danger">*</span></label></div><div class="felement" style="display: flex; gap: 8px;">');
         
         $mform->addElement('text', 'trigger_value', '', ['size' => 10, 'style' => 'margin: 0;']);
@@ -75,17 +96,43 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('static', 'trigger_value_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('triggervalue_help', 'local_manireports') . '</div>');
 
         
-        // Target Activity (MANDATORY - includes "Course Completion" option)
-        $mform->addElement('select', 'activityid', get_string('targetactivity', 'local_manireports'),
-            ['' => get_string('selectcoursefirst', 'local_manireports')]);
+        // Target Activity (MANDATORY)
+        // Populate options server-side if courseid is submitted
+        $activity_options = ['' => get_string('selectcoursefirst', 'local_manireports')];
+        $courseid = optional_param('courseid', 0, PARAM_INT);
+        
+        // Also check if we are editing
+        if (!$courseid && $this->_customdata && isset($this->_customdata['id']) && $this->_customdata['id']) {
+            $rule = $DB->get_record('manireports_rem_rule', ['id' => $this->_customdata['id']]);
+            if ($rule) {
+                $courseid = $rule->courseid;
+            }
+        }
+
+        if ($courseid) {
+            $modinfo = get_fast_modinfo($courseid);
+            $activities = [];
+            foreach ($modinfo->get_cms() as $cm) {
+                if ($cm->completion != COMPLETION_TRACKING_NONE && !$cm->deletioninprogress) {
+                    $modname = get_string('modulename', $cm->modname);
+                    $activities[$cm->id] = format_string($cm->name) . ' (' . $modname . ')';
+                }
+            }
+            if ($activities) {
+                $activity_options = ['-1' => 'Course Completion'] + $activities;
+            } else {
+                $activity_options = ['-1' => 'Course Completion'];
+            }
+        }
+
+        $mform->addElement('select', 'activityid', get_string('targetactivity', 'local_manireports'), $activity_options);
         $mform->addRule('activityid', null, 'required', null, 'client');
         $mform->addElement('static', 'activityid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('targetactivity_help', 'local_manireports') . '</div>');
 
         // Schedule Settings
-        // Schedule Settings
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-700 pb-2">Schedule Settings</h4>');
 
-        // Email Delay (Number + Unit Dropdown) - Side by side layout
+        // Email Delay
         $mform->addElement('html', '<div class="fitem"><div class="fitemtitle"><label>' . get_string('emaildelay', 'local_manireports') . '</label></div><div class="felement" style="display: flex; gap: 8px;">');
         
         $mform->addElement('text', 'emaildelay_value', '', ['size' => 10, 'style' => 'margin: 0;']);
@@ -104,35 +151,26 @@ class reminder_rule_form extends \moodleform {
         $mform->addElement('html', '</div></div>');
         $mform->addElement('static', 'emaildelay_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('emaildelay_help', 'local_manireports') . '</div>');
 
-
-
         // Reminder Count
         $mform->addElement('text', 'remindercount', get_string('remindercount', 'local_manireports'));
         $mform->setType('remindercount', PARAM_INT);
-
         $mform->setDefault('remindercount', 1);
         $mform->addElement('static', 'remindercount_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('remindercount_help', 'local_manireports') . '</div>');
 
-
-        // Recipient Settings
         // Recipient Settings
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-700 pb-2">Recipient Settings</h4>');
 
         // Send to User
         $mform->addElement('checkbox', 'send_to_user', get_string('sendtousers', 'local_manireports'));
-
         $mform->setDefault('send_to_user', 1);
         $mform->addElement('static', 'send_to_user_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('sendtousers_help', 'local_manireports') . '</div>');
 
-
         // Send to Managers
         $mform->addElement('checkbox', 'send_to_managers', get_string('sendtomanagers', 'local_manireports'));
-
         $mform->setDefault('send_to_managers', 0);
         $mform->addElement('static', 'send_to_managers_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('sendtomanagers_help', 'local_manireports') . '</div>');
 
-
-        // Third Party Emails (Recipients)
+        // Third Party Emails
         $mform->addElement('textarea', 'thirdparty_emails', get_string('thirdpartyemails', 'local_manireports'), 'rows="3" cols="50"');
         $mform->setType('thirdparty_emails', PARAM_TEXT);
         $mform->addElement('static', 'thirdparty_emails_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('thirdpartyemails_help', 'local_manireports') . '</div>');
@@ -142,26 +180,21 @@ class reminder_rule_form extends \moodleform {
         $mform->setType('cc_emails', PARAM_TEXT);
         $mform->addElement('static', 'cc_emails_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('cc_emails_help', 'local_manireports') . '</div>');
 
-
-        // Content Settings
         // Content Settings
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-6 border-b border-gray-200 dark:border-gray-700 pb-2">Content Settings</h4>');
 
-        // Template Dropdown (User-Friendly)
+        // Template Dropdown
         $templates = $DB->get_records_menu('manireports_rem_tmpl', ['enabled' => 1], 'name ASC', 'id, name');
         if (empty($templates)) {
             $templates = [0 => get_string('notemplates', 'local_manireports')];
         }
         $mform->addElement('select', 'templateid', get_string('templateid', 'local_manireports'), $templates);
-
         $mform->addRule('templateid', null, 'required', null, 'client');
         $mform->addElement('static', 'templateid_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('templateid_help', 'local_manireports') . '</div>');
-
 
         // Enabled
         $mform->addElement('selectyesno', 'enabled', get_string('enabled', 'local_manireports'));
         $mform->setDefault('enabled', 1);
-
 
         $this->add_action_buttons();
 
@@ -172,6 +205,7 @@ class reminder_rule_form extends \moodleform {
             // Cascading dropdowns for Company -> Course -> Activity
             $('#id_companyid').change(function() {
                 var companyid = $(this).val();
+                console.log('Company changed:', companyid);
                 
                 if (!companyid) {
                     $('#id_courseid').html('<option value=\"\">Select company first</option>');
@@ -179,35 +213,48 @@ class reminder_rule_form extends \moodleform {
                     return;
                 }
                 
+                console.log('Loading courses for company:', companyid);
+                
                 $.ajax({
                     url: M.cfg.wwwroot + '/local/manireports/ajax/get_company_courses.php',
                     data: { companyid: companyid, sesskey: M.cfg.sesskey },
                     dataType: 'html',
                     success: function(response) {
+                        console.log('Courses loaded');
                         $('#id_courseid').html(response);
                         $('#id_activityid').html('<option value=\"\">Select course first</option>');
                     },
                     error: function(xhr, status, error) {
-                        console.error('AJAX Error:', status, error);
+                        console.error('AJAX Error loading courses:', status, error);
+                        $('#id_courseid').html('<option value=\"\">Error loading courses</option>');
                     }
                 });
             });
             
             $('#id_courseid').change(function() {
                 var courseid = $(this).val();
-                if (!courseid) {
+                console.log('Course changed:', courseid);
+                
+                if (!courseid || courseid == '0' || courseid == '') {
                     $('#id_activityid').html('<option value=\"\">Select course first</option>');
                     return;
                 }
+                
+                console.log('Loading activities for course:', courseid);
                 
                 $.ajax({
                     url: M.cfg.wwwroot + '/local/manireports/ajax/get_course_activities.php',
                     data: { courseid: courseid, sesskey: M.cfg.sesskey },
                     dataType: 'html',
                     success: function(response) {
+                        console.log('Activities loaded');
                         var options = '<option value=\"-1\">Course Completion</option>';
                         options += response;
                         $('#id_activityid').html(options);
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('AJAX Error loading activities:', status, error);
+                        $('#id_activityid').html('<option value=\"\">Error loading activities</option>');
                     }
                 });
             });
