@@ -53,7 +53,9 @@ class TemplateEngine {
             '{email}' => $user->email,
             '{coursename}' => $course->fullname,
             '{courselink}' => new \moodle_url('/course/view.php', ['id' => $course->id]),
+            '{courseurl}' => new \moodle_url('/course/view.php', ['id' => $course->id]), // Alias for user convenience
             '{siteurl}' => new \moodle_url('/'),
+            '{completiondate}' => '', // Default empty, populated below if available
         ];
 
         if ($activity) {
@@ -62,6 +64,11 @@ class TemplateEngine {
         } else {
             $context['{activityname}'] = '';
             $context['{activitylink}'] = '';
+        }
+
+        // Calculate completion date if course end date is set
+        if (!empty($course->enddate)) {
+            $context['{completiondate}'] = userdate($course->enddate);
         }
 
         // Add profile fields
