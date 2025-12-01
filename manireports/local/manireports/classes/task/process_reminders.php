@@ -155,8 +155,12 @@ class process_reminders extends scheduled_task {
                 // Render Template
                 $rendered = $template_engine->render($instance->templateid, $user, $course);
 
-                // Check if cloud offload is enabled
-                $cloud_enabled = get_config('local_manireports', 'cloud_offload_enabled');
+                // Check if cloud offload is enabled for this company
+                $cloud_enabled = false;
+                if ($DB->get_manager()->table_exists('manireports_cloud_conf')) {
+                    $cloud_conf = $DB->get_record('manireports_cloud_conf', ['company_id' => $instance->companyid]);
+                    $cloud_enabled = ($cloud_conf && $cloud_conf->enabled);
+                }
                 
                 if ($cloud_enabled && class_exists('\local_manireports\api\CloudJobManager')) {
                     // Use CloudJobManager
@@ -235,18 +239,25 @@ class process_reminders extends scheduled_task {
 
                 } else {
                     // Local send
-                    email_to_user($user, \core_user::get_noreply_user(), $rendered['subject'], $rendered['body_text'], $rendered['body_html']);
+                    $result = email_to_user($user, \core_user::get_noreply_user(), $rendered['subject'], $rendered['body_text'], $rendered['body_html']);
                     
                     $audit = new \stdClass();
                     $audit->instanceid = $instance->id;
                     $audit->message_id = \core\uuid::generate();
                     $audit->recipient_email = $user->email;
-                    $audit->status = 'local_sent';
+                    $audit->status = $result ? 'local_sent' : 'local_failed';
                     $audit->attempts = 1;
                     $audit->last_attempt_ts = time();
+                    if (!$result) {
+                        $audit->error = "email_to_user returned false. Check Moodle mail settings.";
+                    }
                     $DB->insert_record('manireports_rem_job', $audit);
                     
-                    mtrace("Sent locally to {$user->email}");
+                    if ($result) {
+                        mtrace("Sent locally to {$user->email}");
+                    } else {
+                        mtrace("Failed to send locally to {$user->email}");
+                    }
                 }
 
                 // Update instance state
