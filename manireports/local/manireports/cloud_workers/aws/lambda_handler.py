@@ -193,12 +193,21 @@ def compose_email(job_type, data, custom_subject=None, custom_html=None):
 def send_callback(job_id, results):
     """
     Sends a callback to Moodle with the results.
+    Supports multiple callback URLs with automatic fallback.
     """
-    moodle_url = os.environ.get('MOODLE_CALLBACK_URL')
+    # Get primary and fallback URLs (comma-separated)
+    moodle_urls = os.environ.get('MOODLE_CALLBACK_URL', '')
     moodle_token = os.environ.get('MOODLE_CALLBACK_TOKEN')
     
-    if not moodle_url:
+    if not moodle_urls:
         print("Skipping callback: MOODLE_CALLBACK_URL not set")
+        return
+
+    # Split URLs by comma and strip whitespace
+    url_list = [url.strip() for url in moodle_urls.split(',') if url.strip()]
+    
+    if not url_list:
+        print("Skipping callback: No valid URLs found")
         return
 
     payload = {
@@ -211,14 +220,37 @@ def send_callback(job_id, results):
         'recipients': results['recipients']
     }
     
-    try:
-        data = json.dumps(payload).encode('utf-8')
-        req = urllib.request.Request(moodle_url, data=data, headers={
-            'Content-Type': 'application/json'
-        })
-        
-        with urllib.request.urlopen(req) as response:
-            print(f"Callback sent: {response.getcode()}")
+    data = json.dumps(payload).encode('utf-8')
+    
+    # Try each URL in order until one succeeds
+    for i, moodle_url in enumerate(url_list):
+        try:
+            print(f"Attempting callback to URL {i+1}/{len(url_list)}: {moodle_url}")
             
-    except Exception as e:
-        print(f"Failed to send callback: {str(e)}")
+            req = urllib.request.Request(moodle_url, data=data, headers={
+                'Content-Type': 'application/json'
+            })
+            
+            with urllib.request.urlopen(req, timeout=10) as response:
+                status_code = response.getcode()
+                print(f"✅ Callback successful to {moodle_url}: {status_code}")
+                return  # Success - exit function
+                
+        except urllib.error.HTTPError as e:
+            print(f"❌ HTTP Error {e.code} for {moodle_url}: {e.reason}")
+            if i < len(url_list) - 1:
+                print(f"   Trying next URL...")
+            
+        except urllib.error.URLError as e:
+            print(f"❌ URL Error for {moodle_url}: {e.reason}")
+            if i < len(url_list) - 1:
+                print(f"   Trying next URL...")
+                
+        except Exception as e:
+            print(f"❌ Unexpected error for {moodle_url}: {str(e)}")
+            if i < len(url_list) - 1:
+                print(f"   Trying next URL...")
+    
+    # If we get here, all URLs failed
+    print(f"⚠️ All {len(url_list)} callback URLs failed")
+
