@@ -258,6 +258,33 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
             gap: 8px;
             align-items: center;
         }
+
+        /* Notifications */
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid transparent;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: #10b981;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+            border-color: rgba(59, 130, 246, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -269,11 +296,12 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
             $message = $notify->get_message();
             $type = $notify->get_message_type();
             
-            $typeclass = ($type === 'success') ? 'bg-green-100 border-green-400 text-green-700' : 
-                         (($type === 'error') ? 'bg-red-100 border-red-400 text-red-700' : 
-                         'bg-blue-100 border-blue-400 text-blue-700');
-            echo '<div class="mb-4 px-4 py-3 rounded border ' . $typeclass . ' relative" role="alert">';
-            echo '<span class="block sm:inline">' . $message . '</span>';
+            $typeclass = ($type === 'success') ? 'alert-success' : 
+                         (($type === 'error') ? 'alert-error' : 
+                         'alert-info');
+            
+            echo '<div class="alert ' . $typeclass . '" role="alert">';
+            echo $message;
             echo '</div>';
         }
         ?>
