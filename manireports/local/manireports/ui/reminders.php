@@ -262,6 +262,22 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
 </head>
 <body>
     <div class="container">
+        <!-- Notifications -->
+        <?php
+        $notifications = \core\notification::fetch();
+        foreach ($notifications as $notify) {
+            $message = $notify->get_message();
+            $type = $notify->get_message_type();
+            
+            $typeclass = ($type === 'success') ? 'bg-green-100 border-green-400 text-green-700' : 
+                         (($type === 'error') ? 'bg-red-100 border-red-400 text-red-700' : 
+                         'bg-blue-100 border-blue-400 text-blue-700');
+            echo '<div class="mb-4 px-4 py-3 rounded border ' . $typeclass . ' relative" role="alert">';
+            echo '<span class="block sm:inline">' . $message . '</span>';
+            echo '</div>';
+        }
+        ?>
+
         <!-- Page Header -->
         <div class="page-header">
             <h1><i class="fa-solid fa-bell"></i> Reminder Rules</h1>
