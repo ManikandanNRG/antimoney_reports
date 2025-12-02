@@ -15,11 +15,27 @@ class reminder_rule_form extends \moodleform {
         // General Section
         $mform->addElement('html', '<h4 class="text-xl font-bold text-gray-800 dark:text-white mb-4 mt-2 border-b border-gray-200 dark:border-gray-700 pb-2">' . get_string('general', 'form') . '</h4>');
 
+        // Hidden ID for editing
+        $mform->addElement('hidden', 'id');
+        $mform->setType('id', PARAM_INT);
+
         // Rule Name
         $mform->addElement('text', 'name', get_string('rulename', 'local_manireports'));
         $mform->setType('name', PARAM_TEXT);
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addElement('static', 'name_help', '', '<div class="text-sm text-gray-600 dark:text-gray-600 mt-1">' . get_string('rulename_help', 'local_manireports') . '</div>');
+
+        // Fetch rule data if editing
+        $rule_id = $this->_customdata['id'] ?? 0;
+        $db_rule = null;
+        if ($rule_id) {
+            $db_rule = $DB->get_record('manireports_rem_rule', ['id' => $rule_id]);
+            if ($db_rule) {
+                error_log("Form Definition: Loaded rule ID $rule_id. Company: {$db_rule->companyid}, Course: {$db_rule->courseid}, Activity: {$db_rule->activityid}");
+            } else {
+                error_log("Form Definition: Failed to load rule ID $rule_id");
+            }
+        }
 
         // Company Dropdown (REQUIRED - shows ALL companies)
         $companies = $DB->get_records_menu('company', null, 'name ASC', 'id, name');
@@ -33,12 +49,9 @@ class reminder_rule_form extends \moodleform {
         $course_options = ['' => get_string('selectcompanyfirst', 'local_manireports')];
         $companyid = optional_param('companyid', 0, PARAM_INT);
         
-        // Also check if we are editing an existing rule and have data
-        if (!$companyid && $this->_customdata && isset($this->_customdata['id']) && $this->_customdata['id']) {
-            $rule = $DB->get_record('manireports_rem_rule', ['id' => $this->_customdata['id']]);
-            if ($rule) {
-                $companyid = $rule->companyid;
-            }
+        // Use DB value if not overridden by param
+        if (!$companyid && $db_rule) {
+            $companyid = $db_rule->companyid;
         }
 
         if ($companyid) {
@@ -106,12 +119,9 @@ class reminder_rule_form extends \moodleform {
         $activity_options = ['' => get_string('selectcoursefirst', 'local_manireports')];
         $courseid = optional_param('courseid', 0, PARAM_INT);
         
-        // Also check if we are editing
-        if (!$courseid && $this->_customdata && isset($this->_customdata['id']) && $this->_customdata['id']) {
-            $rule = $DB->get_record('manireports_rem_rule', ['id' => $this->_customdata['id']]);
-            if ($rule) {
-                $courseid = $rule->courseid;
-            }
+        // Use DB value if not overridden by param
+        if (!$courseid && $db_rule) {
+            $courseid = $db_rule->courseid;
         }
 
         if ($courseid) {
@@ -305,7 +315,11 @@ class reminder_rule_form extends \moodleform {
                 } else {
                     // Show Course, Activity, Send to User, Send to Manager
                     $('#fitem_id_courseid').show();
+                    $('#id_courseid').prop('disabled', false); // Ensure enabled
+                    
                     $('#fitem_id_activityid').show();
+                    $('#id_activityid').prop('disabled', false); // Ensure enabled
+                    
                     $('#fitem_id_send_to_user').show();
                     $('#fitem_id_send_to_managers').show();
                     
@@ -336,11 +350,22 @@ class reminder_rule_form extends \moodleform {
             var initialCourseId = '" . $courseid . "';
             var initialActivityId = '" . (isset($rule->activityid) ? $rule->activityid : '') . "';
             
+            console.log('Debug Pre-selection:', {
+                initialCourseId: initialCourseId,
+                initialActivityId: initialActivityId,
+                courseOptionsCount: $('#id_courseid option').length,
+                courseOptionExists: $('#id_courseid option[value=\"' + initialCourseId + '\"]').length > 0
+            });
+
             if (initialCourseId && $('#id_courseid option[value=\"' + initialCourseId + '\"]').length > 0) {
+                console.log('Forcing course selection to:', initialCourseId);
                 $('#id_courseid').val(initialCourseId);
+            } else {
+                console.warn('Could not force course selection. ID:', initialCourseId);
             }
             
             if (initialActivityId && $('#id_activityid option[value=\"' + initialActivityId + '\"]').length > 0) {
+                console.log('Forcing activity selection to:', initialActivityId);
                 $('#id_activityid').val(initialActivityId);
             }
         });
