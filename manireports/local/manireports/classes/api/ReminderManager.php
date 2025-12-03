@@ -144,9 +144,18 @@ class ReminderManager {
                 // We return Admin User (ID 2) as placeholder, with license ID in activityid
                 $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.expirydate
                         FROM {block_iomad_company_licenses} l
-                        WHERE l.expirydate >= :start AND l.expirydate < :end";
+                        WHERE l.expirydate >= :start AND l.expirydate < :end AND l.companyid = :companyid";
                 
-                $params = ['start' => $window_start, 'end' => $window_end];
+                $params = ['start' => $window_start, 'end' => $window_end, 'companyid' => $rule->companyid];
+                
+                // Filter by Course if specified
+                if ($rule->courseid > 0) {
+                    $sql .= " AND EXISTS (
+                        SELECT 1 FROM {block_iomad_company_license_courses} clc 
+                        WHERE clc.licenseid = l.id AND clc.courseid = :courseid
+                    )";
+                    $params['courseid'] = $rule->courseid;
+                }
                 
                 // Override candidates fetch
                 $candidates = $DB->get_records_sql($sql, $params);
@@ -159,9 +168,18 @@ class ReminderManager {
                 
                 $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.allocated, l.used
                         FROM {block_iomad_company_licenses} l
-                        WHERE l.allocated > 0 AND ((l.used / l.allocated) * 100) >= :percent";
+                        WHERE l.allocated > 0 AND ((l.used / l.allocated) * 100) >= :percent AND l.companyid = :companyid";
                 
-                $params = ['percent' => $percent];
+                $params = ['percent' => $percent, 'companyid' => $rule->companyid];
+                
+                // Filter by Course if specified
+                if ($rule->courseid > 0) {
+                    $sql .= " AND EXISTS (
+                        SELECT 1 FROM {block_iomad_company_license_courses} clc 
+                        WHERE clc.licenseid = l.id AND clc.courseid = :courseid
+                    )";
+                    $params['courseid'] = $rule->courseid;
+                }
                 
                 // Override candidates fetch
                 $candidates = $DB->get_records_sql($sql, $params);

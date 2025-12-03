@@ -279,9 +279,14 @@ class reminder_rule_form extends \moodleform {
                 var isLicense = (trigger === 'license_expiry' || trigger === 'license_utilization');
                 
                 if (isLicense) {
-                    // Hide Course, Activity, Send to User, Send to Manager
-                    $('#fitem_id_courseid').hide();
+                    // Show Course (Modified: User requested to filter by course)
+                    $('#fitem_id_courseid').show();
+                    $('#id_courseid').prop('disabled', false);
+                    
+                    // Hide Activity (License triggers don't need specific activities like quizzes)
                     $('#fitem_id_activityid').hide();
+                    
+                    // Hide Send to User/Manager (License triggers go to specific recipients)
                     $('#fitem_id_send_to_user').hide();
                     $('#fitem_id_send_to_managers').hide();
                     
@@ -341,7 +346,6 @@ class reminder_rule_form extends \moodleform {
                     }
                 }
             }
-
             // Run on load and change
             $('#id_trigger_type').change(updateFormFields);
             updateFormFields();

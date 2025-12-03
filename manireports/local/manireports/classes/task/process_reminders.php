@@ -77,6 +77,7 @@ class process_reminders extends scheduled_task {
                 $is_license_trigger = in_array($rule->trigger_type, ['license_expiry', 'license_utilization']);
 
                 // For license triggers, skip completion check and use manual recipients
+                // For license triggers, skip completion check and use manual recipients
                 if ($is_license_trigger) {
                     // License triggers don't have real users/courses
                     // Get manual recipients from rule
@@ -102,29 +103,94 @@ class process_reminders extends scheduled_task {
                     // Render Template
                     $rendered = $template_engine->render($instance->templateid, $dummy_user, $dummy_course);
 
-                    // Send to all recipients
+                    // Check if cloud offload is enabled for this company
+                    $cloud_enabled = false;
+                    if ($DB->get_manager()->table_exists('manireports_cloud_conf')) {
+                        $cloud_conf = $DB->get_record('manireports_cloud_conf', ['company_id' => $instance->companyid]);
+                        $cloud_enabled = ($cloud_conf && $cloud_conf->enabled);
+                    }
+
                     $all_recipients = array_merge($to_emails, $cc_emails);
-                    foreach ($all_recipients as $email) {
-                        if (validate_email($email)) {
-                            email_to_user(
-                                (object)['email' => $email, 'firstname' => '', 'lastname' => '', 'mailformat' => 1],
-                                \core_user::get_noreply_user(),
+
+                    if ($cloud_enabled && class_exists('\local_manireports\api\CloudJobManager')) {
+                        mtrace("Cloud offload enabled for company {$instance->companyid}. Routing license reminder via AWS.");
+                        
+                        $cloud_manager = new CloudJobManager();
+                        $cloud_recipients = [];
+                        
+                        foreach ($all_recipients as $email) {
+                            if (validate_email($email)) {
+                                $cloud_recipients[] = [
+                                    'email' => $email,
+                                    'firstname' => 'License',
+                                    'lastname' => 'User',
+                                    'username' => 'license_user',
+                                    'password' => '',
+                                    'loginurl' => new \moodle_url('/login/index.php')
+                                ];
+                            }
+                        }
+
+                        try {
+                            // Create and submit cloud job
+                            // Use 'license_reminder' type to distinguish
+                            $job_id = $cloud_manager->create_job(
+                                'license_reminder',
+                                $cloud_recipients,
+                                $instance->companyid,
                                 $rendered['subject'],
-                                $rendered['body_text'],
                                 $rendered['body_html']
                             );
                             
-                            // Audit log
-                            $audit = new \stdClass();
-                            $audit->instanceid = $instance->id;
-                            $audit->message_id = \core\uuid::generate();
-                            $audit->recipient_email = $email;
-                            $audit->status = 'local_sent';
-                            $audit->attempts = 1;
-                            $audit->last_attempt_ts = time();
-                            $DB->insert_record('manireports_rem_job', $audit);
+                            $cloud_manager->submit_job($job_id);
                             
-                            mtrace("Sent license notification to {$email}");
+                            // Log audit
+                            foreach ($cloud_recipients as $recip) {
+                                $audit = new \stdClass();
+                                $audit->instanceid = $instance->id;
+                                $audit->message_id = \core\uuid::generate();
+                                $audit->job_id = $job_id;
+                                $audit->recipient_email = $recip['email'];
+                                $audit->status = 'submitted';
+                                $audit->attempts = 1;
+                                $audit->last_attempt_ts = time();
+                                $audit->payload = json_encode(['subject' => $rendered['subject'], 'type' => 'license_reminder']);
+                                $DB->insert_record('manireports_rem_job', $audit);
+                            }
+                            
+                            mtrace("Offloaded license reminder to cloud (Job ID: $job_id) for " . count($cloud_recipients) . " recipients");
+
+                        } catch (\Exception $e) {
+                            mtrace("Cloud offload failed: " . $e->getMessage() . ". Falling back to local send.");
+                            // Fallback to local send (below)
+                            $cloud_enabled = false; 
+                        }
+                    }
+
+                    // Fallback or Local Send
+                    if (!$cloud_enabled) {
+                        foreach ($all_recipients as $email) {
+                            if (validate_email($email)) {
+                                email_to_user(
+                                    (object)['email' => $email, 'firstname' => '', 'lastname' => '', 'mailformat' => 1],
+                                    \core_user::get_noreply_user(),
+                                    $rendered['subject'],
+                                    $rendered['body_text'],
+                                    $rendered['body_html']
+                                );
+                                
+                                // Audit log
+                                $audit = new \stdClass();
+                                $audit->instanceid = $instance->id;
+                                $audit->message_id = \core\uuid::generate();
+                                $audit->recipient_email = $email;
+                                $audit->status = 'local_sent';
+                                $audit->attempts = 1;
+                                $audit->last_attempt_ts = time();
+                                $DB->insert_record('manireports_rem_job', $audit);
+                                
+                                mtrace("Sent license notification locally to {$email}");
+                            }
                         }
                     }
 
