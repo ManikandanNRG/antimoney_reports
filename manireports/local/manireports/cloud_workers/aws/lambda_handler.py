@@ -181,7 +181,7 @@ def compose_email(job_type, data, custom_subject=None, custom_html=None):
         <p><strong>Password:</strong> {data.get('password')}</p>
         <p><a href="{data.get('loginurl')}">Login Here</a></p>
         """
-    elif job_type == 'license_allocation':
+    elif job_type == 'license_allocated':
         subject = "Course License Assigned"
         body = f"""
         <h1>Hello {data.get('firstname')}</h1>
