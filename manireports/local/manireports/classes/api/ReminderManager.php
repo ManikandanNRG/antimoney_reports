@@ -133,28 +133,44 @@ class ReminderManager {
 
             case 'license_expiry':
                 // IOMAD License Expiry
-                // Check for licenses expiring in X days (within next 24 hours window of that target)
+                // Check for licenses expiring within the next X days
                 // We use activityid to store licenseid for uniqueness
                 $days = isset($trigger_value['days']) ? (int)$trigger_value['days'] : 30;
-                $target_time = time() + ($days * 86400);
-                $window_start = $target_time; 
-                $window_end = $target_time + 86400; // 24 hour window
+                $now = time();
+                $future_time = $now + ($days * 86400);
 
-                // Query IOMAD licenses
-                // We return Admin User (ID 2) as placeholder, with license ID in activityid
-                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.expirydate
-                        FROM {companylicense} l
-                        WHERE l.expirydate >= :start AND l.expirydate < :end AND l.companyid = :companyid";
-                
-                $params = ['start' => $window_start, 'end' => $window_end, 'companyid' => $rule->companyid];
-                
-                // Filter by Course if specified
+                // Query IOMAD licenses - get courseid from companylicense_courses
+                // If rule has specific course, use it; otherwise get first course or 0
                 if ($rule->courseid > 0) {
-                    $sql .= " AND EXISTS (
-                        SELECT 1 FROM {companylicense_courses} clc 
-                        WHERE clc.licenseid = l.id AND clc.courseid = :courseid
-                    )";
-                    $params['courseid'] = $rule->courseid;
+                    // Specific course selected
+                    $sql = "SELECT 2 as userid, :rulecourse as courseid, l.id as activityid, l.expirydate
+                            FROM {companylicense} l
+                            WHERE l.expirydate >= :now AND l.expirydate <= :future 
+                              AND l.companyid = :companyid
+                              AND EXISTS (
+                                SELECT 1 FROM {companylicense_courses} clc 
+                                WHERE clc.licenseid = l.id AND clc.courseid = :courseid
+                              )";
+                    $params = [
+                        'now' => $now,
+                        'future' => $future_time,
+                        'companyid' => $rule->companyid,
+                        'courseid' => $rule->courseid,
+                        'rulecourse' => $rule->courseid
+                    ];
+                } else {
+                    // All courses - get first course from companylicense_courses or 0
+                    $sql = "SELECT 2 as userid, 
+                                   COALESCE((SELECT MIN(clc.courseid) FROM {companylicense_courses} clc WHERE clc.licenseid = l.id), 0) as courseid,
+                                   l.id as activityid, l.expirydate
+                            FROM {companylicense} l
+                            WHERE l.expirydate >= :now AND l.expirydate <= :future 
+                              AND l.companyid = :companyid";
+                    $params = [
+                        'now' => $now,
+                        'future' => $future_time,
+                        'companyid' => $rule->companyid
+                    ];
                 }
                 
                 // Override candidates fetch
@@ -166,19 +182,37 @@ class ReminderManager {
                 // Check if usage >= X%
                 $percent = isset($trigger_value['percent']) ? (int)$trigger_value['percent'] : 80;
                 
-                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.allocation, l.used
-                        FROM {companylicense} l
-                        WHERE l.allocation > 0 AND ((l.used / l.allocation) * 100) >= :percent AND l.companyid = :companyid";
-                
-                $params = ['percent' => $percent, 'companyid' => $rule->companyid];
-                
-                // Filter by Course if specified
+                // Get courseid from companylicense_courses
                 if ($rule->courseid > 0) {
-                    $sql .= " AND EXISTS (
-                        SELECT 1 FROM {companylicense_courses} clc 
-                        WHERE clc.licenseid = l.id AND clc.courseid = :courseid
-                    )";
-                    $params['courseid'] = $rule->courseid;
+                    // Specific course selected
+                    $sql = "SELECT 2 as userid, :rulecourse as courseid, l.id as activityid, l.allocation, l.used
+                            FROM {companylicense} l
+                            WHERE l.allocation > 0 
+                              AND ((l.used / l.allocation) * 100) >= :percent 
+                              AND l.companyid = :companyid
+                              AND EXISTS (
+                                SELECT 1 FROM {companylicense_courses} clc 
+                                WHERE clc.licenseid = l.id AND clc.courseid = :courseid
+                              )";
+                    $params = [
+                        'percent' => $percent,
+                        'companyid' => $rule->companyid,
+                        'courseid' => $rule->courseid,
+                        'rulecourse' => $rule->courseid
+                    ];
+                } else {
+                    // All courses - get first course from companylicense_courses or 0
+                    $sql = "SELECT 2 as userid, 
+                                   COALESCE((SELECT MIN(clc.courseid) FROM {companylicense_courses} clc WHERE clc.licenseid = l.id), 0) as courseid,
+                                   l.id as activityid, l.allocation, l.used
+                            FROM {companylicense} l
+                            WHERE l.allocation > 0 
+                              AND ((l.used / l.allocation) * 100) >= :percent 
+                              AND l.companyid = :companyid";
+                    $params = [
+                        'percent' => $percent,
+                        'companyid' => $rule->companyid
+                    ];
                 }
                 
                 // Override candidates fetch
