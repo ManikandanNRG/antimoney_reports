@@ -66,7 +66,11 @@ def process_emails(recipients, job_type, custom_subject=None, custom_html=None):
                 raise ValueError(f"Invalid email format: {email_address}")
             
             # Compose email
-            subject, body = compose_email(job_type, recipient_data, custom_subject, custom_html)
+            # Check if custom content is in recipient_data (Moodle sends it there)
+            r_custom_subject = custom_subject or recipient_data.get('custom_subject')
+            r_custom_html = custom_html or recipient_data.get('custom_html')
+            
+            subject, body = compose_email(job_type, recipient_data, r_custom_subject, r_custom_html)
             
             print(f"Attempting to send email to: {email_address}")
             
