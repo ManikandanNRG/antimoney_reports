@@ -143,7 +143,7 @@ class ReminderManager {
                 // Query IOMAD licenses
                 // We return Admin User (ID 2) as placeholder, with license ID in activityid
                 $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.expirydate
-                        FROM {block_iomad_company_licenses} l
+                        FROM {companylicense} l
                         WHERE l.expirydate >= :start AND l.expirydate < :end AND l.companyid = :companyid";
                 
                 $params = ['start' => $window_start, 'end' => $window_end, 'companyid' => $rule->companyid];
@@ -151,7 +151,7 @@ class ReminderManager {
                 // Filter by Course if specified
                 if ($rule->courseid > 0) {
                     $sql .= " AND EXISTS (
-                        SELECT 1 FROM {block_iomad_company_license_courses} clc 
+                        SELECT 1 FROM {companylicense_courses} clc 
                         WHERE clc.licenseid = l.id AND clc.courseid = :courseid
                     )";
                     $params['courseid'] = $rule->courseid;
@@ -166,16 +166,16 @@ class ReminderManager {
                 // Check if usage >= X%
                 $percent = isset($trigger_value['percent']) ? (int)$trigger_value['percent'] : 80;
                 
-                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.allocated, l.used
-                        FROM {block_iomad_company_licenses} l
-                        WHERE l.allocated > 0 AND ((l.used / l.allocated) * 100) >= :percent AND l.companyid = :companyid";
+                $sql = "SELECT 2 as userid, 0 as courseid, l.id as activityid, l.allocation, l.used
+                        FROM {companylicense} l
+                        WHERE l.allocation > 0 AND ((l.used / l.allocation) * 100) >= :percent AND l.companyid = :companyid";
                 
                 $params = ['percent' => $percent, 'companyid' => $rule->companyid];
                 
                 // Filter by Course if specified
                 if ($rule->courseid > 0) {
                     $sql .= " AND EXISTS (
-                        SELECT 1 FROM {block_iomad_company_license_courses} clc 
+                        SELECT 1 FROM {companylicense_courses} clc 
                         WHERE clc.licenseid = l.id AND clc.courseid = :courseid
                     )";
                     $params['courseid'] = $rule->courseid;
