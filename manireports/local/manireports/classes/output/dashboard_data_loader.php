@@ -1236,7 +1236,16 @@ class dashboard_data_loader {
 
                 // Determine recipient
                 if ($inst->userid == 2) {
-                    $recipient = $rule->thirdparty_emails ?: 'N/A';
+                    // License trigger - parse thirdparty_emails to get valid emails only
+                    $emails = $rule->thirdparty_emails ? explode(',', $rule->thirdparty_emails) : [];
+                    $valid_emails = [];
+                    foreach ($emails as $email) {
+                        $email = trim($email);
+                        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                            $valid_emails[] = $email;
+                        }
+                    }
+                    $recipient = !empty($valid_emails) ? implode(', ', $valid_emails) : 'External Recipients';
                 } else {
                     $user = $DB->get_record('user', ['id' => $inst->userid], 'firstname, lastname, email');
                     $recipient = $user ? fullname($user) . ' (' . $user->email . ')' : 'Unknown';

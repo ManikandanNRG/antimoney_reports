@@ -1562,7 +1562,7 @@ body {
                                         <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status_label']; ?></span>
                                     </td>
                                     <td class="table-cell">
-                                        <button class="btn btn-sm btn-secondary" onclick="showReminderDetails('<?php echo $item['id']; ?>')">
+                                        <button class="action-btn" onclick="showReminderDetails('<?php echo $item['id']; ?>')" style="padding: 8px 16px; border-radius: 8px; border: none; background: var(--primary-gradient); color: white; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                                             <i class="fa-solid fa-eye"></i> View
                                         </button>
                                     </td>
@@ -1577,8 +1577,8 @@ body {
                 </div>
 
                 <!-- Reminder Details Modal -->
-                <div id="reminderDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
-                    <div style="background: var(--glass-bg); border-radius: 24px; padding: 32px; max-width: 600px; width: 90%; border: 1px solid var(--glass-border);">
+                <div id="reminderDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 9999; align-items: center; justify-content: center;">
+                    <div style="background: var(--card-bg); border-radius: 24px; padding: 32px; max-width: 600px; width: 90%; border: 1px solid var(--glass-border); box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                             <h3 style="margin: 0; color: var(--text-primary);">Reminder Details</h3>
                             <button onclick="closeReminderDetails()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
