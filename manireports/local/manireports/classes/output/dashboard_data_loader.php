@@ -1187,9 +1187,15 @@ class dashboard_data_loader {
                 // Count pending reminders
                 $pending_reminders = $DB->count_records_select('manireports_rem_inst', "ruleid $insql AND emailsent = 0", $params);
 
-                // Count sent in last 30 days
-                $params['thirty_days_ago'] = $thirty_days_ago;
-                $sent_last_30 = $DB->count_records_select('manireports_rem_job', "ruleid $insql AND last_attempt_ts >= :thirty_days_ago", $params);
+                // Count sent in last 30 days - need to go through instances since job table doesn't have ruleid
+                $instance_ids = $DB->get_fieldset_select('manireports_rem_inst', 'id', "ruleid $insql", $params);
+                
+                $sent_last_30 = 0;
+                if (!empty($instance_ids)) {
+                    list($inst_insql, $inst_params) = $DB->get_in_or_equal($instance_ids, SQL_PARAMS_NAMED);
+                    $inst_params['thirty_days_ago'] = $thirty_days_ago;
+                    $sent_last_30 = $DB->count_records_select('manireports_rem_job', "instanceid $inst_insql AND last_attempt_ts >= :thirty_days_ago", $inst_params);
+                }
 
                 $results[] = (object)[
                     'id' => $company->id,
