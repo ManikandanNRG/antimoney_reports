@@ -1254,9 +1254,17 @@ class dashboard_data_loader {
             $history_jobs = $DB->get_records('manireports_rem_job', null, 'last_attempt_ts DESC', '*', 0, 25);
 
             foreach ($history_jobs as $job) {
+                // Get instance to find rule
+                $instance = $DB->get_record('manireports_rem_inst', ['id' => $job->instanceid], 'ruleid, userid, courseid');
+                if (!$instance) continue;
+
                 // Get rule name
-                $rule = $DB->get_record('manireports_rem_rule', ['id' => $job->ruleid], 'name');
-                $rule_name = $rule ? $rule->name : 'Unknown';
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $instance->ruleid], 'name, templateid');
+                if (!$rule) continue;
+
+                // Get subject from template
+                $template = $DB->get_record('manireports_rem_tmpl', ['id' => $rule->templateid], 'subject');
+                $subject = $template ? $template->subject : 'N/A';
 
                 $status_label = ucfirst($job->status);
                 if ($job->status == 'local_sent') {
@@ -1269,13 +1277,13 @@ class dashboard_data_loader {
                     'id' => 'job_' . $job->id,
                     'date_ts' => $job->last_attempt_ts,
                     'date_formatted' => userdate($job->last_attempt_ts, '%d %b, %I:%M %p'),
-                    'rule_name' => $rule_name,
+                    'rule_name' => $rule->name,
                     'recipient' => $job->recipient_email,
                     'status' => $job->status,
                     'status_label' => $status_label,
                     'message_id' => $job->message_id,
-                    'subject' => $job->subject,
-                    'context' => ''
+                    'subject' => $subject,
+                    'context' => $this->get_context_info($instance->userid, $instance->courseid)
                 ];
             }
 
