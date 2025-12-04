@@ -1115,7 +1115,7 @@ class dashboard_data_loader {
         $activity_today = $DB->count_records_select('manireports_rem_job', 'last_attempt_ts >= ?', [$today_start]);
 
         // Rules List
-        $rules = $DB->get_records('manireports_rem_rule', null, 'id DESC', '*', 0, 10);
+        $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1], 'id DESC', '*', 0, 10);
         
         // Templates List
         $templates = $DB->get_records('manireports_rem_tmpl', null, 'id DESC', '*', 0, 10);
