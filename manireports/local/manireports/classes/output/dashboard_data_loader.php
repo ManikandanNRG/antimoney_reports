@@ -1144,4 +1144,195 @@ class dashboard_data_loader {
             'logs' => $formatted_logs
         ];
     }
+
+    /**
+     * Get Company Reminder Stats.
+     */
+    public function get_company_reminder_stats() {
+        global $DB;
+
+        try {
+            // Check if IOMAD is installed (company table exists)
+            if (!$DB->get_manager()->table_exists('company')) {
+                return [];
+            }
+
+            // Simplified query without CASE statements
+            $sql = "SELECT 
+                        c.id,
+                        c.name,
+                        (SELECT COUNT(DISTINCT r2.id) 
+                         FROM {manireports_rem_rule} r2 
+                         WHERE r2.companyid = c.id AND r2.enabled = 1) as active_rules,
+                        (SELECT COUNT(DISTINCT i2.id) 
+                         FROM {manireports_rem_inst} i2
+                         JOIN {manireports_rem_rule} r3 ON r3.id = i2.ruleid
+                         WHERE r3.companyid = c.id AND i2.emailsent = 0) as pending_reminders,
+                        (SELECT COUNT(DISTINCT j2.id) 
+                         FROM {manireports_rem_job} j2
+                         JOIN {manireports_rem_rule} r4 ON r4.id = j2.ruleid
+                         WHERE r4.companyid = c.id AND j2.last_attempt_ts >= :thirty_days_ago) as sent_last_30
+                    FROM {company} c
+                    WHERE EXISTS (SELECT 1 FROM {manireports_rem_rule} r WHERE r.companyid = c.id AND r.enabled = 1)
+                    ORDER BY sent_last_30 DESC";
+
+            $thirty_days_ago = time() - (30 * 86400);
+            $companies = $DB->get_records_sql($sql, ['thirty_days_ago' => $thirty_days_ago]);
+
+            return array_values($companies);
+        } catch (Exception $e) {
+            // Return empty array on error
+            return [];
+        }
+    }
+
+    /**
+     * Get Unified Reminder Status (Pending + History).
+     */
+    public function get_unified_reminder_status() {
+        global $DB;
+
+        try {
+            $results = [];
+
+            // 1. Fetch Pending Instances (Future)
+            $pending_sql = "SELECT 
+                                i.id,
+                                i.next_send as date_ts,
+                                r.name as rule_name,
+                                r.trigger_type,
+                                i.userid,
+                                i.courseid,
+                                r.thirdparty_emails,
+                                t.subject
+                            FROM {manireports_rem_inst} i
+                            JOIN {manireports_rem_rule} r ON r.id = i.ruleid
+                            LEFT JOIN {manireports_rem_tmpl} t ON t.id = r.templateid
+                            WHERE i.emailsent = 0
+                            ORDER BY i.next_send ASC";
+
+            $pending = $DB->get_records_sql($pending_sql, [], 0, 50);
+
+            foreach ($pending as $p) {
+                // Determine recipient
+                if ($p->userid == 2) {
+                    // License trigger - use thirdparty_emails
+                    $recipient = $p->thirdparty_emails ?: 'N/A';
+                } else {
+                    $user = $DB->get_record('user', ['id' => $p->userid], 'firstname, lastname, email');
+                    $recipient = $user ? fullname($user) . ' (' . $user->email . ')' : 'Unknown';
+                }
+
+                $results[] = [
+                    'id' => 'inst_' . $p->id,
+                    'date_ts' => $p->date_ts,
+                    'date_formatted' => userdate($p->date_ts, '%d %b, %I:%M %p'),
+                    'rule_name' => $p->rule_name,
+                    'recipient' => $recipient,
+                    'status' => 'pending',
+                    'status_label' => 'Pending',
+                    'message_id' => null,
+                    'subject' => $p->subject ?: 'N/A',
+                    'context' => $this->get_context_info($p->userid, $p->courseid)
+                ];
+            }
+
+            // 2. Fetch Recent History (Past)
+            $history_sql = "SELECT 
+                                j.id,
+                                j.last_attempt_ts as date_ts,
+                                r.name as rule_name,
+                                j.recipient_email,
+                                j.status,
+                                j.message_id,
+                                j.subject
+                            FROM {manireports_rem_job} j
+                            JOIN {manireports_rem_rule} r ON r.id = j.ruleid
+                            ORDER BY j.last_attempt_ts DESC";
+
+            $history = $DB->get_records_sql($history_sql, [], 0, 50);
+
+            foreach ($history as $h) {
+                $status_label = ucfirst($h->status);
+                if ($h->status == 'local_sent') {
+                    $status_label = 'Sent (Local)';
+                } else if ($h->status == 'submitted') {
+                    $status_label = 'Sent (Cloud)';
+                }
+
+                $results[] = [
+                    'id' => 'job_' . $h->id,
+                    'date_ts' => $h->date_ts,
+                    'date_formatted' => userdate($h->date_ts, '%d %b, %I:%M %p'),
+                    'rule_name' => $h->rule_name,
+                    'recipient' => $h->recipient_email,
+                    'status' => $h->status,
+                    'status_label' => $status_label,
+                    'message_id' => $h->message_id,
+                    'subject' => $h->subject,
+                    'context' => ''
+                ];
+            }
+
+            // Sort by date (future first, then recent past)
+            usort($results, function($a, $b) {
+                $now = time();
+                $a_future = $a['date_ts'] > $now;
+                $b_future = $b['date_ts'] > $now;
+
+                if ($a_future && !$b_future) return -1;
+                if (!$a_future && $b_future) return 1;
+
+                if ($a_future && $b_future) {
+                    return $a['date_ts'] - $b['date_ts']; // Ascending for future
+                } else {
+                    return $b['date_ts'] - $a['date_ts']; // Descending for past
+                }
+            });
+
+            return $results;
+        } catch (Exception $e) {
+            // Return empty array on error
+            return [];
+        }
+    }
+
+    /**
+     * Helper to get context info (Company, Course).
+     */
+    private function get_context_info($userid, $courseid) {
+        global $DB;
+
+        $parts = [];
+
+        try {
+            if ($userid > 2) {
+                $user = $DB->get_record('user', ['id' => $userid], 'id');
+                if ($user) {
+                    // Get company (only if IOMAD is installed)
+                    if ($DB->get_manager()->table_exists('company') && $DB->get_manager()->table_exists('company_users')) {
+                        $company = $DB->get_record_sql(
+                            "SELECT c.name FROM {company} c
+                             JOIN {company_users} cu ON cu.companyid = c.id
+                             WHERE cu.userid = ?", [$userid]
+                        );
+                        if ($company) {
+                            $parts[] = 'Company: ' . $company->name;
+                        }
+                    }
+                }
+            }
+
+            if ($courseid > 0) {
+                $course = $DB->get_record('course', ['id' => $courseid], 'fullname');
+                if ($course) {
+                    $parts[] = 'Course: ' . $course->fullname;
+                }
+            }
+        } catch (Exception $e) {
+            // Silently ignore errors
+        }
+
+        return implode(', ', $parts);
+    }
 }

@@ -197,6 +197,21 @@ if ($selected_company_id) {
 // 12. Reminder Data
 $reminder_data = $loader->get_reminder_data();
 
+// New reminder data with error handling
+try {
+    $company_reminder_stats = $loader->get_company_reminder_stats();
+} catch (Exception $e) {
+    $company_reminder_stats = [];
+    error_log('Error loading company reminder stats: ' . $e->getMessage());
+}
+
+try {
+    $unified_reminder_status = $loader->get_unified_reminder_status();
+} catch (Exception $e) {
+    $unified_reminder_status = [];
+    error_log('Error loading unified reminder status: ' . $e->getMessage());
+}
+
 // Handle Settings Save (if posted)
 if (optional_param('action', '', PARAM_ALPHA) === 'savesettings' && data_submitted() && confirm_sesskey()) {
     $settings = new stdClass();
@@ -1486,43 +1501,123 @@ body {
                         </table>
                     </div>
 
-                    <!-- Recent Activity -->
+                    <!-- Company Reminder Stats (NEW) -->
                     <div class="bento-card card-span-4">
                         <div class="card-header">
-                            <div class="card-title">Recent Reminder Activity</div>
+                            <div class="card-title"><i class="fa-solid fa-building"></i> Company Reminder Stats</div>
                         </div>
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
-                                    <th class="table-header">Recipient</th>
-                                    <th class="table-header">Status</th>
-                                    <th class="table-header">Time</th>
-                                    <th class="table-header">Message ID</th>
+                                    <th class="table-header">Company</th>
+                                    <th class="table-header">Active Rules</th>
+                                    <th class="table-header">Pending Reminders</th>
+                                    <th class="table-header">Sent (Last 30 Days)</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($reminder_data['logs'] as $log): ?>
+                                <?php foreach ($company_reminder_stats as $stat): ?>
                                 <tr class="table-row">
-                                    <td class="table-cell"><?php echo $log['recipient']; ?></td>
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo format_string($stat->name); ?></td>
+                                    <td class="table-cell"><?php echo $stat->active_rules; ?></td>
+                                    <td class="table-cell"><?php echo $stat->pending_reminders; ?></td>
+                                    <td class="table-cell"><?php echo $stat->sent_last_30; ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <?php if (empty($company_reminder_stats)): ?>
+                                    <tr><td colspan="4" class="table-cell" style="text-align: center;">No company stats available.</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Unified Reminder Status (REPLACES Recent Activity) -->
+                    <div class="bento-card card-span-4">
+                        <div class="card-header">
+                            <div class="card-title"><i class="fa-solid fa-list-check"></i> Reminder Status</div>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr>
+                                    <th class="table-header">Date</th>
+                                    <th class="table-header">Rule</th>
+                                    <th class="table-header">Recipient</th>
+                                    <th class="table-header">Status</th>
+                                    <th class="table-header">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($unified_reminder_status as $item): ?>
+                                <tr class="table-row">
+                                    <td class="table-cell"><?php echo $item['date_formatted']; ?></td>
+                                    <td class="table-cell" style="font-weight: 600;"><?php echo format_string($item['rule_name']); ?></td>
+                                    <td class="table-cell"><?php echo $item['recipient']; ?></td>
                                     <td class="table-cell">
                                         <?php 
                                             $status_class = 'status-warning';
-                                            if ($log['status'] == 'delivered' || $log['status'] == 'local_sent') $status_class = 'status-active';
-                                            if ($log['status'] == 'failed') $status_class = 'status-inactive';
+                                            if ($item['status'] == 'pending') $status_class = 'status-warning';
+                                            else if ($item['status'] == 'local_sent' || $item['status'] == 'submitted') $status_class = 'status-active';
+                                            else if ($item['status'] == 'failed') $status_class = 'status-inactive';
                                         ?>
-                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $log['status']; ?></span>
+                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status_label']; ?></span>
                                     </td>
-                                    <td class="table-cell"><?php echo $log['time']; ?></td>
-                                    <td class="table-cell" style="font-family: monospace; font-size: 12px;"><?php echo $log['message_id']; ?></td>
+                                    <td class="table-cell">
+                                        <button class="btn btn-sm btn-secondary" onclick="showReminderDetails('<?php echo $item['id']; ?>')">
+                                            <i class="fa-solid fa-eye"></i> View
+                                        </button>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
-                                <?php if (empty($reminder_data['logs'])): ?>
-                                    <tr><td colspan="4" class="table-cell" style="text-align: center;">No recent activity.</td></tr>
+                                <?php if (empty($unified_reminder_status)): ?>
+                                    <tr><td colspan="5" class="table-cell" style="text-align: center;">No reminder activity found.</td></tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
+
+                <!-- Reminder Details Modal -->
+                <div id="reminderDetailsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; align-items: center; justify-content: center;">
+                    <div style="background: var(--glass-bg); border-radius: 24px; padding: 32px; max-width: 600px; width: 90%; border: 1px solid var(--glass-border);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                            <h3 style="margin: 0; color: var(--text-primary);">Reminder Details</h3>
+                            <button onclick="closeReminderDetails()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-secondary);">&times;</button>
+                        </div>
+                        <div id="reminderDetailsContent" style="color: var(--text-primary); line-height: 1.8;">
+                            <!-- Content will be populated by JavaScript -->
+                        </div>
+                        <div style="margin-top: 24px; text-align: right;">
+                            <button onclick="closeReminderDetails()" class="btn btn-primary">Close</button>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                // Store reminder data for popup
+                const reminderData = <?php echo json_encode($unified_reminder_status); ?>;
+
+                function showReminderDetails(id) {
+                    const item = reminderData.find(r => r.id === id);
+                    if (!item) return;
+
+                    const content = `
+                        <p><strong>Recipient:</strong> ${item.recipient}</p>
+                        <p><strong>Rule:</strong> ${item.rule_name}</p>
+                        <p><strong>Status:</strong> ${item.status_label}</p>
+                        <p><strong>Date:</strong> ${item.date_formatted}</p>
+                        ${item.message_id ? `<p><strong>Message ID:</strong> <code style="font-size: 11px;">${item.message_id}</code></p>` : ''}
+                        <p><strong>Subject:</strong> ${item.subject}</p>
+                        ${item.context ? `<p><strong>Context:</strong> ${item.context}</p>` : ''}
+                    `;
+
+                    document.getElementById('reminderDetailsContent').innerHTML = content;
+                    document.getElementById('reminderDetailsModal').style.display = 'flex';
+                }
+
+                function closeReminderDetails() {
+                    document.getElementById('reminderDetailsModal').style.display = 'none';
+                }
+                </script>
             </div>
         </div>
     </div>
