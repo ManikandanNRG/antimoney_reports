@@ -1152,36 +1152,57 @@ class dashboard_data_loader {
         global $DB;
 
         try {
-            // Check if IOMAD is installed (company table exists)
+            // Check if IOMAD is installed
             if (!$DB->get_manager()->table_exists('company')) {
                 return [];
             }
 
-            // Simplified query without CASE statements
-            $sql = "SELECT 
-                        c.id,
-                        c.name,
-                        (SELECT COUNT(DISTINCT r2.id) 
-                         FROM {manireports_rem_rule} r2 
-                         WHERE r2.companyid = c.id AND r2.enabled = 1) as active_rules,
-                        (SELECT COUNT(DISTINCT i2.id) 
-                         FROM {manireports_rem_inst} i2
-                         JOIN {manireports_rem_rule} r3 ON r3.id = i2.ruleid
-                         WHERE r3.companyid = c.id AND i2.emailsent = 0) as pending_reminders,
-                        (SELECT COUNT(DISTINCT j2.id) 
-                         FROM {manireports_rem_job} j2
-                         JOIN {manireports_rem_rule} r4 ON r4.id = j2.ruleid
-                         WHERE r4.companyid = c.id AND j2.last_attempt_ts >= :thirty_days_ago) as sent_last_30
-                    FROM {company} c
-                    WHERE EXISTS (SELECT 1 FROM {manireports_rem_rule} r WHERE r.companyid = c.id AND r.enabled = 1)
-                    ORDER BY sent_last_30 DESC";
-
+            $results = [];
             $thirty_days_ago = time() - (30 * 86400);
-            $companies = $DB->get_records_sql($sql, ['thirty_days_ago' => $thirty_days_ago]);
 
-            return array_values($companies);
+            // Get all companies
+            $companies = $DB->get_records('company', null, 'name ASC');
+
+            foreach ($companies as $company) {
+                // Count active rules for this company
+                $active_rules = $DB->count_records('manireports_rem_rule', [
+                    'companyid' => $company->id,
+                    'enabled' => 1
+                ]);
+
+                // Skip companies with no active rules
+                if ($active_rules == 0) {
+                    continue;
+                }
+
+                // Get all rule IDs for this company
+                $rule_ids = $DB->get_fieldset_select('manireports_rem_rule', 'id', 'companyid = ? AND enabled = 1', [$company->id]);
+
+                if (empty($rule_ids)) {
+                    continue;
+                }
+
+                list($insql, $params) = $DB->get_in_or_equal($rule_ids, SQL_PARAMS_NAMED);
+
+                // Count pending reminders
+                $pending_reminders = $DB->count_records_select('manireports_rem_inst', "ruleid $insql AND emailsent = 0", $params);
+
+                // Count sent in last 30 days
+                $params['thirty_days_ago'] = $thirty_days_ago;
+                $sent_last_30 = $DB->count_records_select('manireports_rem_job', "ruleid $insql AND last_attempt_ts >= :thirty_days_ago", $params);
+
+                $results[] = (object)[
+                    'id' => $company->id,
+                    'name' => $company->name,
+                    'active_rules' => $active_rules,
+                    'pending_reminders' => $pending_reminders,
+                    'sent_last_30' => $sent_last_30
+                ];
+            }
+
+            return $results;
         } catch (Exception $e) {
-            // Return empty array on error
+            error_log('Company reminder stats error: ' . $e->getMessage());
             return [];
         }
     }
@@ -1195,81 +1216,65 @@ class dashboard_data_loader {
         try {
             $results = [];
 
-            // 1. Fetch Pending Instances (Future)
-            $pending_sql = "SELECT 
-                                i.id,
-                                i.next_send as date_ts,
-                                r.name as rule_name,
-                                r.trigger_type,
-                                i.userid,
-                                i.courseid,
-                                r.thirdparty_emails,
-                                t.subject
-                            FROM {manireports_rem_inst} i
-                            JOIN {manireports_rem_rule} r ON r.id = i.ruleid
-                            LEFT JOIN {manireports_rem_tmpl} t ON t.id = r.templateid
-                            WHERE i.emailsent = 0
-                            ORDER BY i.next_send ASC";
+            // 1. Fetch Pending Instances (Future) - limit 25
+            $pending_instances = $DB->get_records('manireports_rem_inst', ['emailsent' => 0], 'next_send ASC', '*', 0, 25);
 
-            $pending = $DB->get_records_sql($pending_sql, [], 0, 50);
+            foreach ($pending_instances as $inst) {
+                // Get rule details
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $inst->ruleid], 'name, thirdparty_emails, templateid');
+                if (!$rule) continue;
 
-            foreach ($pending as $p) {
+                // Get template subject
+                $template = $DB->get_record('manireports_rem_tmpl', ['id' => $rule->templateid], 'subject');
+                $subject = $template ? $template->subject : 'N/A';
+
                 // Determine recipient
-                if ($p->userid == 2) {
-                    // License trigger - use thirdparty_emails
-                    $recipient = $p->thirdparty_emails ?: 'N/A';
+                if ($inst->userid == 2) {
+                    $recipient = $rule->thirdparty_emails ?: 'N/A';
                 } else {
-                    $user = $DB->get_record('user', ['id' => $p->userid], 'firstname, lastname, email');
+                    $user = $DB->get_record('user', ['id' => $inst->userid], 'firstname, lastname, email');
                     $recipient = $user ? fullname($user) . ' (' . $user->email . ')' : 'Unknown';
                 }
 
                 $results[] = [
-                    'id' => 'inst_' . $p->id,
-                    'date_ts' => $p->date_ts,
-                    'date_formatted' => userdate($p->date_ts, '%d %b, %I:%M %p'),
-                    'rule_name' => $p->rule_name,
+                    'id' => 'inst_' . $inst->id,
+                    'date_ts' => $inst->next_send,
+                    'date_formatted' => userdate($inst->next_send, '%d %b, %I:%M %p'),
+                    'rule_name' => $rule->name,
                     'recipient' => $recipient,
                     'status' => 'pending',
                     'status_label' => 'Pending',
                     'message_id' => null,
-                    'subject' => $p->subject ?: 'N/A',
-                    'context' => $this->get_context_info($p->userid, $p->courseid)
+                    'subject' => $subject,
+                    'context' => $this->get_context_info($inst->userid, $inst->courseid)
                 ];
             }
 
-            // 2. Fetch Recent History (Past)
-            $history_sql = "SELECT 
-                                j.id,
-                                j.last_attempt_ts as date_ts,
-                                r.name as rule_name,
-                                j.recipient_email,
-                                j.status,
-                                j.message_id,
-                                j.subject
-                            FROM {manireports_rem_job} j
-                            JOIN {manireports_rem_rule} r ON r.id = j.ruleid
-                            ORDER BY j.last_attempt_ts DESC";
+            // 2. Fetch Recent History (Past) - limit 25
+            $history_jobs = $DB->get_records('manireports_rem_job', null, 'last_attempt_ts DESC', '*', 0, 25);
 
-            $history = $DB->get_records_sql($history_sql, [], 0, 50);
+            foreach ($history_jobs as $job) {
+                // Get rule name
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $job->ruleid], 'name');
+                $rule_name = $rule ? $rule->name : 'Unknown';
 
-            foreach ($history as $h) {
-                $status_label = ucfirst($h->status);
-                if ($h->status == 'local_sent') {
+                $status_label = ucfirst($job->status);
+                if ($job->status == 'local_sent') {
                     $status_label = 'Sent (Local)';
-                } else if ($h->status == 'submitted') {
+                } else if ($job->status == 'submitted') {
                     $status_label = 'Sent (Cloud)';
                 }
 
                 $results[] = [
-                    'id' => 'job_' . $h->id,
-                    'date_ts' => $h->date_ts,
-                    'date_formatted' => userdate($h->date_ts, '%d %b, %I:%M %p'),
-                    'rule_name' => $h->rule_name,
-                    'recipient' => $h->recipient_email,
-                    'status' => $h->status,
+                    'id' => 'job_' . $job->id,
+                    'date_ts' => $job->last_attempt_ts,
+                    'date_formatted' => userdate($job->last_attempt_ts, '%d %b, %I:%M %p'),
+                    'rule_name' => $rule_name,
+                    'recipient' => $job->recipient_email,
+                    'status' => $job->status,
                     'status_label' => $status_label,
-                    'message_id' => $h->message_id,
-                    'subject' => $h->subject,
+                    'message_id' => $job->message_id,
+                    'subject' => $job->subject,
                     'context' => ''
                 ];
             }
@@ -1284,15 +1289,15 @@ class dashboard_data_loader {
                 if (!$a_future && $b_future) return 1;
 
                 if ($a_future && $b_future) {
-                    return $a['date_ts'] - $b['date_ts']; // Ascending for future
+                    return $a['date_ts'] - $b['date_ts'];
                 } else {
-                    return $b['date_ts'] - $a['date_ts']; // Descending for past
+                    return $b['date_ts'] - $a['date_ts'];
                 }
             });
 
             return $results;
         } catch (Exception $e) {
-            // Return empty array on error
+            error_log('Unified reminder status error: ' . $e->getMessage());
             return [];
         }
     }
