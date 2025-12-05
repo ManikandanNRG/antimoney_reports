@@ -439,7 +439,7 @@ if ($form->is_cancelled()) {
         <!-- Action Bar -->
         <div class="action-bar">
             <div class="d-flex gap-2">
-                <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/designs/dashboard_v6_ultimate.php" class="btn btn-secondary text-white">
+                <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ui/dashboard.php" class="btn btn-secondary text-white">
                     <i class="fa fa-arrow-left mr-2"></i> Back to Dashboard
                 </a>
                 <a href="reminders.php" class="btn btn-secondary text-white">

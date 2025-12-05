@@ -388,7 +388,7 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
             <!-- Form View -->
             <div class="action-bar">
                 <div class="d-flex gap-2">
-                    <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/designs/dashboard_v6_ultimate.php" class="btn btn-secondary text-white">
+                    <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ui/dashboard.php" class="btn btn-secondary text-white">
                         <i class="fa fa-arrow-left mr-2"></i> Back to Dashboard
                     </a>
                     <a href="templates.php" class="btn btn-secondary text-white">

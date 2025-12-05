@@ -315,7 +315,7 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
         <!-- Action Bar -->
         <div class="action-bar">
             <div>
-                <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/designs/dashboard_v6_ultimate.php" class="btn btn-secondary">
+                <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ui/dashboard.php" class="btn btn-secondary">
                     <i class="fa fa-arrow-left mr-2"></i> Back to Dashboard
                 </a>
             </div>
