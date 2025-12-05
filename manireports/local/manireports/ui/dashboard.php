@@ -284,7 +284,7 @@ try {
 // 10. Users Tab Data
 $user_page = optional_param('user_page', 1, PARAM_INT);
 $user_search = optional_param('user_search', '', PARAM_TEXT);
-$user_role = optional_param('user_role', '', PARAM_TEXT);
+$filter_role = optional_param('user_role', '', PARAM_TEXT); // Renamed from $user_role to avoid conflict
 $user_status = optional_param('user_status', '', PARAM_TEXT);
 $user_per_page = 10;
 
@@ -295,7 +295,7 @@ try {
 }
 
 try {
-    $users_list_data = $loader->get_comprehensive_user_list($user_page, $user_per_page, $user_search, $user_role, $user_status);
+    $users_list_data = $loader->get_comprehensive_user_list($user_page, $user_per_page, $user_search, $filter_role, $user_status);
     $users_list = $users_list_data['data'];
     $users_pagination = $users_list_data['pagination'];
 } catch (\Exception $e) {
