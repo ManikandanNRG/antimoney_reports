@@ -1222,13 +1222,8 @@ class dashboard_data_loader {
         try {
             $results = [];
 
-            // Fetch all active instances for ENABLED rules only (limit 50 for performance)
-            $sql = "SELECT i.*
-                    FROM {manireports_rem_inst} i
-                    JOIN {manireports_rem_rule} r ON r.id = i.ruleid
-                    WHERE r.enabled = 1
-                    ORDER BY i.next_send ASC";
-            $instances = $DB->get_records_sql($sql, [], 0, 50);
+            // Fetch all active instances (limit 50 for performance)
+            $instances = $DB->get_records('manireports_rem_inst', null, 'next_send ASC', '*', 0, 50);
 
             foreach ($instances as $inst) {
                 // Get rule details

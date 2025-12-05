@@ -56,15 +56,41 @@ class ReminderManager {
     }
 
     /**
-     * Delete (soft delete) a reminder rule.
+     * Delete a reminder rule and all related data.
      *
      * @param int $id Rule ID
      * @return bool
      */
     public function delete_rule($id) {
         global $DB;
-        // Soft delete by disabling
-        return $DB->set_field('manireports_rem_rule', 'enabled', 0, ['id' => $id]);
+        
+        // Hard delete - remove rule and all related data
+        try {
+            // Start transaction
+            $transaction = $DB->start_delegated_transaction();
+            
+            // 1. Get all instances for this rule
+            $instances = $DB->get_records('manireports_rem_inst', ['ruleid' => $id]);
+            
+            // 2. Delete all jobs for these instances
+            foreach ($instances as $instance) {
+                $DB->delete_records('manireports_rem_job', ['instanceid' => $instance->id]);
+            }
+            
+            // 3. Delete all instances
+            $DB->delete_records('manireports_rem_inst', ['ruleid' => $id]);
+            
+            // 4. Delete the rule itself
+            $DB->delete_records('manireports_rem_rule', ['id' => $id]);
+            
+            // Commit transaction
+            $transaction->allow_commit();
+            
+            return true;
+        } catch (\Exception $e) {
+            error_log('Error deleting rule: ' . $e->getMessage());
+            return false;
+        }
     }
 
     /**
