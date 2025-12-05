@@ -328,9 +328,10 @@ class ReminderManager {
      *
      * @param int $userid User ID
      * @param int $companyid Company ID
+     * @param int|null $courseid Course ID (optional - if provided, only returns managers enrolled in this course)
      * @return array List of manager user objects
      */
-    public function get_managers($userid, $companyid) {
+    public function get_managers($userid, $companyid, $courseid = null) {
         global $DB;
         
         // Check if IOMAD tables exist
@@ -338,14 +339,36 @@ class ReminderManager {
             return [];
         }
 
-        // Logic to find department managers or company admins
-        // This is a simplified query; adjust based on specific IOMAD roles/structure
-        $sql = "SELECT u.*
+        // If no courseid provided, fall back to company-wide managers
+        if (!$courseid) {
+            $sql = "SELECT u.*
+                    FROM {user} u
+                    JOIN {block_iomad_company_users} cu ON cu.userid = u.id
+                    WHERE cu.companyid = :companyid 
+                      AND cu.managertype = 1 
+                      AND u.deleted = 0 
+                      AND u.suspended = 0";
+            
+            return $DB->get_records_sql($sql, ['companyid' => $companyid]);
+        }
+        
+        // Get managers enrolled in the SAME course
+        // This ensures managers only receive reminders for courses they're involved in
+        $sql = "SELECT DISTINCT u.*
                 FROM {user} u
                 JOIN {block_iomad_company_users} cu ON cu.userid = u.id
-                WHERE cu.companyid = :companyid AND cu.managertype = 1 
-                AND u.deleted = 0 AND u.suspended = 0";
+                JOIN {user_enrolments} ue ON ue.userid = u.id
+                JOIN {enrol} e ON e.id = ue.enrolid
+                WHERE cu.companyid = :companyid
+                  AND cu.managertype = 1
+                  AND e.courseid = :courseid
+                  AND ue.status = 0
+                  AND u.deleted = 0
+                  AND u.suspended = 0";
         
-        return $DB->get_records_sql($sql, ['companyid' => $companyid]);
+        return $DB->get_records_sql($sql, [
+            'companyid' => $companyid,
+            'courseid' => $courseid
+        ]);
     }
 }

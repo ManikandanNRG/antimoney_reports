@@ -257,7 +257,7 @@ class process_reminders extends scheduled_task {
                     }
                     
                     if ($instance->send_to_managers) {
-                        $managers = $manager->get_managers($instance->userid, $instance->companyid);
+                        $managers = $manager->get_managers($instance->userid, $instance->companyid, $instance->courseid);
                         foreach ($managers as $mgr) {
                             $recipients[] = [
                                 'email' => $mgr->email,

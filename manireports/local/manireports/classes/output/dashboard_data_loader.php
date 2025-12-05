@@ -1251,10 +1251,14 @@ class dashboard_data_loader {
                     }
                 } else {
                     // Standard user - fetch from user table
-                    $user = $DB->get_record('user', ['id' => $inst->userid], 'firstname, lastname, email');
-                    if ($user && filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
-                        $recipient_label = fullname($user) . ' (' . $user->email . ')';
+                    $user = $DB->get_record('user', ['id' => $inst->userid, 'deleted' => 0], 'firstname, lastname, email');
+                    if (!$user) {
+                        // User deleted - skip this instance
+                        continue;
                     }
+                    
+                    // Always show name and email (including .invalid emails for testing)
+                    $recipient_label = fullname($user) . ' (' . $user->email . ')';
                 }
 
                 // Get Last Sent info
