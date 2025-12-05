@@ -33,7 +33,8 @@ $user_role = 'student'; // Default role
 $role_context = []; // Store role-specific context data
 
 // Check capabilities in order of hierarchy: Admin > Manager > Teacher > Student
-if (has_capability('local/manireports:viewadmindashboard', $context)) {
+// Use is_siteadmin() for admin check (more reliable than custom capability)
+if (is_siteadmin()) {
     $user_role = 'admin';
     // Admin has access to everything, no filtering needed
     
@@ -698,51 +699,120 @@ body {
         <!-- Content Area -->
         <div class="content-area">
             <div id="tab-overview" class="tab-content active">
+            <!-- ========================================================================
+                 PHASE 5: ROLE-BASED KPI LABELS
+                 ======================================================================== -->
+            <?php
+            // Define KPI labels based on role
+            switch ($user_role) {
+                case 'admin':
+                    $kpi_labels = [
+                        'kpi1' => 'Total Companies',
+                        'kpi2' => 'Total Courses',
+                        'kpi3' => 'Total Users',
+                        'kpi4' => 'Completion %',
+                        'icon1' => 'fa-building',
+                        'icon2' => 'fa-book',
+                        'icon3' => 'fa-users',
+                        'icon4' => 'fa-trophy'
+                    ];
+                    break;
+                case 'manager':
+                    $kpi_labels = [
+                        'kpi1' => 'My Company',
+                        'kpi2' => 'Company Courses',
+                        'kpi3' => 'Company Users',
+                        'kpi4' => 'Completion %',
+                        'icon1' => 'fa-building',
+                        'icon2' => 'fa-book',
+                        'icon3' => 'fa-users',
+                        'icon4' => 'fa-trophy'
+                    ];
+                    break;
+                case 'teacher':
+                    $kpi_labels = [
+                        'kpi1' => 'My Courses',
+                        'kpi2' => 'In Progress',
+                        'kpi3' => 'Total Students',
+                        'kpi4' => 'Avg Progress',
+                        'icon1' => 'fa-book',
+                        'icon2' => 'fa-clock',
+                        'icon3' => 'fa-user-graduate',
+                        'icon4' => 'fa-chart-line'
+                    ];
+                    break;
+                case 'student':
+                    $kpi_labels = [
+                        'kpi1' => 'Enrolled Courses',
+                        'kpi2' => 'In Progress',
+                        'kpi3' => 'Completed',
+                        'kpi4' => 'Avg Progress',
+                        'icon1' => 'fa-book-open',
+                        'icon2' => 'fa-spinner',
+                        'icon3' => 'fa-check-circle',
+                        'icon4' => 'fa-chart-line'
+                    ];
+                    break;
+                default:
+                    $kpi_labels = [
+                        'kpi1' => 'Total Companies',
+                        'kpi2' => 'Total Courses',
+                        'kpi3' => 'Total Users',
+                        'kpi4' => 'Completion %',
+                        'icon1' => 'fa-building',
+                        'icon2' => 'fa-book',
+                        'icon3' => 'fa-users',
+                        'icon4' => 'fa-trophy'
+                    ];
+            }
+            ?>
             <!-- KPI Cards (Always Visible) -->
             <div class="kpi-cards">
 
-            <!-- KPI 1: Total Companies -->
+            <!-- KPI 1 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/boy?username=Company" class="card-illustration" alt="Companies">
+                <img src="https://avatar.iran.liara.run/public/boy?username=Company" class="card-illustration" alt="KPI1">
                 <div class="card-content-wrapper">
                     <div class="card-header">
-                        <div class="card-title"><i class="fa-solid fa-building" style="color: var(--accent-primary);"></i> Total Companies</div>
+                        <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>" style="color: var(--accent-primary);"></i> <?php echo $kpi_labels['kpi1']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['companies']; ?></div>
+                    <div class="card-value"><?php echo ($user_role === 'manager' && isset($role_context['companyname'])) ? $role_context['companyname'] : $kpi_data['users']; ?></div>
                     <div style="height: 60px;"><canvas id="chartCompanies"></canvas></div>
                 </div>
             </div>
 
-            <!-- KPI 2: Total Courses -->
+            <!-- KPI 2 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/girl?username=Course" class="card-illustration" alt="Courses">
+                <img src="https://avatar.iran.liara.run/public/girl?username=Course" class="card-illustration" alt="KPI2">
                 <div class="card-content-wrapper">
                     <div class="card-header">
-                        <div class="card-title"><i class="fa-solid fa-book" style="color: var(--accent-success);"></i> Total Courses</div>
+                        <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>" style="color: var(--accent-success);"></i> <?php echo $kpi_labels['kpi2']; ?></div>
                     </div>
                     <div class="card-value"><?php echo $kpi_data['courses']; ?></div>
                     <div style="height: 60px;"><canvas id="chartCourses"></canvas></div>
                 </div>
             </div>
+
+            <!-- KPI 3 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/boy?username=Users" class="card-illustration" alt="Users">
+                <img src="https://avatar.iran.liara.run/public/boy?username=Users" class="card-illustration" alt="KPI3">
                 <div class="card-content-wrapper">
                     <div class="card-header">
-                        <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Users</div>
+                        <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>" style="color: var(--accent-warning);"></i> <?php echo $kpi_labels['kpi3']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo number_format($kpi_data['users']); ?></div>
+                    <div class="card-value"><?php echo number_format($kpi_data['companies']); ?></div>
                     <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
                 </div>
             </div>
 
-            <!-- KPI 4: Overall Completion % -->
+            <!-- KPI 4 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/girl?username=Complete" class="card-illustration" alt="Completion">
+                <img src="https://avatar.iran.liara.run/public/girl?username=Complete" class="card-illustration" alt="KPI4">
                 <div class="card-content-wrapper">
                     <div class="card-header">
-                        <div class="card-title"><i class="fa-solid fa-trophy" style="color: var(--accent-secondary);"></i> Completion %</div>
+                        <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>" style="color: var(--accent-secondary);"></i> <?php echo $kpi_labels['kpi4']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['completion_rate']; ?>%</div>
+                    <div class="card-value"><?php echo $kpi_data['completion_rate']; ?><?php echo ($user_role === 'student' || $user_role === 'teacher') ? '%' : '%'; ?></div>
                     <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
                         <div style="width: <?php echo $kpi_data['completion_rate']; ?>%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
                     </div>
@@ -750,6 +820,9 @@ body {
             </div>
             </div>
             <!-- End KPI Cards -->
+            <!-- ========================================================================
+                 END PHASE 5
+                 ======================================================================== -->
 
             <div class="bento-grid">
 
@@ -1035,6 +1108,140 @@ body {
 
             </div>
         </div>
+
+        <!-- ========================================================================
+             PHASE 4: ROLE-SPECIFIC CONTENT SECTIONS
+             ======================================================================== -->
+        
+        <?php if ($user_role === 'manager' && isset($role_context['companyname'])): ?>
+        <!-- MANAGER SECTION: My Company Users -->
+        <div class="bento-card card-span-4" style="margin-top: 32px;">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-building"></i> My Company: <?php echo $role_context['companyname']; ?></div>
+            </div>
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-users"></i> Company Users</div>
+            </div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Last Access</th>
+                        <th>Enrollments</th>
+                        <th>Completions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $company_users = $loader->get_company_users(20);
+                    if (empty($company_users)) {
+                        echo '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No users found in your company</td></tr>';
+                    } else {
+                        foreach ($company_users as $user) {
+                            echo '<tr>';
+                            echo '<td>' . htmlspecialchars($user['fullname']) . '</td>';
+                            echo '<td>' . htmlspecialchars($user['email']) . '</td>';
+                            echo '<td>' . $user['lastaccess'] . '</td>';
+                            echo '<td>' . $user['enrollments'] . '</td>';
+                            echo '<td>' . $user['completions'] . '</td>';
+                            echo '</tr>';
+                        }
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($user_role === 'teacher' && isset($role_context['course_count']) && $role_context['course_count'] > 0): ?>
+        <!-- TEACHER SECTION: My Students -->
+        <div class="bento-card card-span-4" style="margin-top: 32px;">
+            <div class="card-header">
+                <div class="card-title"><i class="fa-solid fa-chalkboard-teacher"></i> My Students (<?php echo $role_context['course_count']; ?> Courses)</div>
+            </div>
+            <?php
+            $my_students = $loader->get_my_students();
+            if (empty($my_students)) {
+                echo '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No students found in your courses</p>';
+            } else {
+                foreach ($my_students as $course_data) {
+                    echo '<div style="margin-bottom: 24px;">';
+                    echo '<h4 style="color: var(--accent-primary); margin-bottom: 12px;"><i class="fa-solid fa-book"></i> ' . htmlspecialchars($course_data['course_name']) . ' (' . $course_data['student_count'] . ' students)</h4>';
+                    
+                    if (empty($course_data['students'])) {
+                        echo '<p style="color: var(--text-secondary); padding-left: 20px;">No students enrolled</p>';
+                    } else {
+                        echo '<table class="data-table" style="margin-left: 20px;">';
+                        echo '<thead><tr><th>Student</th><th>Email</th><th>Progress</th><th>Last Access</th><th>Status</th></tr></thead>';
+                        echo '<tbody>';
+                        foreach ($course_data['students'] as $student) {
+                            echo '<tr>';
+                            echo '<td>' . htmlspecialchars($student['fullname']) . '</td>';
+                            echo '<td>' . htmlspecialchars($student['email']) . '</td>';
+                            echo '<td><div style="width: 100px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;"><div style="width: ' . $student['progress'] . '%; height: 100%; background: var(--accent-success); border-radius: 3px;"></div></div></td>';
+                            echo '<td>' . $student['lastaccess'] . '</td>';
+                            echo '<td>' . ($student['completed'] ? '<span style="color: var(--accent-success);">✓ Completed</span>' : '<span style="color: var(--accent-warning);">In Progress</span>') . '</td>';
+                            echo '</tr>';
+                        }
+                        echo '</tbody></table>';
+                    }
+                    echo '</div>';
+                }
+            }
+            ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($user_role === 'student' && isset($role_context['course_count']) && $role_context['course_count'] > 0): ?>
+        <!-- STUDENT SECTION: My Courses -->
+        <div class="bento-grid" style="margin-top: 32px;">
+            <div class="bento-card card-span-4">
+                <div class="card-header">
+                    <div class="card-title"><i class="fa-solid fa-graduation-cap"></i> My Courses (<?php echo $role_context['course_count']; ?>)</div>
+                </div>
+            </div>
+            
+            <?php
+            $my_courses = $loader->get_my_courses();
+            if (empty($my_courses)) {
+                echo '<div class="bento-card card-span-4"><p style="text-align: center; color: var(--text-secondary); padding: 20px;">No courses found</p></div>';
+            } else {
+                foreach ($my_courses as $course) {
+                    echo '<div class="bento-card card-span-2">';
+                    echo '<div class="card-header">';
+                    echo '<div class="card-title"><i class="fa-solid fa-book"></i> ' . htmlspecialchars($course['fullname']) . '</div>';
+                    echo '<span class="status-badge ' . $course['status_class'] . '">' . $course['status'] . '</span>';
+                    echo '</div>';
+                    
+                    echo '<div style="margin: 16px 0;">';
+                    echo '<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">';
+                    echo '<span style="color: var(--text-secondary); font-size: 14px;">Progress</span>';
+                    echo '<span style="color: var(--text-primary); font-weight: 600;">' . $course['progress'] . '%</span>';
+                    echo '</div>';
+                    echo '<div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px;">';
+                    echo '<div style="width: ' . $course['progress'] . '%; height: 100%; background: var(--accent-success); border-radius: 4px;"></div>';
+                    echo '</div>';
+                    echo '</div>';
+                    
+                    echo '<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; font-size: 13px;">';
+                    echo '<div><span style="color: var(--text-secondary);">Activities:</span> <span style="color: var(--text-primary);">' . $course['completed_activities'] . '/' . $course['total_activities'] . '</span></div>';
+                    echo '<div><span style="color: var(--text-secondary);">Last Access:</span> <span style="color: var(--text-primary);">' . $course['last_access'] . '</span></div>';
+                    echo '</div>';
+                    
+                    echo '<a href="' . $course['course_url'] . '" class="btn btn-primary" style="width: 100%; text-align: center; margin-top: 12px;">';
+                    echo ($course['status'] === 'Completed' ? 'View Course' : 'Continue Learning') . ' →';
+                    echo '</a>';
+                    
+                    echo '</div>';
+                }
+            }
+            ?>
+        </div>
+        <?php endif; ?>
+        <!-- ========================================================================
+             END PHASE 4
+             ======================================================================== -->
 
         <!-- COURSES TAB -->
         <div id="tab-courses" class="tab-content">
@@ -1879,6 +2086,59 @@ function switchTab(tabName) {
     // Persist selection
     localStorage.setItem('activeTab', tabName);
 }
+
+// ========================================================================
+// PHASE 3: TAB FILTERING BASED ON USER ROLE
+// ========================================================================
+(function() {
+    // Get user role from PHP and trim any whitespace
+    const userRole = '<?php echo trim($user_role); ?>'.trim();
+    
+    console.log('Dashboard: Filtering tabs for role:', userRole, '(length:', userRole.length, ')');
+    
+    // Safety check - if role is empty, default to showing all tabs
+    if (!userRole || userRole.length === 0) {
+        console.error('ERROR: User role is empty! Showing all tabs by default.');
+        return;
+    }
+    
+    // Filter tabs based on role
+    document.querySelectorAll('.tab-item[data-roles]').forEach(tabItem => {
+        const allowedRoles = tabItem.dataset.roles.split(',').map(r => r.trim());
+        const tabName = tabItem.dataset.tab;
+        
+        console.log('  - Checking tab:', tabName, 'allowed roles:', allowedRoles, 'user role:', userRole);
+        
+        if (!allowedRoles.includes(userRole)) {
+            // Hide tab button
+            tabItem.style.display = 'none';
+            
+            // Hide corresponding tab content
+            const tabContent = document.getElementById('tab-' + tabName);
+            if (tabContent) {
+                tabContent.style.display = 'none';
+            }
+            
+            console.log('    ✗ Hidden tab:', tabName);
+        } else {
+            console.log('    ✓ Visible tab:', tabName);
+        }
+    });
+    
+    // Set first visible tab as active
+    const firstVisibleTab = document.querySelector('.tab-item[data-roles]:not([style*="display: none"])');
+    if (firstVisibleTab) {
+        const firstTabName = firstVisibleTab.dataset.tab;
+        switchTab(firstTabName);
+        console.log('  - Set active tab:', firstTabName);
+    } else {
+        console.error('ERROR: No visible tabs found!');
+    }
+})();
+// ========================================================================
+// END PHASE 3
+// ========================================================================
+
 
 // Date Filter Logic
 function setDateFilter(range) {
