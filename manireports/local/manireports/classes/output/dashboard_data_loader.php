@@ -1227,7 +1227,7 @@ class dashboard_data_loader {
 
             foreach ($pending_instances as $inst) {
                 // Get rule details
-                $rule = $DB->get_record('manireports_rem_rule', ['id' => $inst->ruleid], 'name, thirdparty_emails, templateid');
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $inst->ruleid], 'name, thirdparty_emails, cc_emails, send_to_managers, templateid');
                 if (!$rule) continue;
 
                 // Get template subject
@@ -1235,20 +1235,54 @@ class dashboard_data_loader {
                 $subject = $template ? $template->subject : 'N/A';
 
                 // Determine recipient
-                if ($inst->userid == 2) {
-                    // License trigger - parse thirdparty_emails to get valid emails only
-                    $emails = $rule->thirdparty_emails ? explode(',', $rule->thirdparty_emails) : [];
-                    $valid_emails = [];
+                $recipient_label = 'Unknown';
+                $additional_recipients = [];
+                
+                // Parse Third Party Emails
+                if (!empty($rule->thirdparty_emails)) {
+                    $emails = explode(',', $rule->thirdparty_emails);
                     foreach ($emails as $email) {
                         $email = trim($email);
                         if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                            $valid_emails[] = $email;
+                            $additional_recipients[] = $email;
                         }
                     }
-                    $recipient = !empty($valid_emails) ? implode(', ', $valid_emails) : 'External Recipients';
+                }
+
+                if ($inst->userid == 2) {
+                    // License/System trigger
+                    if (!empty($additional_recipients)) {
+                        $recipient_label = $additional_recipients[0];
+                        if (count($additional_recipients) > 1) {
+                            $recipient_label .= ' + ' . (count($additional_recipients) - 1) . ' others';
+                        }
+                    } else {
+                        $recipient_label = 'System Notification';
+                    }
                 } else {
                     $user = $DB->get_record('user', ['id' => $inst->userid], 'firstname, lastname, email');
-                    $recipient = $user ? fullname($user) . ' (' . $user->email . ')' : 'Unknown';
+                    if ($user) {
+                        $recipient_label = fullname($user);
+                        // Only append email if it's a valid email address (not a hash/alphanumeric string)
+                        if (filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+                            $recipient_label .= ' (' . $user->email . ')';
+                        }
+                    } else {
+                        $recipient_label = 'Unknown User';
+                    }
+                }
+
+                // CCs
+                $cc_list = [];
+                if (!empty($rule->cc_emails)) {
+                    $ccs = explode(',', $rule->cc_emails);
+                    foreach ($ccs as $cc) {
+                        $cc = trim($cc);
+                        if (filter_var($cc, FILTER_VALIDATE_EMAIL)) $cc_list[] = $cc;
+                    }
+                }
+                if ($rule->send_to_managers) {
+                    $cc_list[] = 'Managers';
                 }
 
                 $results[] = [
@@ -1256,12 +1290,14 @@ class dashboard_data_loader {
                     'date_ts' => $inst->next_send,
                     'date_formatted' => userdate($inst->next_send, '%d %b, %I:%M %p'),
                     'rule_name' => $rule->name,
-                    'recipient' => $recipient,
+                    'recipient' => $recipient_label,
                     'status' => 'pending',
                     'status_label' => 'Pending',
                     'message_id' => null,
                     'subject' => $subject,
-                    'context' => $this->get_context_info($inst->userid, $inst->courseid)
+                    'context' => $this->get_context_info($inst->userid, $inst->courseid),
+                    'cc_recipients' => implode(', ', $cc_list),
+                    'additional_recipients' => implode(', ', $additional_recipients)
                 ];
             }
 
@@ -1274,7 +1310,7 @@ class dashboard_data_loader {
                 if (!$instance) continue;
 
                 // Get rule name
-                $rule = $DB->get_record('manireports_rem_rule', ['id' => $instance->ruleid], 'name, templateid');
+                $rule = $DB->get_record('manireports_rem_rule', ['id' => $instance->ruleid], 'name, templateid, thirdparty_emails, cc_emails, send_to_managers');
                 if (!$rule) continue;
 
                 // Get subject from template
@@ -1288,17 +1324,89 @@ class dashboard_data_loader {
                     $status_label = 'Sent (Cloud)';
                 }
 
+                // Resolve Recipient Display
+                $recipient_email = $job->recipient_email;
+                $recipient_label = $recipient_email;
+                
+                // Check if recipient is a hash (32 chars hex) or looks like an ID
+                if (preg_match('/^[a-f0-9]{32}$/i', $recipient_email) || strlen($recipient_email) > 50) {
+                    // It's likely a hash or invalid email. Fallback to logic.
+                    if ($instance->userid == 2) {
+                        // System/License
+                        if (!empty($rule->thirdparty_emails)) {
+                            $emails = explode(',', $rule->thirdparty_emails);
+                            $valid = array_filter($emails, function($e) { return filter_var(trim($e), FILTER_VALIDATE_EMAIL); });
+                            if (!empty($valid)) {
+                                $first = reset($valid);
+                                $count = count($valid);
+                                $recipient_label = $first . ($count > 1 ? ' + ' . ($count - 1) . ' others' : '');
+                            } else {
+                                $recipient_label = 'External Recipients';
+                            }
+                        } else {
+                            $recipient_label = 'System Notification';
+                        }
+                    } else {
+                        // Try to get user email
+                        $user = $DB->get_record('user', ['id' => $instance->userid], 'email, firstname, lastname');
+                        if ($user) {
+                            $recipient_label = fullname($user);
+                            if (filter_var($user->email, FILTER_VALIDATE_EMAIL)) {
+                                $recipient_label .= ' (' . $user->email . ')';
+                            }
+                        } else {
+                            $recipient_label = 'Unknown User';
+                        }
+                    }
+                }
+
+                // CCs and Additional (Try payload first, then rule)
+                $cc_list = [];
+                $additional_recipients = [];
+                
+                // Try to parse payload
+                $payload_data = json_decode($job->payload, true);
+                if ($payload_data) {
+                    if (!empty($payload_data['cc'])) $cc_list = $payload_data['cc'];
+                    if (!empty($payload_data['to'])) {
+                        // Filter out the main recipient if possible, or just list them
+                        $additional_recipients = $payload_data['to']; // Simplified
+                    }
+                }
+
+                // Fallback to rule if payload empty
+                if (empty($cc_list) && !empty($rule->cc_emails)) {
+                    $ccs = explode(',', $rule->cc_emails);
+                    foreach ($ccs as $cc) {
+                        $cc = trim($cc);
+                        if (filter_var($cc, FILTER_VALIDATE_EMAIL)) $cc_list[] = $cc;
+                    }
+                }
+                if ($rule->send_to_managers && !in_array('Managers', $cc_list)) {
+                    $cc_list[] = 'Managers';
+                }
+
+                if (empty($additional_recipients) && !empty($rule->thirdparty_emails)) {
+                     $emails = explode(',', $rule->thirdparty_emails);
+                     foreach ($emails as $email) {
+                         $email = trim($email);
+                         if (filter_var($email, FILTER_VALIDATE_EMAIL)) $additional_recipients[] = $email;
+                     }
+                }
+
                 $results[] = [
                     'id' => 'job_' . $job->id,
                     'date_ts' => $job->last_attempt_ts,
                     'date_formatted' => userdate($job->last_attempt_ts, '%d %b, %I:%M %p'),
                     'rule_name' => $rule->name,
-                    'recipient' => $job->recipient_email,
+                    'recipient' => $recipient_label,
                     'status' => $job->status,
                     'status_label' => $status_label,
                     'message_id' => $job->message_id,
                     'subject' => $subject,
-                    'context' => $this->get_context_info($instance->userid, $instance->courseid)
+                    'context' => $this->get_context_info($instance->userid, $instance->courseid),
+                    'cc_recipients' => is_array($cc_list) ? implode(', ', $cc_list) : $cc_list,
+                    'additional_recipients' => is_array($additional_recipients) ? implode(', ', $additional_recipients) : $additional_recipients
                 ];
             }
 

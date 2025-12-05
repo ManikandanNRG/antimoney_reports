@@ -1602,6 +1602,8 @@ body {
 
                     const content = `
                         <p><strong>Recipient:</strong> ${item.recipient}</p>
+                        ${item.additional_recipients ? `<p><strong>Additional Recipients:</strong> ${item.additional_recipients}</p>` : ''}
+                        ${item.cc_recipients ? `<p><strong>CC:</strong> ${item.cc_recipients}</p>` : ''}
                         <p><strong>Rule:</strong> ${item.rule_name}</p>
                         <p><strong>Status:</strong> ${item.status_label}</p>
                         <p><strong>Date:</strong> ${item.date_formatted}</p>
