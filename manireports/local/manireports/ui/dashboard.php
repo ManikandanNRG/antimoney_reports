@@ -26,6 +26,101 @@ $PAGE->set_url(new moodle_url('/local/manireports/ui/dashboard.php'));
 $PAGE->set_heading(get_string('dashboard', 'local_manireports'));
 $PAGE->set_pagelayout('embedded');
 
+// ========================================================================
+// PHASE 1: ROLE DETECTION & CONTEXT GATHERING
+// ========================================================================
+$user_role = 'student'; // Default role
+$role_context = []; // Store role-specific context data
+
+// Check capabilities in order of hierarchy: Admin > Manager > Teacher > Student
+if (has_capability('local/manireports:viewadmindashboard', $context)) {
+    $user_role = 'admin';
+    // Admin has access to everything, no filtering needed
+    
+} elseif (has_capability('local/manireports:viewmanagerdashboard', $context)) {
+    $user_role = 'manager';
+    
+    // Get manager's company ID from IOMAD company_users table
+    if ($DB->get_manager()->table_exists('company_users')) {
+        $company_user = $DB->get_record('company_users', ['userid' => $USER->id]);
+        if ($company_user) {
+            $role_context['companyid'] = $company_user->companyid;
+            
+            // Get company name for display
+            $company = $DB->get_record('company', ['id' => $company_user->companyid], 'name');
+            if ($company) {
+                $role_context['companyname'] = $company->name;
+            }
+        }
+    }
+    
+} elseif (has_capability('local/manireports:viewteacherdashboard', $context)) {
+    $user_role = 'teacher';
+    
+    // Get courses where user is a teacher
+    $teacher_role = $DB->get_record('role', ['shortname' => 'editingteacher']);
+    if (!$teacher_role) {
+        $teacher_role = $DB->get_record('role', ['shortname' => 'teacher']);
+    }
+    
+    if ($teacher_role) {
+        $sql = "SELECT DISTINCT c.id, c.fullname
+                FROM {course} c
+                JOIN {context} ctx ON ctx.instanceid = c.id AND ctx.contextlevel = :courselevel
+                JOIN {role_assignments} ra ON ra.contextid = ctx.id
+                WHERE ra.userid = :userid AND ra.roleid = :roleid AND c.id > 1
+                ORDER BY c.fullname";
+        
+        $params = [
+            'courselevel' => CONTEXT_COURSE,
+            'userid' => $USER->id,
+            'roleid' => $teacher_role->id
+        ];
+        
+        $teaching_courses = $DB->get_records_sql($sql, $params);
+        $role_context['course_ids'] = array_keys($teaching_courses);
+        $role_context['courses'] = $teaching_courses;
+        $role_context['course_count'] = count($teaching_courses);
+    }
+    
+} else {
+    // Default to student role
+    $user_role = 'student';
+    
+    // Check if user has student capability in any course
+    $student_role = $DB->get_record('role', ['shortname' => 'student']);
+    if ($student_role) {
+        $sql = "SELECT DISTINCT c.id, c.fullname
+                FROM {course} c
+                JOIN {enrol} e ON c.id = e.courseid
+                JOIN {user_enrolments} ue ON e.id = ue.enrolid
+                WHERE ue.userid = :userid AND ue.status = 0 AND c.id > 1
+                ORDER BY c.fullname";
+        
+        $enrolled_courses = $DB->get_records_sql($sql, ['userid' => $USER->id]);
+        $role_context['course_ids'] = array_keys($enrolled_courses);
+        $role_context['courses'] = $enrolled_courses;
+        $role_context['course_count'] = count($enrolled_courses);
+    }
+}
+
+// Store role info for JavaScript (will be used in Phase 3 for tab filtering)
+$role_context['user_role'] = $user_role;
+$role_context['user_fullname'] = fullname($USER);
+
+// Debug logging (can be removed later)
+error_log("Dashboard Role Detection: User {$USER->id} detected as '{$user_role}'");
+if (isset($role_context['companyid'])) {
+    error_log("  - Company ID: {$role_context['companyid']}");
+}
+if (isset($role_context['course_count'])) {
+    error_log("  - Courses: {$role_context['course_count']}");
+}
+// ========================================================================
+// END PHASE 1
+// ========================================================================
+
+
 // --- Backend Connection Logic ---
 $start_param = optional_param('start', '', PARAM_TEXT);
 $end_param = optional_param('end', '', PARAM_TEXT);
@@ -48,8 +143,48 @@ if ($end_param) {
     }
 }
 
-// Instantiate Data Loader
-$loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
+// ========================================================================
+// PHASE 2: INSTANTIATE ROLE-SPECIFIC DATA LOADER
+// ========================================================================
+// Load role-specific data loader classes
+require_once(__DIR__ . '/../classes/output/manager_data_loader.php');
+require_once(__DIR__ . '/../classes/output/teacher_data_loader.php');
+require_once(__DIR__ . '/../classes/output/student_data_loader.php');
+
+// Instantiate appropriate data loader based on user role
+switch ($user_role) {
+    case 'admin':
+        // Admin uses base loader (no filtering)
+        $loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
+        break;
+        
+    case 'manager':
+        // Manager uses company-scoped loader
+        $companyid = isset($role_context['companyid']) ? $role_context['companyid'] : 0;
+        $loader = new \local_manireports\output\manager_data_loader($USER->id, $companyid, $start_timestamp, $end_timestamp);
+        break;
+        
+    case 'teacher':
+        // Teacher uses course-scoped loader
+        $course_ids = isset($role_context['course_ids']) ? $role_context['course_ids'] : [];
+        $loader = new \local_manireports\output\teacher_data_loader($USER->id, $course_ids, $start_timestamp, $end_timestamp);
+        break;
+        
+    case 'student':
+        // Student uses personal data loader
+        $loader = new \local_manireports\output\student_data_loader($USER->id, $start_timestamp, $end_timestamp);
+        break;
+        
+    default:
+        // Fallback to base loader
+        $loader = new \local_manireports\output\dashboard_data_loader($USER->id, $start_timestamp, $end_timestamp);
+}
+
+error_log("Dashboard Data Loader: Using " . get_class($loader) . " for role '{$user_role}'");
+// ========================================================================
+// END PHASE 2
+// ========================================================================
+
 
 // Fetch Data
 // 1. KPIs
@@ -501,14 +636,15 @@ body {
 
         <!-- Tab Menu -->
         <div class="tab-menu">
-            <div class="tab-item active" onclick="switchTab('overview')"><i class="fa-solid fa-grid-2"></i> Overview</div>
-            <div class="tab-item" onclick="switchTab('courses')"><i class="fa-solid fa-book-open"></i> Courses</div>
-            <div class="tab-item" onclick="switchTab('companies')"><i class="fa-solid fa-building"></i> Companies</div>
-            <div class="tab-item" onclick="switchTab('users')"><i class="fa-solid fa-users"></i> Users</div>
-            <div class="tab-item" onclick="switchTab('email')"><i class="fa-solid fa-envelope"></i> Email Offload</div>
-            <div class="tab-item" onclick="switchTab('certificates')"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
-            <div class="tab-item" onclick="switchTab('reports')"><i class="fa-solid fa-file-lines"></i> Reports</div>
-            <div class="tab-item" onclick="switchTab('reminders')"><i class="fa-solid fa-bell"></i> Reminders</div>
+            <!-- PHASE 3: Added data-roles attributes for tab filtering -->
+            <div class="tab-item active" onclick="switchTab('overview')" data-tab="overview" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-grid-2"></i> Overview</div>
+            <div class="tab-item" onclick="switchTab('courses')" data-tab="courses" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-book-open"></i> Courses</div>
+            <div class="tab-item" onclick="switchTab('companies')" data-tab="companies" data-roles="admin,manager"><i class="fa-solid fa-building"></i> Companies</div>
+            <div class="tab-item" onclick="switchTab('users')" data-tab="users" data-roles="admin,manager"><i class="fa-solid fa-users"></i> Users</div>
+            <div class="tab-item" onclick="switchTab('email')" data-tab="email" data-roles="admin"><i class="fa-solid fa-envelope"></i> Email Offload</div>
+            <div class="tab-item" onclick="switchTab('certificates')" data-tab="certificates" data-roles="admin"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
+            <div class="tab-item" onclick="switchTab('reports')" data-tab="reports" data-roles="admin,manager,teacher"><i class="fa-solid fa-file-lines"></i> Reports</div>
+            <div class="tab-item" onclick="switchTab('reminders')" data-tab="reminders" data-roles="admin,manager"><i class="fa-solid fa-bell"></i> Reminders</div>
         </div>
 
         <!-- Filter Area -->
