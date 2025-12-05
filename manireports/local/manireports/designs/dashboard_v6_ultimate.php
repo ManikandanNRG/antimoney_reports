@@ -1539,9 +1539,10 @@ body {
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr>
-                                    <th class="table-header">Date</th>
                                     <th class="table-header">Rule</th>
                                     <th class="table-header">Recipient</th>
+                                    <th class="table-header">Last Sent</th>
+                                    <th class="table-header">Next Due</th>
                                     <th class="table-header">Status</th>
                                     <th class="table-header">Actions</th>
                                 </tr>
@@ -1549,17 +1550,30 @@ body {
                             <tbody>
                                 <?php foreach ($unified_reminder_status as $item): ?>
                                 <tr class="table-row">
-                                    <td class="table-cell"><?php echo $item['date_formatted']; ?></td>
                                     <td class="table-cell" style="font-weight: 600;"><?php echo format_string($item['rule_name']); ?></td>
                                     <td class="table-cell"><?php echo $item['recipient']; ?></td>
                                     <td class="table-cell">
                                         <?php 
-                                            $status_class = 'status-warning';
-                                            if ($item['status'] == 'pending') $status_class = 'status-warning';
-                                            else if ($item['status'] == 'local_sent' || $item['status'] == 'submitted') $status_class = 'status-active';
-                                            else if ($item['status'] == 'failed') $status_class = 'status-inactive';
+                                            if ($item['last_sent']) {
+                                                echo $item['last_sent'];
+                                                if ($item['last_status']) {
+                                                    echo ' <span style="color: var(--text-muted); font-size: 11px;">(' . $item['last_status'] . ')</span>';
+                                                }
+                                            } else {
+                                                echo '<span style="color: var(--text-muted);">-</span>';
+                                            }
                                         ?>
-                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status_label']; ?></span>
+                                    </td>
+                                    <td class="table-cell">
+                                        <?php echo $item['next_due'] ? $item['next_due'] : '<span style="color: var(--text-muted);">-</span>'; ?>
+                                    </td>
+                                    <td class="table-cell">
+                                        <?php 
+                                            $status_class = 'status-warning';
+                                            if (strpos($item['status'], 'Completed') !== false) $status_class = 'status-inactive';
+                                            else if (strpos($item['status'], 'Active') !== false) $status_class = 'status-active';
+                                        ?>
+                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status']; ?></span>
                                     </td>
                                     <td class="table-cell">
                                         <a href="javascript:void(0)" onclick="showReminderDetails('<?php echo $item['id']; ?>')" class="action-link">
@@ -1569,7 +1583,7 @@ body {
                                 </tr>
                                 <?php endforeach; ?>
                                 <?php if (empty($unified_reminder_status)): ?>
-                                    <tr><td colspan="5" class="table-cell" style="text-align: center;">No reminder activity found.</td></tr>
+                                    <tr><td colspan="6" class="table-cell" style="text-align: center;">No reminder activity found.</td></tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
@@ -1600,16 +1614,19 @@ body {
                     const item = reminderData.find(r => r.id === id);
                     if (!item) return;
 
-                    const content = `
-                        <p><strong>Recipient:</strong> ${item.recipient}</p>
-                        ${item.additional_recipients ? `<p><strong>Additional Recipients:</strong> ${item.additional_recipients}</p>` : ''}
-                        ${item.cc_recipients ? `<p><strong>CC:</strong> ${item.cc_recipients}</p>` : ''}
-                        <p><strong>Rule:</strong> ${item.rule_name}</p>
-                        <p><strong>Status:</strong> ${item.status_label}</p>
-                        <p><strong>Date:</strong> ${item.date_formatted}</p>
-                        ${item.message_id ? `<p><strong>Message ID:</strong> <code style="font-size: 11px;">${item.message_id}</code></p>` : ''}
-                        <p><strong>Subject:</strong> ${item.subject}</p>
-                        ${item.context ? `<p><strong>Context:</strong> ${item.context}</p>` : ''}
+                    let content = `
+                        <div style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--glass-border);">
+                            <h4 style="margin: 0 0 12px 0; color: var(--accent-primary);">${item.rule_name}</h4>
+                            <p style="margin: 8px 0;"><strong>Recipient:</strong> ${item.recipient}</p>
+                            <p style="margin: 8px 0;"><strong>Progress:</strong> ${item.emails_sent} of ${item.total_reminders} emails sent</p>
+                            <p style="margin: 8px 0;"><strong>Status:</strong> <span class="status-badge">${item.status}</span></p>
+                        </div>
+                        
+                        <div style="margin-bottom: 16px;">
+                            <h5 style="margin: 0 0 8px 0; color: var(--text-primary);">Timeline</h5>
+                            ${item.last_sent ? `<p style="margin: 4px 0;"><strong>Last Sent:</strong> ${item.last_sent} ${item.last_status ? '(' + item.last_status + ')' : ''}</p>` : '<p style="margin: 4px 0; color: var(--text-muted);">No emails sent yet</p>'}
+                            ${item.next_due ? `<p style="margin: 4px 0;"><strong>Next Due:</strong> ${item.next_due}</p>` : '<p style="margin: 4px 0; color: var(--text-muted);">No upcoming emails</p>'}
+                        </div>
                     `;
 
                     document.getElementById('reminderDetailsContent').innerHTML = content;
