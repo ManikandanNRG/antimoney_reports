@@ -1222,14 +1222,25 @@ class dashboard_data_loader {
         try {
             $results = [];
 
-            // Fetch all active instances (limit 50 for performance)
-            $instances = $DB->get_records('manireports_rem_inst', null, 'next_send ASC', '*', 0, 50);
+            // Fetch all active instances for ENABLED rules only (limit 50 for performance)
+            $sql = "SELECT i.*
+                    FROM {manireports_rem_inst} i
+                    JOIN {manireports_rem_rule} r ON r.id = i.ruleid
+                    WHERE r.enabled = 1
+                    ORDER BY i.next_send ASC";
+            $instances = $DB->get_records_sql($sql, [], 0, 50);
 
             foreach ($instances as $inst) {
                 // Get rule details
                 $rule = $DB->get_record('manireports_rem_rule', ['id' => $inst->ruleid], 
                     'name, thirdparty_emails, cc_emails, send_to_managers, templateid, remindercount');
-                if (!$rule) continue;
+                if (!$rule) {
+                    error_log('Reminder Status: Rule not found for instance ID ' . $inst->id . ', ruleid: ' . $inst->ruleid);
+                    continue;
+                }
+
+                // Debug: Log rule name
+                error_log('Reminder Status: Instance ' . $inst->id . ' - Rule name: "' . $rule->name . '"');
 
                 // Resolve Recipient (Eligible User)
                 $recipient_label = 'Unknown';
@@ -1277,11 +1288,13 @@ class dashboard_data_loader {
                     $next_due = userdate($inst->next_send, '%d %b, %I:%M %p');
                 }
 
-                // Calculate Status
+                // Calculate Status - FIXED LOGIC
                 $status_label = 'Pending';
-                if ($inst->completed) {
+                if ($inst->completed || $inst->emailsent >= $rule->remindercount) {
+                    // If completed flag is set OR all emails have been sent
                     $status_label = 'Completed';
                 } else if ($inst->emailsent > 0) {
+                    // Some emails sent but not all
                     $status_label = 'Active (' . $inst->emailsent . '/' . $rule->remindercount . ')';
                 }
 
@@ -1293,11 +1306,28 @@ class dashboard_data_loader {
                     'last_sent' => $last_sent,
                     'last_status' => $last_status,
                     'next_due' => $next_due,
+                    'next_send_ts' => $inst->next_send,
                     'status' => $status_label,
                     'emails_sent' => $inst->emailsent,
-                    'total_reminders' => $rule->remindercount
+                    'total_reminders' => $rule->remindercount,
+                    'completed' => $inst->completed
                 ];
             }
+
+            // Sort: Active/Pending first (by next_send soonest), then Completed (by most recent)
+            usort($results, function($a, $b) {
+                // Completed items go to bottom
+                if ($a['completed'] && !$b['completed']) return 1;
+                if (!$a['completed'] && $b['completed']) return -1;
+                
+                // Both completed: sort by most recent activity (reverse timestamp)
+                if ($a['completed'] && $b['completed']) {
+                    return $b['next_send_ts'] - $a['next_send_ts'];
+                }
+                
+                // Active/Pending: sort by next_send (soonest first)
+                return $a['next_send_ts'] - $b['next_send_ts'];
+            });
 
             return $results;
         } catch (Exception $e) {

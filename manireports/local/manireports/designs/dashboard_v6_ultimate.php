@@ -405,6 +405,46 @@ body {
 .badge-manager { background: rgba(139, 92, 246, 0.1); color: var(--accent-secondary); border: 1px solid rgba(139, 92, 246, 0.2); }
 .badge-admin { background: rgba(239, 68, 68, 0.1); color: var(--accent-danger); border: 1px solid rgba(239, 68, 68, 0.2); }
 
+/* Status Badge Styles */
+.status-badge {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: help;
+    transition: var(--transition);
+}
+.status-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+.status-info {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.status-success {
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.status-warning {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.status-inactive {
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+}
+.status-active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
 @media (max-width: 1200px) {
     .bento-grid { grid-template-columns: repeat(2, 1fr); }
     .card-span-3, .card-span-4 { grid-column: span 2; }
@@ -1569,11 +1609,29 @@ body {
                                     </td>
                                     <td class="table-cell">
                                         <?php 
-                                            $status_class = 'status-warning';
-                                            if (strpos($item['status'], 'Completed') !== false) $status_class = 'status-inactive';
-                                            else if (strpos($item['status'], 'Active') !== false) $status_class = 'status-active';
+                                            $status_class = 'status-info'; // Default blue for Pending
+                                            $tooltip = 'Waiting to send first email';
+                                            
+                                            if (strpos($item['status'], 'Completed') !== false) {
+                                                $status_class = 'status-success'; // Green for Completed
+                                                $tooltip = 'All reminder emails sent';
+                                                if ($item['last_sent']) {
+                                                    $tooltip .= '. Last sent: ' . $item['last_sent'];
+                                                }
+                                            } else if (strpos($item['status'], 'Active') !== false) {
+                                                $status_class = 'status-warning'; // Yellow for Active
+                                                $tooltip = $item['emails_sent'] . ' of ' . $item['total_reminders'] . ' emails sent';
+                                                if ($item['next_due']) {
+                                                    $tooltip .= '. Next due: ' . $item['next_due'];
+                                                }
+                                            } else {
+                                                // Pending
+                                                if ($item['next_due']) {
+                                                    $tooltip = 'First email scheduled for ' . $item['next_due'];
+                                                }
+                                            }
                                         ?>
-                                        <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status']; ?></span>
+                                        <span class="status-badge <?php echo $status_class; ?>" title="<?php echo htmlspecialchars($tooltip); ?>"><?php echo $item['status']; ?></span>
                                     </td>
                                     <td class="table-cell">
                                         <a href="javascript:void(0)" onclick="showReminderDetails('<?php echo $item['id']; ?>')" class="action-link">

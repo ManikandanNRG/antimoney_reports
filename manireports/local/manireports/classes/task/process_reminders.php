@@ -194,11 +194,21 @@ class process_reminders extends scheduled_task {
                         }
                     }
 
-                    // Update instance state
-                    $next_run = time() + $instance->emaildelay;
-                    $DB->execute("UPDATE {manireports_rem_inst} 
-                                  SET emailsent = emailsent + 1, next_send = ? 
-                                  WHERE id = ?", [$next_run, $instance->id]);
+                    // Update instance state - FIXED COMPLETION LOGIC
+                    $new_emailsent = $instance->emailsent + 1;
+                    if ($new_emailsent >= $instance->remindercount) {
+                        // All emails sent - mark as completed
+                        $DB->execute("UPDATE {manireports_rem_inst} 
+                                      SET emailsent = emailsent + 1, completed = 1 
+                                      WHERE id = ?", [$instance->id]);
+                        mtrace("License reminder completed for instance {$instance->id}");
+                    } else {
+                        // More emails to send
+                        $next_run = time() + $instance->emaildelay;
+                        $DB->execute("UPDATE {manireports_rem_inst} 
+                                      SET emailsent = emailsent + 1, next_send = ? 
+                                      WHERE id = ?", [$next_run, $instance->id]);
+                    }
                     
                     continue; // Skip to next instance
                 }
@@ -326,11 +336,21 @@ class process_reminders extends scheduled_task {
                     }
                 }
 
-                // Update instance state
-                $next_run = time() + $instance->emaildelay;
-                $DB->execute("UPDATE {manireports_rem_inst} 
-                              SET emailsent = emailsent + 1, next_send = ? 
-                              WHERE id = ?", [$next_run, $instance->id]);
+                // Update instance state - FIXED COMPLETION LOGIC
+                $new_emailsent = $instance->emailsent + 1;
+                if ($new_emailsent >= $instance->remindercount) {
+                    // All emails sent - mark as completed
+                    $DB->execute("UPDATE {manireports_rem_inst} 
+                                  SET emailsent = emailsent + 1, completed = 1 
+                                  WHERE id = ?", [$instance->id]);
+                    mtrace("Reminder completed for instance {$instance->id}");
+                } else {
+                    // More emails to send
+                    $next_run = time() + $instance->emaildelay;
+                    $DB->execute("UPDATE {manireports_rem_inst} 
+                                  SET emailsent = emailsent + 1, next_send = ? 
+                                  WHERE id = ?", [$next_run, $instance->id]);
+                }
 
             } catch (\Exception $e) {
                 mtrace("Error processing instance {$instance->id}: " . $e->getMessage());
