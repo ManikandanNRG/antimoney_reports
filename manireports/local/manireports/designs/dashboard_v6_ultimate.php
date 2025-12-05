@@ -1562,9 +1562,9 @@ body {
                                         <span class="status-badge <?php echo $status_class; ?>"><?php echo $item['status_label']; ?></span>
                                     </td>
                                     <td class="table-cell">
-                                        <button class="action-btn" onclick="showReminderDetails('<?php echo $item['id']; ?>')" style="padding: 8px 16px; border-radius: 8px; border: none; background: var(--primary-gradient); color: white; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                                            <i class="fa-solid fa-eye"></i> View
-                                        </button>
+                                        <a href="javascript:void(0)" onclick="showReminderDetails('<?php echo $item['id']; ?>')" class="action-link">
+                                            <i class="fa-regular fa-eye"></i> View
+                                        </a>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
