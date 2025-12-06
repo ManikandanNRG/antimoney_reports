@@ -622,6 +622,90 @@ class manager_data_loader extends dashboard_data_loader {
     }
 
     /**
+     * Get Courses Tab Metrics - Scoped for Manager.
+     */
+    public function get_courses_tab_metrics($search = '', $category = 0) {
+        global $DB;
+
+        if (!$this->companyid) {
+            return ['active_courses' => 0, 'total_enrollments' => 0, 'avg_completion' => 0, 'certificates' => 0];
+        }
+
+        $params = ['companyid' => $this->companyid];
+        $sql_where = "compc.companyid = :companyid";
+
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+
+        if ($category > 0) {
+            $sql_where .= " AND c.category = :category";
+            $params['category'] = $category;
+        }
+
+        // 1. Active Courses (assigned to company)
+        $active_courses = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT c.id) 
+             FROM {course} c 
+             JOIN {company_course} compc ON compc.courseid = c.id 
+             WHERE $sql_where AND c.visible = 1", 
+            $params
+        );
+
+        // 2. Total Enrollments (Company Users in Company Courses)
+        // We only care about enrollments of OUR users in ANY course (or limited to company courses?)
+        // Standard IOMAD logic: Manager sees their users' progress.
+        $sql_enrol = "SELECT COUNT(ue.id) 
+                      FROM {user_enrolments} ue
+                      JOIN {enrol} e ON e.id = ue.enrolid
+                      JOIN {course} c ON c.id = e.courseid
+                      JOIN {company_users} cu ON cu.userid = ue.userid
+                      JOIN {company_course} compc ON compc.courseid = c.id AND compc.companyid = cu.companyid
+                      WHERE $sql_where AND cu.companyid = :companyid2 AND ue.status = 0";
+        
+        $params['companyid2'] = $this->companyid;
+        $total_enrollments = $DB->count_records_sql($sql_enrol, $params);
+
+        // 3. Avg Completion
+        $sql_compl = "SELECT COUNT(cc.id) 
+                      FROM {course_completions} cc 
+                      JOIN {course} c ON c.id = cc.course
+                      JOIN {company_users} cu ON cu.userid = cc.userid
+                      JOIN {company_course} compc ON compc.courseid = c.id AND compc.companyid = cu.companyid
+                      WHERE $sql_where AND cu.companyid = :companyid3 AND cc.timecompleted > 0";
+
+        $params['companyid3'] = $this->companyid;
+        $total_completions = $DB->count_records_sql($sql_compl, $params);
+
+        $avg_completion = ($total_enrollments > 0) ? round(($total_completions / $total_enrollments) * 100, 1) : 0;
+
+        // 4. Certificates (Scoped to company users)
+        $certificates = 0;
+        if ($DB->get_manager()->table_exists('certificate_issues')) {
+             $sql_cert = "SELECT COUNT(ci.id) 
+                          FROM {certificate_issues} ci
+                          JOIN {company_users} cu ON cu.userid = ci.userid
+                          WHERE cu.companyid = :companyid4";
+             $certificates = $DB->count_records_sql($sql_cert, ['companyid4' => $this->companyid]);
+        } elseif ($DB->get_manager()->table_exists('simplecertificate_issues')) {
+             $sql_cert = "SELECT COUNT(ci.id) 
+                          FROM {simplecertificate_issues} ci
+                          JOIN {company_users} cu ON cu.userid = ci.userid
+                          WHERE cu.companyid = :companyid4";
+             $certificates = $DB->count_records_sql($sql_cert, ['companyid4' => $this->companyid]);
+        }
+
+        return [
+            'active_courses' => $active_courses,
+            'total_enrollments' => $total_enrollments,
+            'avg_completion' => $avg_completion,
+            'certificates' => $certificates
+        ];
+    }
+
+    /**
      * Get Comprehensive User List with Pagination - Scoped for Manager.
      */
     public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {

@@ -643,7 +643,7 @@ body {
             <!-- PHASE 3: Added data-roles attributes for tab filtering -->
             <div class="tab-item active" onclick="switchTab('overview')" data-tab="overview" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-grid-2"></i> Overview</div>
             <div class="tab-item" onclick="switchTab('courses')" data-tab="courses" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-book-open"></i> Courses</div>
-            <div class="tab-item" onclick="switchTab('companies')" data-tab="companies" data-roles="admin,manager"><i class="fa-solid fa-building"></i> Companies</div>
+            <div class="tab-item" onclick="switchTab('companies')" data-tab="companies" data-roles="admin"><i class="fa-solid fa-building"></i> Companies</div>
             <div class="tab-item" onclick="switchTab('users')" data-tab="users" data-roles="admin,manager"><i class="fa-solid fa-users"></i> Users</div>
             <div class="tab-item" onclick="switchTab('email')" data-tab="email" data-roles="admin"><i class="fa-solid fa-envelope"></i> Email Offload</div>
             <div class="tab-item" onclick="switchTab('certificates')" data-tab="certificates" data-roles="admin"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
