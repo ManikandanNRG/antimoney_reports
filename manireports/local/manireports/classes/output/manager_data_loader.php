@@ -438,4 +438,285 @@ class manager_data_loader extends dashboard_data_loader {
             'data' => $data
         ];
     }
+    /**
+     * Get Company Tab Metrics - Scoped for Manager.
+     */
+    public function get_company_tab_metrics($search = '') {
+        global $DB;
+        
+        if (!$this->companyid) {
+            return ['total_companies' => 0, 'total_users' => 0, 'avg_completion' => 0, 'assigned_courses' => 0];
+        }
+
+        // 1. Total Companies (Always 1 for manager view)
+        $total_companies = 1;
+
+        // 2. Total Company Users
+        $total_users = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT userid) FROM {company_users} WHERE companyid = :companyid",
+            ['companyid' => $this->companyid]
+        );
+
+        // 3. Assigned Courses
+        $assigned_courses = $DB->count_records('company_course', ['companyid' => $this->companyid]);
+
+        // 4. Avg Completion
+        $completion_rate = 0;
+        $total_enrollments = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT ue.id)
+             FROM {company_users} cu
+             JOIN {user_enrolments} ue ON ue.userid = cu.userid
+             JOIN {enrol} e ON e.id = ue.enrolid
+             WHERE cu.companyid = :companyid AND ue.status = 0",
+            ['companyid' => $this->companyid]
+        );
+
+        $total_completions = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cc.id)
+             FROM {company_users} cu
+             JOIN {course_completions} cc ON cc.userid = cu.userid
+             WHERE cu.companyid = :companyid AND cc.timecompleted > 0",
+            ['companyid' => $this->companyid]
+        );
+
+        if ($total_enrollments > 0) {
+            $completion_rate = round(($total_completions / $total_enrollments) * 100, 1);
+        }
+
+        return [
+            'total_companies' => $total_companies,
+            'total_users' => $total_users,
+            'avg_completion' => $completion_rate,
+            'assigned_courses' => $assigned_courses
+        ];
+    }
+
+    /**
+     * Get Company Distribution Chart - Scoped for Manager.
+     * Shows Department distribution instead of Company distribution.
+     */
+    public function get_company_distribution_chart() {
+        global $DB;
+
+        if (!$this->companyid) {
+            return ['labels' => [], 'data' => []];
+        }
+
+        // Show departments within the company
+        if ($DB->get_manager()->table_exists('company_departments')) {
+            $sql = "SELECT d.name, COUNT(cu.id) as count
+                    FROM {company_departments} d
+                    LEFT JOIN {company_users} cu ON cu.departmentid = d.id AND cu.companyid = :companyid
+                    WHERE d.companyid = :companyid2
+                    GROUP BY d.name";
+            $records = $DB->get_records_sql($sql, ['companyid' => $this->companyid, 'companyid2' => $this->companyid]);
+        } else {
+            return ['labels' => ['My Company'], 'data' => [1]];
+        }
+
+        $labels = [];
+        $data = [];
+        foreach ($records as $rec) {
+            $labels[] = $rec->name;
+            $data[] = $rec->count;
+        }
+
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    }
+
+    /**
+     * Get Company Performance Chart - Scoped for Manager.
+     * Shows just their company performance (flat bar) or maybe top courses?
+     * Let's show Top 5 Courses completion rates for the company.
+     */
+    public function get_company_performance_chart() {
+        global $DB;
+
+        if (!$this->companyid) {
+            return ['labels' => [], 'data' => []];
+        }
+
+        $sql = "SELECT c.shortname, 
+                       COUNT(DISTINCT ue.userid) as enrolled,
+                       COUNT(DISTINCT cc.userid) as completed
+                  FROM {course} c
+                  JOIN {company_course} compc ON compc.courseid = c.id
+                  JOIN {enrol} e ON e.courseid = c.id
+                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+                  JOIN {company_users} cu ON cu.userid = ue.userid AND cu.companyid = :companyid
+             LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                 WHERE compc.companyid = :companyid2
+              GROUP BY c.shortname
+              ORDER BY enrolled DESC";
+        
+        $records = $DB->get_records_sql($sql, ['companyid' => $this->companyid, 'companyid2' => $this->companyid], 0, 5);
+
+        $labels = [];
+        $data = [];
+
+        foreach ($records as $rec) {
+            $labels[] = $rec->shortname;
+            $data[] = ($rec->enrolled > 0) ? round(($rec->completed / $rec->enrolled) * 100, 1) : 0;
+        }
+
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    }
+
+    /**
+     * Get Users Tab Metrics - Scoped for Manager.
+     */
+    public function get_users_tab_metrics() {
+        global $DB;
+
+        if (!$this->companyid) {
+            return ['total_users' => 0, 'active_today' => 0, 'suspended_users' => 0, 'new_users' => 0];
+        }
+
+        // 1. Total Users (Company Scope)
+        $total_users = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT userid) FROM {company_users} WHERE companyid = :companyid", 
+            ['companyid' => $this->companyid]
+        );
+
+        // 2. Active Today (Company Scope)
+        $today_start = strtotime("today midnight");
+        $active_today = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cu.userid) 
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             WHERE cu.companyid = :companyid AND u.lastaccess >= :today",
+            ['companyid' => $this->companyid, 'today' => $today_start]
+        );
+
+        // 3. Suspended Users (Company Scope)
+        $suspended_users = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cu.userid) 
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             WHERE cu.companyid = :companyid AND (u.suspended = 1 OR cu.suspended = 1)", 
+            ['companyid' => $this->companyid]
+        );
+
+        // 4. New Users (Last 30 Days) (Company Scope)
+        $thirty_days_ago = time() - (30 * 24 * 3600);
+        $new_users = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cu.userid) 
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             WHERE cu.companyid = :companyid AND u.timecreated >= :window",
+            ['companyid' => $this->companyid, 'window' => $thirty_days_ago]
+        );
+
+        return [
+            'total_users' => $total_users,
+            'active_today' => $active_today,
+            'suspended_users' => $suspended_users,
+            'new_users' => $new_users
+        ];
+    }
+
+    /**
+     * Get Comprehensive User List with Pagination - Scoped for Manager.
+     */
+    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {
+        global $DB, $CFG;
+
+        if (!$this->companyid) {
+            return ['data' => [], 'pagination' => ['total_records' => 0, 'total_pages' => 0, 'current_page' => 1, 'per_page' => $per_page]];
+        }
+
+        $offset = ($page - 1) * $per_page;
+        $params = ['companyid' => $this->companyid];
+        
+        // Base Query joining company_users
+        $sql_from = "FROM {user} u
+                     JOIN {company_users} cu ON cu.userid = u.id
+                     LEFT JOIN {role_assignments} ra ON ra.userid = u.id
+                     LEFT JOIN {role} r ON r.id = ra.roleid";
+        
+        $where_clauses = ["cu.companyid = :companyid", "u.deleted = 0", "u.id > 2"];
+
+        // Search Filter
+        if (!empty($search)) {
+            $where_clauses[] = "(u.firstname LIKE :search OR u.lastname LIKE :search2 OR u.email LIKE :search3)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+            $params['search3'] = '%' . $search . '%';
+        }
+
+        // Status Filter
+        if ($status_filter !== '') {
+            if ($status_filter === 'active') {
+                $where_clauses[] = "u.suspended = 0";
+            } elseif ($status_filter === 'suspended') {
+                $where_clauses[] = "u.suspended = 1";
+            }
+        }
+
+        // Role Filter
+        if (!empty($role_filter)) {
+            $where_clauses[] = "r.shortname = :role";
+            $params['role'] = $role_filter;
+        }
+
+        $where_sql = implode(" AND ", $where_clauses);
+
+        // Count Total
+        $count_sql = "SELECT COUNT(DISTINCT u.id) $sql_from WHERE $where_sql";
+        $total_records = $DB->count_records_sql($count_sql, $params);
+        $total_pages = ceil($total_records / $per_page);
+
+        // Get Data
+        $data_sql = "SELECT DISTINCT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended, u.timecreated,
+                            (SELECT shortname FROM {role} r2 
+                             JOIN {role_assignments} ra2 ON ra2.roleid = r2.id 
+                             WHERE ra2.userid = u.id ORDER BY r2.sortorder LIMIT 1) as role_shortname
+                       $sql_from 
+                       WHERE $where_sql 
+                       ORDER BY u.id DESC";
+        
+        $users = $DB->get_records_sql($data_sql, $params, $offset, $per_page);
+
+        $rows = [];
+        foreach ($users as $user) {
+            $status_class = ($user->suspended == 0) ? 'status-active' : 'status-inactive';
+            $status_label = ($user->suspended == 0) ? 'Active' : 'Suspended';
+            
+            // Format Last Access
+            $last_access = $user->lastaccess ? userdate($user->lastaccess) : 'Never';
+            if ($user->lastaccess > time() - 300) {
+                 $last_access = 'Just now';
+            }
+
+            $rows[] = [
+                'id' => $user->id,
+                'fullname' => fullname($user),
+                'email' => $user->email,
+                'role' => $user->role_shortname ?? 'student',
+                'status' => $status_label,
+                'status_class' => $status_class,
+                'last_active' => $last_access,
+                'enrolled_courses' => 0, // Simplified to avoid N+1 query performance hit
+                'completed_courses' => 0,
+                'avg_score' => '-',
+                'completion' => 0
+            ];
+        }
+
+        return [
+            'data' => $rows,
+            'pagination' => [
+                'total_records' => $total_records,
+                'total_pages' => $total_pages,
+                'current_page' => $page,
+                'per_page' => $per_page
+            ]
+        ];
+    }
 }

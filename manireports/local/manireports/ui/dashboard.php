@@ -38,7 +38,10 @@ if (is_siteadmin()) {
     $user_role = 'admin';
     // Admin has access to everything, no filtering needed
     
-} elseif (has_capability('local/manireports:viewmanagerdashboard', $context)) {
+} elseif (has_capability('local/manireports:viewmanagerdashboard', $context) || 
+          has_capability('block/iomad_company_admin:manage', $context) || 
+          has_capability('block/iomad_company_admin:administer', $context) ||
+          $DB->record_exists_sql("SELECT 1 FROM {role_assignments} ra JOIN {role} r ON r.id = ra.roleid WHERE ra.userid = ? AND (r.shortname = 'companyadmin' OR r.shortname = 'manager' OR r.shortname = 'departmentmanager' OR r.shortname = 'companydepartmentmanager')", [$USER->id])) {
     $user_role = 'manager';
     
     // Get manager's company ID from IOMAD company_users table
@@ -645,7 +648,7 @@ body {
             <div class="tab-item" onclick="switchTab('email')" data-tab="email" data-roles="admin"><i class="fa-solid fa-envelope"></i> Email Offload</div>
             <div class="tab-item" onclick="switchTab('certificates')" data-tab="certificates" data-roles="admin"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
             <div class="tab-item" onclick="switchTab('reports')" data-tab="reports" data-roles="admin,manager,teacher"><i class="fa-solid fa-file-lines"></i> Reports</div>
-            <div class="tab-item" onclick="switchTab('reminders')" data-tab="reminders" data-roles="admin,manager"><i class="fa-solid fa-bell"></i> Reminders</div>
+            <div class="tab-item" onclick="switchTab('reminders')" data-tab="reminders" data-roles="admin"><i class="fa-solid fa-bell"></i> Reminders</div>
         </div>
 
         <!-- Filter Area -->
