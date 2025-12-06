@@ -1294,7 +1294,8 @@ body {
                     <div class="card-value"><?php echo number_format($courses_metrics['certificates']); ?></div>
                 </div>
 
-                <!-- Row 2: Charts -->
+                <?php if ($user_role !== 'student'): ?>
+                <!-- Row 2: Charts (Hidden for Students) -->
                 <div class="bento-card card-span-3">
                     <div class="card-header">
                         <div class="card-title">Enrollment Trends</div>
@@ -1311,6 +1312,7 @@ body {
                         <canvas id="categoryDistChart"></canvas>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <!-- Row 3: Advanced Table -->
                 <div class="bento-card card-span-4">

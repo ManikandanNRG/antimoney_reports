@@ -272,4 +272,161 @@ class teacher_data_loader extends dashboard_data_loader {
             'certificates' => 0 // Placeholder
         ];
     }
+    /**
+     * Get Comprehensive Course List - Scoped for Teacher.
+     */
+    public function get_comprehensive_course_list($limit = 20, $search = '', $category = 0) {
+        global $DB;
+        
+        if (empty($this->course_ids)) {
+            return [];
+        }
+
+        list($insql, $params) = $DB->get_in_or_equal($this->course_ids, SQL_PARAMS_NAMED);
+        
+        // Add search
+        $sql_where = "c.id $insql";
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+        
+        // Add category
+        if ($category > 0) {
+            $sql_where .= " AND c.category = :category";
+            $params['category'] = $category;
+        }
+
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name as category_name,
+                       COUNT(DISTINCT ue.userid) as enrolled,
+                       COUNT(DISTINCT cc.userid) as completed,
+                       AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
+                  FROM {course} c
+                  JOIN {course_categories} cat ON cat.id = c.category
+                  JOIN {enrol} e ON e.courseid = c.id
+                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+             LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                 WHERE $sql_where
+              GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
+              ORDER BY enrolled DESC";
+
+        try {
+            $courses = $DB->get_records_sql($sql, $params, 0, $limit);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $rows = [];
+        foreach ($courses as $course) {
+            $progress = ($course->enrolled > 0) ? round(($course->completed / $course->enrolled) * 100) : 0;
+            $status = ($course->visible == 1) ? 'Active' : 'Retired';
+            $status_class = ($course->visible == 1) ? 'status-active' : 'status-retired';
+
+            if ($course->startdate > time()) {
+                $status = 'Upcoming';
+                $status_class = 'status-upcoming';
+            }
+
+            $rows[] = [
+                'id' => $course->id,
+                'fullname' => $course->fullname,
+                'category' => $course->category_name,
+                'enrolled' => $course->enrolled,
+                'completed' => $course->completed,
+                'progress' => $progress,
+                'avg_time' => ($course->avg_duration > 0) ? round($course->avg_duration / 3600, 1) . 'h' : '-',
+                'status' => $status,
+                'status_class' => $status_class
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * Get Course Enrollment Trends - Scoped for Teacher.
+     */
+    public function get_course_enrollment_trends($search = '', $category = 0) {
+        global $DB;
+        
+        if (empty($this->course_ids)) {
+            return ['labels' => [], 'data' => []];
+        }
+        
+        $months = [];
+        $data = [];
+        
+        list($insql, $ctx_params) = $DB->get_in_or_equal($this->course_ids, SQL_PARAMS_NAMED);
+        
+        for ($i = 5; $i >= 0; $i--) {
+            $timestamp = strtotime("-$i months");
+            $month_start = strtotime("first day of this month 00:00:00", $timestamp);
+            $month_end = strtotime("last day of this month 23:59:59", $timestamp);
+            
+            $months[] = date('M', $timestamp);
+            
+            // Build Query
+            $params = array_merge($ctx_params, ['start' => $month_start, 'end' => $month_end]);
+            $sql_where = "c.id $insql AND ue.timecreated >= :start AND ue.timecreated <= :end";
+            
+            if (!empty($search)) {
+                $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+                $params['search'] = '%' . $search . '%';
+                $params['search2'] = '%' . $search . '%';
+            }
+
+            if ($category > 0) {
+                $sql_where .= " AND c.category = :category";
+                $params['category'] = $category;
+            }
+
+            $sql = "SELECT COUNT(ue.id) 
+                    FROM {user_enrolments} ue
+                    JOIN {enrol} e ON e.id = ue.enrolid
+                    JOIN {course} c ON c.id = e.courseid
+                    WHERE $sql_where";
+
+            $data[] = $DB->count_records_sql($sql, $params);
+        }
+
+        return [
+            'labels' => $months,
+            'data' => $data
+        ];
+    }
+    
+    /**
+     * Get Category Distribution - Scoped for Teacher.
+     */
+    public function get_category_distribution() {
+        global $DB;
+        
+        if (empty($this->course_ids)) {
+            return ['labels' => [], 'data' => []];
+        }
+
+        list($insql, $params) = $DB->get_in_or_equal($this->course_ids, SQL_PARAMS_NAMED);
+        
+        $sql = "SELECT cat.name, COUNT(c.id) as count
+                FROM {course} c
+                JOIN {course_categories} cat ON cat.id = c.category
+                WHERE c.id $insql
+                GROUP BY cat.name";
+                
+        $records = $DB->get_records_sql($sql, $params);
+        
+        $labels = [];
+        $data = [];
+        
+        foreach ($records as $rec) {
+            $labels[] = $rec->name;
+            $data[] = $rec->count;
+        }
+        
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    }
 }
