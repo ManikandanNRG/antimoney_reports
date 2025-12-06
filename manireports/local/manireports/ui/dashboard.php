@@ -826,7 +826,8 @@ body {
 
             <div class="bento-grid">
 
-            <!-- System Health Widget -->
+            <?php if ($user_role === 'admin'): ?>
+            <!-- ADMIN ONLY: System Health Widget -->
             <div class="bento-card card-span-1">
                 <div class="card-header">
                     <div class="card-title">System Health</div>
@@ -862,7 +863,7 @@ body {
                 </div>
             </div>
 
-            <!-- Active Users 24h Time Chart -->
+            <!-- ADMIN ONLY: Active Users 24h Time Chart -->
             <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">Active Users (24h)</div>
@@ -872,7 +873,7 @@ body {
                 </div>
             </div>
 
-            <!-- Avg Time Spent per User Chart -->
+            <!-- ADMIN ONLY: Avg Time Spent per User Chart -->
             <div class="bento-card card-span-1">
                 <div class="card-header">
                     <div class="card-title">Avg Time/User</div>
@@ -882,7 +883,7 @@ body {
                 </div>
             </div>
 
-            <!-- User Role Distribution (Donut) -->
+            <!-- ADMIN ONLY: User Role Distribution (Donut) -->
             <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">User Roles</div>
@@ -907,9 +908,10 @@ body {
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
-            <!-- Course Completion Trend Chart -->
-            <!-- Course Completion Trend Chart -->
+            <?php if ($user_role === 'admin' || $user_role === 'manager'): ?>
+            <!-- ADMIN & MANAGER: Course Completion Trend Chart -->
             <div class="bento-card card-span-2">
                 <div class="card-header">
                     <div class="card-title">Course Completion Trend</div>
@@ -918,8 +920,10 @@ body {
                     <canvas id="completionTrendChart"></canvas>
                 </div>
             </div>
+            <?php endif; ?>
 
-            <!-- Live Analytics Row (Full Width) -->
+            <?php if ($user_role === 'admin'): ?>
+            <!-- ADMIN ONLY: Live Analytics Row (Full Width) -->
             <div class="bento-card card-span-4" style="min-height: 320px;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <div class="card-title" style="display: flex; align-items: center; gap: 10px;">
@@ -997,12 +1001,15 @@ body {
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
-            <!-- Company-wise Analytics Table -->
+            <?php if ($user_role === 'admin' || $user_role === 'manager'): ?>
+            <!-- ADMIN & MANAGER: Company-wise Analytics Table -->
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Company-wise Analytics</div>
                 </div>
+
                 <table style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr>
@@ -1048,8 +1055,10 @@ body {
                     </tbody>
                 </table>
             </div>
+            <?php endif; ?>
 
-            <!-- Course Analytics Table (Top 10 Courses) -->
+            <?php if ($user_role === 'admin' || $user_role === 'manager'): ?>
+            <!-- ADMIN & MANAGER: Course Analytics Table (Top 10 Courses) -->
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Course Analytics (Top 10 Courses)</div>
@@ -1105,6 +1114,7 @@ body {
                     </tbody>
                 </table>
             </div>
+            <?php endif; ?>
 
             </div>
         </div>

@@ -256,4 +256,20 @@ class teacher_data_loader extends dashboard_data_loader {
 
         return $result;
     }
+
+    /**
+     * Get Courses Tab Metrics (KPIs) - Scoped for Teacher.
+     * Overrides parent method to show course-scoped stats instead of system-wide.
+     */
+    public function get_courses_tab_metrics($search = '', $category = 0) {
+        // Reuse logic from KPI calculation
+        $kpis = $this->get_admin_kpis();
+        
+        return [
+            'active_courses' => $kpis['courses'], // Teaching courses count
+            'total_enrollments' => $kpis['users'], // Count of students
+            'avg_completion' => $kpis['completion_rate'],
+            'certificates' => 0 // Placeholder
+        ];
+    }
 }

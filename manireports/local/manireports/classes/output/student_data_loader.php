@@ -226,4 +226,43 @@ class student_data_loader extends dashboard_data_loader {
 
         return $rows;
     }
+
+    /**
+     * Get Courses Tab Metrics (KPIs) - Scoped for Student.
+     * Overrides parent method to show personal stats instead of system-wide.
+     */
+    public function get_courses_tab_metrics($search = '', $category = 0) {
+        global $DB;
+
+        // Reuse logic from KPI calculation
+        $kpis = $this->get_admin_kpis();
+        
+        // 1. My Active Courses (In Progress)
+        $active_courses = $kpis['courses']; 
+        
+        // 2. My Total Enrollments
+        $total_enrollments = $kpis['users']; 
+        
+        // 3. My Avg Completion
+        $avg_completion = $kpis['completion_rate'];
+        
+        // 4. My Certificates
+        $certificates = 0;
+        if ($DB->get_manager()->table_exists('certificate_issues')) {
+             $certificates += $DB->count_records('certificate_issues', ['userid' => $this->userid]);
+        }
+        if ($DB->get_manager()->table_exists('customcert_issues')) {
+             $certificates += $DB->count_records('customcert_issues', ['userid' => $this->userid]);
+        }
+        if ($DB->get_manager()->table_exists('simplecertificate_issues')) {
+             $certificates += $DB->count_records('simplecertificate_issues', ['userid' => $this->userid]);
+        }
+        
+        return [
+            'active_courses' => $active_courses,
+            'total_enrollments' => $total_enrollments,
+            'avg_completion' => $avg_completion,
+            'certificates' => $certificates
+        ];
+    }
 }
