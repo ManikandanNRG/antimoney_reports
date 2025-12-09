@@ -206,6 +206,9 @@ $company_data = $loader->get_company_analytics(5);
 // 6. Top Courses Analytics (New Method)
 $course_data = $loader->get_top_courses_analytics(10);
 
+// 7. Avg Engagement (Time Spent) - Real Data
+$avg_time_data = $loader->get_avg_daily_engagement();
+
 // 7. Live Statistics
 try {
     $live_stats = $loader->get_live_statistics();
@@ -827,122 +830,132 @@ body {
             <div class="bento-grid">
 
             <?php if ($user_role === 'admin'): ?>
-            <?php $top_companies = $loader->get_top_companies_analytics(); ?>
+            <!-- Row 2: 3-Column Layout (User Roles, Avg Time, Top Companies) -->
+            <div class="manireports-dashboard-grid" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr) !important; gap: 24px; margin-bottom: 24px;">
+                
+                <!-- 1. User Role Distribution -->
+                <div class="bento-card">
+                    <div class="card-header">
+                        <div class="card-title">User Roles</div>
+                    </div>
+                    <div style="height: 250px; width: 100%; position: relative;">
+                        <canvas id="chartUserRoles"></canvas>
+                        <!-- Center Text Overlay -->
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
+                            <div style="font-size: 12px; color: var(--text-secondary);">Total</div>
+                            <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);"><?php echo array_sum($role_data); ?></div>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: center; gap: 16px; margin-top: 16px;">
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> Admin
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> Teacher
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span> Student
+                        </div>
+                    </div>
+                </div>
 
+                <!-- 2. Avg Time Spent per User Chart -->
+                <div class="bento-card">
+                    <div class="card-header">
+                        <div class="card-title">Avg Time/User</div>
+                    </div>
+                    <div style="height: 250px; width: 100%;">
+                        <canvas id="timeSpentChart"></canvas>
+                    </div>
+                </div>
 
-            <!-- ADMIN ONLY: Active Users 24h Time Chart -->
-            <div class="bento-card card-span-2">
-                <div class="card-header">
-                    <div class="card-title">Active Users (24h)</div>
-                </div>
-                <div style="height: 250px; width: 100%;">
-                    <canvas id="activeUsersChart"></canvas>
-                </div>
-            </div>
-
-            <!-- ADMIN ONLY: Avg Time Spent per User Chart -->
-            <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title">Avg Time/User</div>
-                </div>
-                <div style="height: 250px; width: 100%;">
-                </div>
-            </div>
-
-            <!-- ADMIN ONLY: Top Companies Widget -->
-            <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title">Top Companies</div>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 12px; height: 250px; overflow-y: auto;">
-                    <?php foreach ($top_companies as $idx => $comp): ?>
-                        <?php 
-                            $rank = $idx + 1;
-                            $icon_color = '#94a3b8'; // Default Gray
-                            $icon_bg = 'rgba(148, 163, 184, 0.1)';
-                            $icon_content = $rank;
-                            
-                            if ($rank == 1) {
-                                $icon_color = '#F59E0B'; // Gold
-                                $icon_bg = 'rgba(245, 158, 11, 0.1)';
-                                $icon_content = '<i class="fa-solid fa-medal"></i>';
-                            } elseif ($rank == 2) {
-                                $icon_color = '#94A3B8'; // Silver
+                <!-- 3. Top Companies Widget -->
+                <div class="bento-card">
+                    <div class="card-header">
+                        <div class="card-title">Top Companies</div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px; height: 250px; overflow-y: auto;">
+                        <?php foreach ($top_companies as $idx => $comp): ?>
+                            <?php 
+                                $rank = $idx + 1;
+                                $icon_color = '#94a3b8'; // Default Gray
                                 $icon_bg = 'rgba(148, 163, 184, 0.1)';
-                                $icon_content = '<i class="fa-solid fa-medal"></i>';
-                            } elseif ($rank == 3) {
-                                $icon_color = '#D97706'; // Bronze
-                                $icon_bg = 'rgba(217, 119, 6, 0.1)';
-                                $icon_content = '<i class="fa-solid fa-medal"></i>';
-                            }
-                        ?>
-                        <div style="display: flex; align-items: center; justify-content: space-between;">
-                            <div style="display: flex; align-items: center; gap: 10px; width: 65%;">
-                                <!-- Rank Icon -->
-                                <div style="width: 28px; height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; background: <?php echo $icon_bg; ?>; border-radius: 50%; color: <?php echo $icon_color; ?>; font-size: 12px; font-weight: 700;">
-                                    <?php echo $icon_content; ?>
-                                </div>
+                                $icon_content = $rank;
                                 
-                                <div style="flex: 1; min-width: 0;">
-                                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo $comp['name']; ?>"><?php echo $comp['name']; ?></div>
-                                    <div class="progress-bar-slim" style="width: 100%; height: 4px; margin-top: 6px; background: var(--glass-border);">
-                                        <div style="width: <?php echo $comp['rate']; ?>%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #3b82f6); border-radius: 2px;"></div>
+                                if ($rank == 1) {
+                                    $icon_color = '#F59E0B'; // Gold
+                                    $icon_bg = 'rgba(245, 158, 11, 0.1)';
+                                    $icon_content = '<i class="fa-solid fa-medal"></i>';
+                                } elseif ($rank == 2) {
+                                    $icon_color = '#94A3B8'; // Silver
+                                    $icon_bg = 'rgba(148, 163, 184, 0.1)';
+                                    $icon_content = '<i class="fa-solid fa-medal"></i>';
+                                } elseif ($rank == 3) {
+                                    $icon_color = '#D97706'; // Bronze
+                                    $icon_bg = 'rgba(217, 119, 6, 0.1)';
+                                    $icon_content = '<i class="fa-solid fa-medal"></i>';
+                                }
+                            ?>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; align-items: center; gap: 10px; width: 65%;">
+                                    <!-- Rank Icon -->
+                                    <div style="width: 28px; height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; background: <?php echo $icon_bg; ?>; border-radius: 50%; color: <?php echo $icon_color; ?>; font-size: 12px; font-weight: 700;">
+                                        <?php echo $icon_content; ?>
+                                    </div>
+                                    
+                                    <div style="flex: 1; min-width: 0;">
+                                        <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo $comp['name']; ?>"><?php echo $comp['name']; ?></div>
+                                        <?php
+                                            // Color cycling for progress bars
+                                            $colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+                                            $bar_color = $colors[$idx % count($colors)];
+                                        ?>
+                                        <div class="progress-bar-slim" style="width: 100%; height: 4px; margin-top: 6px; background: var(--glass-border);">
+                                            <div style="width: <?php echo $comp['rate']; ?>%; height: 100%; background: <?php echo $bar_color; ?>; border-radius: 2px;"></div>
+                                        </div>
                                     </div>
                                 </div>
+                                
+                                <div style="text-align: right;">
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);"><?php echo $comp['rate']; ?>%</div>
+                                    <div style="font-size: 11px; color: var(--text-secondary);"><?php echo number_format($comp['user_count']); ?></div>
+                                </div>
                             </div>
-                            
-                            <div style="text-align: right;">
-                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);"><?php echo $comp['rate']; ?>%</div>
-                                <div style="font-size: 11px; color: var(--text-secondary);"><?php echo number_format($comp['user_count']); ?></div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                    <?php if (empty($top_companies)): ?>
-                        <div style="text-align: center; color: var(--text-secondary); padding-top: 80px;">No company data available</div>
-                    <?php endif; ?>
+                        <?php endforeach; ?>
+                        <?php if (empty($top_companies)): ?>
+                            <div style="text-align: center; color: var(--text-secondary); padding-top: 80px;">No company data available</div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
-            <!-- ADMIN ONLY: User Role Distribution (Donut) -->
-            <div class="bento-card card-span-2">
-                <div class="card-header">
-                    <div class="card-title">User Roles</div>
-                </div>
-                <div style="height: 250px; width: 100%; position: relative;">
-                    <canvas id="chartUserRoles"></canvas>
-                    <!-- Center Text Overlay -->
-                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none;">
-                        <div style="font-size: 12px; color: var(--text-secondary);">Total</div>
-                        <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);"><?php echo array_sum($role_data); ?></div>
+            <!-- Row 3: 2-Column Layout (Active Users 50%, Completion Trend 50%) -->
+            <div class="manireports-dashboard-grid" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, 1fr) !important; gap: 24px; margin-bottom: 24px;">
+                
+                <!-- Active Users (Moved Here) -->
+                <div class="bento-card">
+                    <div class="card-header">
+                        <div class="card-title">Active Users (24h)</div>
+                    </div>
+                    <div style="height: 300px; width: 100%;">
+                        <canvas id="activeUsersChart"></canvas>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: center; gap: 16px; margin-top: 16px;">
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span> Admin
+
+                <!-- Completion Trend (Moved Here) -->
+                <div class="bento-card">
+                    <div class="card-header">
+                        <div class="card-title">Course Completion Trend</div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;"></span> Teacher
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary);">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: #ef4444;"></span> Student
+                    <div style="height: 300px; width: 100%;">
+                        <canvas id="completionTrendChart"></canvas>
                     </div>
                 </div>
+
             </div>
             <?php endif; ?>
 
-            <?php if ($user_role === 'admin' || $user_role === 'manager'): ?>
-            <!-- ADMIN & MANAGER: Course Completion Trend Chart -->
-            <div class="bento-card card-span-2">
-                <div class="card-header">
-                    <div class="card-title">Course Completion Trend</div>
-                </div>
-                <div style="height: 300px; width: 100%;">
-                    <canvas id="completionTrendChart"></canvas>
-                </div>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($user_role === 'admin'): ?>
+            <?php if ($user_role === 'manager'): ?>
             <!-- ADMIN ONLY: Live Analytics Row (Full Width) -->
             <div class="bento-card card-span-4" style="min-height: 320px;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
@@ -2369,10 +2382,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initChart('timeSpentChart', {
         type: 'line',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            labels: <?php echo json_encode($avg_time_data['labels']); ?>,
             datasets: [{
-                label: 'Avg Minutes',
-                data: [45, 50, 60, 55, 40, 30, 35],
+                label: 'Avg Actions/User',
+                data: <?php echo json_encode($avg_time_data['data']); ?>,
                 borderColor: '#8b5cf6',
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
                 fill: true,
@@ -2382,9 +2395,13 @@ document.addEventListener('DOMContentLoaded', function() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false } }, // Keeping concise
             scales: {
-                y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+                y: { 
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' }, 
+                    ticks: { color: '#94a3b8' },
+                    title: { display: true, text: 'Avg Actions', color: '#64748b' } 
+                },
                 x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
             }
         }

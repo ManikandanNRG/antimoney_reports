@@ -448,6 +448,55 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Average Daily Engagement (Time Spent Trend).
+     * 
+     * Calculates avg time spent per user for last 7 days.
+     * Heuristic: 1 Log Action = 1 Minute of engagement (Configurable proxy).
+     */
+    public function get_avg_daily_engagement() {
+        global $DB;
+
+        $labels = [];
+        $data = [];
+        
+        // Last 7 Days
+        for ($i = 6; $i >= 0; $i--) {
+            $timestamp = strtotime("-$i days");
+            $day_start = strtotime("midnight", $timestamp);
+            $day_end = strtotime("tomorrow midnight", $timestamp) - 1;
+            
+            $labels[] = date('D', $timestamp);
+            
+            // Get total actions and unique users for this day
+            $sql = "SELECT COUNT(id) as actions, COUNT(DISTINCT userid) as users
+                    FROM {logstore_standard_log}
+                    WHERE timecreated >= :start AND timecreated <= :end AND userid > 0";
+            
+            try {
+                $record = $DB->get_record_sql($sql, ['start' => $day_start, 'end' => $day_end]);
+                $actions = $record->actions ?? 0;
+                $users = $record->users ?? 1; // Avoid div by zero
+                
+                // Calculate Avg Minutes
+                // Heuristic: If 100 actions by 10 users -> 10 actions/user -> 10 mins/user
+                $avg_mins = ($users > 0) ? round($actions / $users) : 0;
+                
+                // Cap realistic max (e.g., if bulk actions occur)
+                // 1 action = 1 min is generous, maybe 0.5? stick to 1 for "Time Spent" feel.
+                $data[] = $avg_mins;
+                
+            } catch (\Exception $e) {
+                $data[] = 0;
+            }
+        }
+        
+        return [
+            'labels' => $labels,
+            'data' => $data
+        ];
+    }
+
+    /**
      * Get Courses Tab Metrics (KPIs).
      */
     public function get_courses_tab_metrics($search = '', $category = 0) {
