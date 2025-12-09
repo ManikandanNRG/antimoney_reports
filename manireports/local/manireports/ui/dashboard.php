@@ -830,6 +830,7 @@ body {
             <div class="bento-grid">
 
             <?php if ($user_role === 'admin'): ?>
+            <?php $top_companies = $loader->get_top_companies_analytics(); ?>
             <!-- Row 2: 3-Column Layout (User Roles, Avg Time, Top Companies) -->
             <div class="manireports-dashboard-grid" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr) !important; gap: 24px; margin-bottom: 24px;">
                 
