@@ -303,9 +303,9 @@ class teacher_data_loader extends dashboard_data_loader {
                        COUNT(DISTINCT cc.userid) as completed,
                        AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
                   FROM {course} c
-                  JOIN {course_categories} cat ON cat.id = c.category
-                  JOIN {enrol} e ON e.courseid = c.id
-                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
+             LEFT JOIN {course_categories} cat ON cat.id = c.category
+             LEFT JOIN {enrol} e ON e.courseid = c.id
+             LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id
              LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
                  WHERE $sql_where
               GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
@@ -314,6 +314,7 @@ class teacher_data_loader extends dashboard_data_loader {
         try {
             $courses = $DB->get_records_sql($sql, $params, 0, $limit);
         } catch (\Exception $e) {
+            error_log("ManiReports Teacher Loader Error: " . $e->getMessage());
             return [];
         }
 

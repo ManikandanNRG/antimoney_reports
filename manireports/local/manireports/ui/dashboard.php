@@ -58,28 +58,25 @@ if (is_siteadmin()) {
         }
     }
     
-} elseif (has_capability('local/manireports:viewteacherdashboard', $context)) {
+} elseif (has_capability('local/manireports:viewteacherdashboard', $context) || 
+          $DB->record_exists_sql("SELECT 1 FROM {role_assignments} ra JOIN {role} r ON r.id = ra.roleid WHERE ra.userid = ? AND (r.shortname = 'editingteacher' OR r.shortname = 'teacher')", [$USER->id])) {
     $user_role = 'teacher';
     
-    // Get courses where user is a teacher
-    $teacher_role = $DB->get_record('role', ['shortname' => 'editingteacher']);
-    if (!$teacher_role) {
-        $teacher_role = $DB->get_record('role', ['shortname' => 'teacher']);
-    }
+    // Get courses where user is a teacher (editing or non-editing)
+    $teacher_roles = $DB->get_records_sql("SELECT id FROM {role} WHERE shortname IN ('editingteacher', 'teacher')");
+    $teacher_role_ids = array_keys($teacher_roles);
     
-    if ($teacher_role) {
+    if (!empty($teacher_role_ids)) {
+        list($in_sql, $params) = $DB->get_in_or_equal($teacher_role_ids, SQL_PARAMS_NAMED, 'role');
+        $params['userid'] = $USER->id;
+        $params['courselevel'] = CONTEXT_COURSE;
+        
         $sql = "SELECT DISTINCT c.id, c.fullname
                 FROM {course} c
                 JOIN {context} ctx ON ctx.instanceid = c.id AND ctx.contextlevel = :courselevel
                 JOIN {role_assignments} ra ON ra.contextid = ctx.id
-                WHERE ra.userid = :userid AND ra.roleid = :roleid AND c.id > 1
+                WHERE ra.userid = :userid AND ra.roleid $in_sql AND c.id > 1
                 ORDER BY c.fullname";
-        
-        $params = [
-            'courselevel' => CONTEXT_COURSE,
-            'userid' => $USER->id,
-            'roleid' => $teacher_role->id
-        ];
         
         $teaching_courses = $DB->get_records_sql($sql, $params);
         $role_context['course_ids'] = array_keys($teaching_courses);
