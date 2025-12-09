@@ -827,41 +827,8 @@ body {
             <div class="bento-grid">
 
             <?php if ($user_role === 'admin'): ?>
-            <!-- ADMIN ONLY: System Health Widget -->
-            <div class="bento-card card-span-1">
-                <div class="card-header">
-                    <div class="card-title">System Health</div>
-                </div>
-                <div>
-                    <div class="health-item">
-                        <div class="health-info">
-                            <div class="health-icon"><i class="fa-solid fa-database"></i></div>
-                            <div class="health-name">Database Size</div>
-                        </div>
-                        <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['db_size']; ?>
-                        </div>
-                    </div>
-                    <div class="health-item">
-                        <div class="health-info">
-                            <div class="health-icon"><i class="fa-solid fa-bolt"></i></div>
-                            <div class="health-name">Cache Hit Rate</div>
-                        </div>
-                        <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['cache_hit_rate']; ?>
-                        </div>
-                    </div>
-                    <div class="health-item">
-                        <div class="health-info">
-                            <div class="health-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                            <div class="health-name">Error Rate</div>
-                        </div>
-                        <div class="health-status">
-                            <div class="status-dot dot-success"></div> <?php echo $system_health['error_rate']; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <?php $top_companies = $loader->get_top_companies_analytics(); ?>
+
 
             <!-- ADMIN ONLY: Active Users 24h Time Chart -->
             <div class="bento-card card-span-2">
@@ -879,7 +846,60 @@ body {
                     <div class="card-title">Avg Time/User</div>
                 </div>
                 <div style="height: 250px; width: 100%;">
-                    <canvas id="timeSpentChart"></canvas>
+                </div>
+            </div>
+
+            <!-- ADMIN ONLY: Top Companies Widget -->
+            <div class="bento-card card-span-1">
+                <div class="card-header">
+                    <div class="card-title">Top Companies</div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 12px; height: 250px; overflow-y: auto;">
+                    <?php foreach ($top_companies as $idx => $comp): ?>
+                        <?php 
+                            $rank = $idx + 1;
+                            $icon_color = '#94a3b8'; // Default Gray
+                            $icon_bg = 'rgba(148, 163, 184, 0.1)';
+                            $icon_content = $rank;
+                            
+                            if ($rank == 1) {
+                                $icon_color = '#F59E0B'; // Gold
+                                $icon_bg = 'rgba(245, 158, 11, 0.1)';
+                                $icon_content = '<i class="fa-solid fa-medal"></i>';
+                            } elseif ($rank == 2) {
+                                $icon_color = '#94A3B8'; // Silver
+                                $icon_bg = 'rgba(148, 163, 184, 0.1)';
+                                $icon_content = '<i class="fa-solid fa-medal"></i>';
+                            } elseif ($rank == 3) {
+                                $icon_color = '#D97706'; // Bronze
+                                $icon_bg = 'rgba(217, 119, 6, 0.1)';
+                                $icon_content = '<i class="fa-solid fa-medal"></i>';
+                            }
+                        ?>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 10px; width: 65%;">
+                                <!-- Rank Icon -->
+                                <div style="width: 28px; height: 28px; min-width: 28px; display: flex; align-items: center; justify-content: center; background: <?php echo $icon_bg; ?>; border-radius: 50%; color: <?php echo $icon_color; ?>; font-size: 12px; font-weight: 700;">
+                                    <?php echo $icon_content; ?>
+                                </div>
+                                
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo $comp['name']; ?>"><?php echo $comp['name']; ?></div>
+                                    <div class="progress-bar-slim" style="width: 100%; height: 4px; margin-top: 6px; background: var(--glass-border);">
+                                        <div style="width: <?php echo $comp['rate']; ?>%; height: 100%; background: linear-gradient(90deg, #8b5cf6, #3b82f6); border-radius: 2px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right;">
+                                <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);"><?php echo $comp['rate']; ?>%</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);"><?php echo number_format($comp['user_count']); ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    <?php if (empty($top_companies)): ?>
+                        <div style="text-align: center; color: var(--text-secondary); padding-top: 80px;">No company data available</div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -1176,31 +1196,60 @@ body {
                 echo '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No students found in your courses</p>';
             } else {
                 foreach ($my_students as $course_data) {
-                    echo '<div style="margin-bottom: 24px;">';
-                    echo '<h4 style="color: var(--accent-primary); margin-bottom: 12px;"><i class="fa-solid fa-book"></i> ' . htmlspecialchars($course_data['course_name']) . ' (' . $course_data['student_count'] . ' students)</h4>';
+                    echo '<div class="bento-card card-span-4" style="margin-bottom: 24px;">';
+                    echo '<div class="card-header" style="margin-bottom: 16px;">';
+                    echo '<div class="card-title" style="display: flex; align-items: center; gap: 10px;">';
+                    echo '<i class="fa-solid fa-book" style="color: var(--accent-primary);"></i> ' . htmlspecialchars($course_data['course_name']);
+                    echo '<span class="status-badge status-active" style="font-size: 11px;">' . $course_data['student_count'] . ' Students</span>';
+                    echo '</div>';
+                    echo '</div>';
                     
                     if (empty($course_data['students'])) {
-                        echo '<p style="color: var(--text-secondary); padding-left: 20px;">No students enrolled</p>';
+                        echo '<div style="text-align: center; padding: 30px; color: var(--text-secondary);">';
+                        echo '<i class="fa-solid fa-user-slash" style="font-size: 24px; margin-bottom: 10px; opacity: 0.5;"></i>';
+                        echo '<p>No students currently enrolled in this course.</p>';
+                        echo '</div>';
                     } else {
-                        echo '<table class="data-table" style="margin-left: 20px;">';
-                        echo '<thead><tr><th>Student</th><th>Email</th><th>Progress</th><th>Last Access</th><th>Status</th></tr></thead>';
+                        echo '<div style="overflow-x: auto;">';
+                        echo '<table class="data-table" style="width: 100%;">';
+                        echo '<thead>';
+                        echo '<tr>';
+                        echo '<th class="table-header">Student</th>';
+                        echo '<th class="table-header">Email</th>';
+                        echo '<th class="table-header">Progress</th>';
+                        echo '<th class="table-header">Last Access</th>';
+                        echo '<th class="table-header">Status</th>';
+                        echo '</tr>';
+                        echo '</thead>';
                         echo '<tbody>';
                         foreach ($course_data['students'] as $student) {
-                            echo '<tr>';
-                            echo '<td>' . htmlspecialchars($student['fullname']) . '</td>';
-                            echo '<td>' . htmlspecialchars($student['email']) . '</td>';
-                            echo '<td><div style="width: 100px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;"><div style="width: ' . $student['progress'] . '%; height: 100%; background: var(--accent-success); border-radius: 3px;"></div></div></td>';
-                            echo '<td>' . $student['lastaccess'] . '</td>';
-                            echo '<td>' . ($student['completed'] ? '<span style="color: var(--accent-success);">✓ Completed</span>' : '<span style="color: var(--accent-warning);">In Progress</span>') . '</td>';
+                            echo '<tr class="table-row">';
+                            echo '<td class="table-cell" style="font-weight: 500;">' . htmlspecialchars($student['fullname']) . '</td>';
+                            echo '<td class="table-cell" style="color: var(--text-secondary);">' . htmlspecialchars($student['email']) . '</td>';
+                            echo '<td class="table-cell">';
+                            echo '<div class="progress-bar-slim">';
+                            echo '<div class="progress-fill" style="width: ' . $student['progress'] . '%; background: var(--accent-success);"></div>';
+                            echo '</div>';
+                            echo '<div style="font-size: 11px; margin-top: 4px; color: var(--text-secondary); text-align: right;">' . $student['progress'] . '%</div>';
+                            echo '</td>';
+                            echo '<td class="table-cell">' . $student['lastaccess'] . '</td>';
+                            echo '<td class="table-cell">';
+                            echo $student['completed'] 
+                                ? '<span class="status-badge status-completed">Completed</span>' 
+                                : '<span class="status-badge status-warning">In Progress</span>';
+                            echo '</td>';
                             echo '</tr>';
                         }
-                        echo '</tbody></table>';
+                        echo '</tbody>';
+                        echo '</table>';
+                        echo '</div>';
                     }
-                    echo '</div>';
+                    echo '</div>'; // End bento-card
                 }
             }
             ?>
         </div>
+        <!-- End Teacher Section Wrapper (Removed inner div to avoid double card nesting) -->
         <?php endif; ?>
 
         <?php if ($user_role === 'student' && isset($role_context['course_count']) && $role_context['course_count'] > 0): ?>
@@ -2297,13 +2346,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initChart('activeUsersChart', {
         type: 'bar',
         data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Active Users',
-                data: [120, 150, 180, 170, 160, 90, 100],
-                backgroundColor: '#6366f1',
-                borderRadius: 4
-            }]
+                labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
+                datasets: [{
+                    label: 'Active Users',
+                    data: <?php echo json_encode($live_stats['timeline_data']); ?>,
+                    backgroundColor: '#6366f1',
+                    borderRadius: 4
+                }]
         },
         options: {
             responsive: true,

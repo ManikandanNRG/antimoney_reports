@@ -340,6 +340,57 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Top Companies Analytics (Ranked by Completion Rate) for Widget.
+     */
+    public function get_top_companies_analytics($limit = 5) {
+        global $DB;
+        
+        if (!$DB->get_manager()->table_exists('company')) {
+            return [];
+        }
+
+        $sql = "SELECT c.id, c.name,
+                       (SELECT COUNT(*) FROM {company_users} cu WHERE cu.companyid = c.id) as user_count,
+                       (SELECT COUNT(DISTINCT ue.id) 
+                        FROM {company_users} cu2
+                        JOIN {user_enrolments} ue ON ue.userid = cu2.userid
+                        WHERE cu2.companyid = c.id AND ue.status = 0) as enrolled,
+                       (SELECT COUNT(DISTINCT cc2.userid)
+                        FROM {company_users} cu3
+                        JOIN {course_completions} cc2 ON cc2.userid = cu3.userid
+                        WHERE cu3.companyid = c.id AND cc2.timecompleted > 0) as completed
+                  FROM {company} c
+                 ORDER BY c.id";
+        
+        try {
+            $companies = $DB->get_records_sql($sql);
+        } catch (\Exception $e) {
+            return [];
+        }
+
+        $analytics = [];
+        foreach ($companies as $company) {
+            $rate = ($company->enrolled > 0) ? round(($company->completed / $company->enrolled) * 100) : 0;
+            
+            $analytics[] = [
+                'name' => $company->name,
+                'user_count' => $company->user_count,
+                'rate' => $rate
+            ];
+        }
+
+        // Sort by Rate DESC, then User Count DESC
+        usort($analytics, function($a, $b) {
+            if ($b['rate'] == $a['rate']) {
+                return $b['user_count'] <=> $a['user_count'];
+            }
+            return $b['rate'] <=> $a['rate'];
+        });
+
+        return array_slice($analytics, 0, $limit);
+    }
+
+    /**
      * Get Top Courses Analytics (Aggregated).
      */
     public function get_top_courses_analytics($limit = 10) {
