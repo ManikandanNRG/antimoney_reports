@@ -1177,35 +1177,87 @@ class dashboard_data_loader {
         // Active Courses
         $active_courses_count = $DB->count_records('course', ['visible' => 1]);
         
-        // Top Courses
-        $top_courses = $DB->get_records_sql("SELECT c.id, c.fullname, COUNT(ue.id) as enrollments 
-                                             FROM {course} c 
-                                             JOIN {enrol} e ON e.courseid = c.id 
-                                             JOIN {user_enrolments} ue ON ue.enrolid = e.id 
-                                             GROUP BY c.id, c.fullname 
-                                             ORDER BY enrollments DESC", null, 0, 5);
-        $formatted_top_courses = [];
-        foreach ($top_courses as $c) {
-            $formatted_top_courses[] = ['name' => $c->fullname, 'students' => $c->enrollments];
-        }
+        // Top Active Courses (Live)
+    // We'll consider "active" as courses with recent log activity in the last 24h
+    $since = time() - (24 * 3600);
+    $sql_top_courses = "SELECT c.id, c.fullname, COUNT(DISTINCT l.userid) as active_count
+                        FROM {course} c
+                        JOIN {logstore_standard_log} l ON l.courseid = c.id
+                        WHERE l.timecreated > :since AND c.visible = 1 AND c.id > 1
+                        GROUP BY c.id, c.fullname
+                        ORDER BY active_count DESC";
+    
+    $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $since], 0, 5);
+    
+    // If no recent activity, fallback to enrollment count (but strictly for display structure)
+    if (empty($top_courses)) {
+        $sql_fallback = "SELECT c.id, c.fullname, COUNT(ue.id) as active_count 
+                         FROM {course} c 
+                         JOIN {enrol} e ON e.courseid = c.id 
+                         JOIN {user_enrolments} ue ON ue.enrolid = e.id 
+                         GROUP BY c.id, c.fullname 
+                         ORDER BY active_count DESC";
+        $top_courses = $DB->get_records_sql($sql_fallback, null, 0, 5);
+    }
 
-        // Timeline (Mock data for now to prevent heavy log queries, or simple random distribution based on active users)
-        // In a real scenario, we'd query mdl_logstore_standard_log
-        $timeline_labels = [];
-        $timeline_data = [];
-        for ($i = 0; $i <= 23; $i++) {
-            $timeline_labels[] = sprintf("%02d:00", $i);
-            $timeline_data[] = 0; // Default to 0
-        }
+    $formatted_top_courses = [];
+    foreach ($top_courses as $c) {
+        // Return as object to match dashboard.php expectation ($course->fullname)
+        $obj = new \stdClass();
+        $obj->fullname = $c->fullname;
+        $obj->active_count = $c->active_count;
+        $formatted_top_courses[] = $obj;
+    }
+
+    // Timeline Data (Real 24h activity from logs)
+    $timeline_labels = [];
+    $timeline_data = [];
+    
+    // Initialize 24h buckets
+    $buckets = [];
+    for ($i = 23; $i >= 0; $i--) {
+        $hour_timestamp = strtotime("-{$i} hours");
+        $hour_key = date('H:00', $hour_timestamp);
+        $buckets[$hour_key] = 0;
+    }
+
+    // Fetch log counts grouped by hour
+    if ($DB->get_manager()->table_exists('logstore_standard_log')) {
+        $since_timestamp = time() - (24 * 3600);
+        $sql_timeline = "SELECT FROM_UNIXTIME(timecreated, '%H:00') as hour_slot, COUNT(DISTINCT userid) as user_count
+                         FROM {logstore_standard_log}
+                         WHERE timecreated > :since
+                         GROUP BY hour_slot
+                         ORDER BY hour_slot ASC";
         
-        return [
-            'active_users' => $active_users,
-            'peak_today' => $peak_today,
-            'active_courses_count' => $active_courses_count,
-            'top_courses' => $formatted_top_courses,
-            'timeline_labels' => $timeline_labels,
-            'timeline_data' => $timeline_data
-        ];
+        try {
+            $activity_logs = $DB->get_records_sql($sql_timeline, ['since' => $since_timestamp]);
+            foreach ($activity_logs as $log) {
+                if (isset($buckets[$log->hour_slot])) {
+                    $buckets[$log->hour_slot] = $log->user_count;
+                }
+            }
+        } catch (\Exception $e) {
+            // Fallback if FROM_UNIXTIME isn't supported or other DB error
+            // Keep 0s
+        }
+    }
+
+    // Flatten for Chart.js
+    foreach ($buckets as $label => $count) {
+        $timeline_labels[] = $label;
+        $timeline_data[] = $count;
+    }
+    
+    return [
+        'active_users' => $active_users,
+        'peak_today' => $peak_today,
+        'active_courses_count' => $active_courses_count,
+        'top_courses' => $formatted_top_courses, // Now returns array of objects
+        'timeline_labels' => $timeline_labels,
+        'timeline_data' => $timeline_data
+    ];
+}
     }
 
     /**

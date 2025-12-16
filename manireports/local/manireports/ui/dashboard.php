@@ -1074,7 +1074,7 @@ body {
             </div>
             <?php endif; ?>
 
-            <?php if ($user_role === 'manager'): ?>
+            <?php if ($user_role === 'admin' || $user_role === 'manager'): ?>
             <!-- ADMIN ONLY: Live Analytics Row (Full Width) -->
             <div class="bento-card card-span-4" style="min-height: 320px;">
                 <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
