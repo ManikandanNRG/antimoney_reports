@@ -1054,7 +1054,7 @@ body {
                 <!-- Active Users (Moved Here) -->
                 <div class="bento-card">
                     <div class="card-header">
-                        <div class="card-title">Active Users (24h)</div>
+                        <div class="card-title">Daily Traffic Trend</div>
                     </div>
                     <div style="height: 300px; width: 100%;">
                         <canvas id="activeUsersChart"></canvas>
@@ -1146,10 +1146,12 @@ body {
 
                     <!-- Col 3: 24h Timeline -->
                     <div>
-                        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px;">Activity Timeline (24h)</div>
-                        <div style="height: 200px; width: 100%;">
-                            <canvas id="timelineChart"></canvas>
-                        </div>
+                        <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px;">Live Traffic Map</div>
+                        <div id="world-map-markers" style="height: 200px; width: 100%;"></div>
+                        <!-- jsVectorMap Dependencies (CDN) -->
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsvectormap/dist/css/jsvectormap.min.css" />
+                        <script src="https://cdn.jsdelivr.net/npm/jsvectormap/dist/js/jsvectormap.min.js"></script>
+                        <script src="https://cdn.jsdelivr.net/npm/jsvectormap/dist/maps/world.js"></script>
                     </div>
                 </div>
             </div>
@@ -2778,58 +2780,107 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 
     // 24h Timeline Chart
-    const timelineEl = document.getElementById('timelineChart');
-    if (timelineEl) {
-        const timelineCtx = timelineEl.getContext('2d');
-        const timelineGradient = timelineCtx.createLinearGradient(0, 0, 0, 200);
-        timelineGradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
-        timelineGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    // World Map Initialization
+    const mapContainer = document.getElementById('world-map-markers');
+    if (mapContainer && window.jsVectorMap) {
+        const rawMapData = <?php echo json_encode($live_stats['map_data'] ?? []); ?>;
+        
+        // Define coords for major countries (Fallback lookup)
+        // Since we are using "markers", we need Lat/Lng. 
+        // If we want to highlight REGIONS (easier), we pass 'selectedRegions'.
+        // User requested "blinking pointer". Markers are pointers.
+        // We need a lookup for common country codes to Coords.
+        const countryCoords = {
+            'IN': [20.5937, 78.9629],
+            'US': [37.0902, -95.7129],
+            'GB': [55.3781, -3.4360],
+            'CA': [56.1304, -106.3468],
+            'AU': [-25.2744, 133.7751],
+            'DE': [51.1657, 10.4515],
+            'FR': [46.2276, 2.2137],
+            'BR': [-14.2350, -51.9253],
+            'CN': [35.8617, 104.1954],
+            'JP': [36.2048, 138.2529],
+            'RU': [61.5240, 105.3188],
+            'ZA': [-30.5595, 22.9375]
+        };
 
-        new Chart(timelineCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
-                datasets: [{
-                    label: 'Active Users',
-                    data: <?php echo json_encode($live_stats['timeline_data']); ?>,
-                    borderColor: '#10b981',
-                    backgroundColor: timelineGradient,
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    pointHoverRadius: 4,
-                    fill: true,
-                    tension: 0.4
-                }]
+        const markers = rawMapData.map(item => {
+            const coords = countryCoords[item.code] || [0, 0]; // Default to center if unknown
+            return {
+                name: item.code,
+                coords: coords,
+                value: item.value,
+                style: { fill: '#10b981', stroke: '#fff', strokeWidth: 2 }
+            };
+        });
+
+        // If India default is active, ensure it blinks
+        const markerStyle = {
+            initial: { fill: '#10b981', stroke: '#ffffff', strokeWidth: 2, r: 6 },
+            hover: { fill: '#34d399', stroke: '#ffffff', strokeWidth: 2 }
+        };
+
+        new jsVectorMap({
+            selector: '#world-map-markers',
+            map: 'world',
+            zoomButtons: false,
+            zoomOnScroll: false,
+            visualizeData: { scale: ['#10b981'], values: {} }, 
+            regionStyle: {
+                initial: { fill: 'rgba(148, 163, 184, 0.2)' }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(15, 23, 42, 0.9)',
-                        titleColor: '#94a3b8',
-                        bodyColor: '#f8fafc',
-                        borderColor: 'rgba(148, 163, 184, 0.1)',
-                        borderWidth: 1
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                        ticks: { color: '#94a3b8', font: { size: 10 } }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 6 }
-                    }
+            markers: markers,
+            markerStyle: markerStyle,
+            labels: {
+                markers: {
+                    render: (marker) => marker.value > 0 ? marker.value : '' // Only show count if needed? Maybe too cluttered.
                 }
+            },
+            onLoaded(map) {
+                // Add CSS animation class to markers
+                 document.querySelectorAll('.jvm-marker').forEach(el => {
+                     el.classList.add('map-pulse');
+                 });
+            },
+            tooltip: {
+                text: function(name, count) {
+                   return 'User ' + count
+                }
+            },
+            onMarkerTooltipShow(event, tooltip, index) {
+                tooltip.text(
+                    '<div style="text-align:center;">' + 
+                    '<b style="color:#fff;">' + markers[index].name + '</b><br/>' + 
+                    '<span style="color:#10b981;">● ' + markers[index].value + ' Active Users</span>' +
+                    '</div>',
+                    true // HTML
+                );
             }
         });
     }
+
+    // Add Pulse CSS via JS if not in CSS file yet
+    const style = document.createElement('style');
+    style.innerHTML = `
+        .jvm-marker.map-pulse {
+            animation: mapPulse 1.5s infinite;
+        }
+        @keyframes mapPulse {
+            0% { stroke-width: 0px; stroke-opacity: 0.5; }
+            50% { stroke-width: 8px; stroke-opacity: 0.2; }
+            100% { stroke-width: 0px; stroke-opacity: 0; }
+        }
+        .jvm-tooltip {
+            background: rgba(15, 23, 42, 0.9) !important;
+            border: 1px solid rgba(148, 163, 184, 0.1) !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            font-family: 'Outfit', sans-serif !important;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        }
+    `;
+    document.head.appendChild(style);
 
     // --- COURSES TAB CHARTS ---
     
