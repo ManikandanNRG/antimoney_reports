@@ -1160,6 +1160,7 @@ body {
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Company-wise Analytics</div>
+                    <a href="#" onclick="switchTab('companies'); return false;" class="action-link" style="font-size: 12px;">View All</a>
                 </div>
 
                 <div class="glass-table-container">
@@ -1232,9 +1233,9 @@ body {
                                         </div>
                                     </div>
 
-                                    <div class="action-btn-kebab" style="justify-self: end;">
+                                    <a href="?company_q=' . urlencode($company['name']) . '" onclick="localStorage.setItem(\'activeTab\', \'companies\');" class="action-btn-kebab" style="justify-self: end; text-decoration: none;">
                                         <i class="fa-solid fa-chevron-right"></i>
-                                    </div>
+                                    </a>
                                   </div>';
                         }
                     } else {
@@ -1250,7 +1251,7 @@ body {
             <div class="bento-card card-span-4">
                 <div class="card-header">
                     <div class="card-title">Course Analytics (Top 10 Courses)</div>
-                    <a href="#" class="action-link">View All</a>
+                    <a href="#" onclick="switchTab('courses'); return false;" class="action-link">View All</a>
                 </div>
                 <div class="glass-table-container">
                     <!-- Header -->
