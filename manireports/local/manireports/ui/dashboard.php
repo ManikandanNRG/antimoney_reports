@@ -1164,13 +1164,14 @@ body {
 
                 <div class="glass-table-container">
                     <!-- Header Row -->
-                    <div style="display: flex; justify-content: space-between; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <div style="flex: 1;">Company & Courses</div>
-                        <div style="display: flex; gap: 30px; margin-right: 52px;"> <!-- Fixed alignment: 20px margin + 32px kebab -->
+                    <div style="display: grid; grid-template-columns: 30% 1fr 50px; align-items: center; gap: 20px; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div>Company & Courses</div>
+                        <div style="display: flex; justify-content: space-between; padding-right: 40px;">
                             <div style="width: 80px; min-width: 80px; text-align: left; flex-shrink: 0;">Users</div>
                             <div style="width: 120px; min-width: 120px; text-align: left; flex-shrink: 0;">Enrollment</div>
                             <div style="width: 160px; min-width: 160px; text-align: left; flex-shrink: 0;">Completion</div>
                         </div>
+                        <div></div> <!-- Spacer for Kebab -->
                     </div>
 
                     <?php
@@ -1188,20 +1189,20 @@ body {
                             // Initials for Icon
                             $initials = mb_substr($company['name'], 0, 1);
                             
-                            echo '<div class="glass-list-item">
-                                    <div style="display: flex; align-items: center; flex: 1;">
-                                        <div class="item-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary);">
+                            echo '<div class="glass-list-item" style="display: grid; grid-template-columns: 30% 1fr 50px; align-items: center; gap: 20px;">
+                                    <div style="display: flex; align-items: center; overflow: hidden;">
+                                        <div class="item-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); flex-shrink: 0;">
                                             ' . $initials . '
                                         </div>
-                                        <div class="item-info">
-                                            <div class="item-title">' . $company['name'] . '</div>
+                                        <div class="item-info" style="min-width: 0; overflow: hidden;">
+                                            <div class="item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $company['name'] . '</div>
                                             <div class="item-subtitle">
                                                 <span class="meta-badge"><i class="fa-solid fa-book-open"></i> ' . $company['courses'] . ' Courses</span>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div class="data-field-group" style="gap: 30px; margin-right: 20px;">
+                                    <div class="data-field-group" style="justify-content: space-between; width: 100%; padding-right: 40px; margin-right: 0; gap: 0;">
                                         <!-- Users Field -->
                                         <div class="data-field" style="width: 80px; min-width: 80px;">
                                             <div class="data-label">Users</div>
@@ -1231,7 +1232,7 @@ body {
                                         </div>
                                     </div>
 
-                                    <div class="action-btn-kebab">
+                                    <div class="action-btn-kebab" style="justify-self: end;">
                                         <i class="fa-solid fa-chevron-right"></i>
                                     </div>
                                   </div>';
@@ -1253,13 +1254,14 @@ body {
                 </div>
                 <div class="glass-table-container">
                     <!-- Header -->
-                    <div style="display: flex; justify-content: space-between; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <div style="flex: 1;">Course Information</div>
-                        <div style="display: flex; gap: 40px; margin-right: 52px;"> <!-- Fixed alignment -->
+                    <div style="display: grid; grid-template-columns: 40% 1fr 50px; align-items: center; gap: 20px; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div>Course Information</div>
+                        <div style="display: flex; justify-content: space-between; padding-right: 40px;">
                             <div style="min-width: 100px;">Enrollment</div>
                             <div style="min-width: 160px;">Progress & Time</div>
                             <div style="min-width: 80px;">Status</div>
                         </div>
+                        <div></div> <!-- Spacer -->
                     </div>
 
                     <?php
@@ -1278,20 +1280,20 @@ body {
                             $status_color = ($course['status'] === 'ACTIVE') ? '#10b981' : '#ef4444';
                             $status_bg = ($course['status'] === 'ACTIVE') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
-                            echo '<div class="glass-list-item">
-                                    <div style="display: flex; align-items: center; flex: 1;">
-                                        <div class="item-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                            echo '<div class="glass-list-item" style="display: grid; grid-template-columns: 40% 1fr 50px; align-items: center; gap: 20px;">
+                                    <div style="display: flex; align-items: center; overflow: hidden;">
+                                        <div class="item-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; flex-shrink: 0;">
                                             <i class="fa-solid fa-graduation-cap"></i>
                                         </div>
-                                        <div class="item-info">
-                                            <div class="item-title">' . $course['fullname'] . '</div>
+                                        <div class="item-info" style="min-width: 0; overflow: hidden;">
+                                            <div class="item-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $course['fullname'] . '</div>
                                             <div class="item-subtitle">
                                                 <span class="meta-badge">' . $category . '</span>
                                             </div>
                                         </div>
                                     </div>
                                     
-                                    <div class="data-field-group">
+                                    <div class="data-field-group" style="justify-content: space-between; width: 100%; padding-right: 40px; margin-right: 0; gap: 0;">
                                         <!-- Enrollment -->
                                         <div class="data-field">
                                             <div class="data-label">Students</div>
@@ -1321,7 +1323,7 @@ body {
                                         </div>
                                     </div>
 
-                                    <a href="' . $CFG->wwwroot . '/course/view.php?id=' . $course['id'] . '" class="action-btn-kebab" style="text-decoration: none;">
+                                    <a href="' . $CFG->wwwroot . '/course/view.php?id=' . $course['id'] . '" class="action-btn-kebab" style="text-decoration: none; justify-self: end;">
                                         <i class="fa-solid fa-arrow-right-long"></i>
                                     </a>
                                   </div>';
