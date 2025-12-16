@@ -610,6 +610,124 @@ body {
     transition: var(--transition); white-space: nowrap; /* Prevent text wrapping */
 }
 .dropdown-item:hover { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
+
+/* Premium Glassmorphic List Styles */
+.glass-table-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.glass-list-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+[data-theme="light"] .glass-list-item {
+    background: rgba(255, 255, 255, 0.6);
+}
+.glass-list-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+[data-theme="light"] .glass-list-item:hover {
+    background: rgba(255, 255, 255, 0.9);
+}
+.item-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+}
+.item-info {
+    flex: 1;
+    margin-left: 20px;
+    min-width: 0; /* Prevent flex overflow */
+}
+.item-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.item-subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 12px;
+}
+.data-field-group {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-right: 24px;
+}
+.data-field {
+    text-align: left;
+    min-width: 100px;
+}
+.data-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+    letter-spacing: 0.5px;
+}
+.data-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.meta-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid var(--glass-border);
+}
+.action-btn-kebab {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+.action-btn-kebab:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+.progress-ring {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 160px;
+}
 </style>
 
 <!-- Dashboard Container -->
@@ -1044,50 +1162,85 @@ body {
                     <div class="card-title">Company-wise Analytics</div>
                 </div>
 
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th class="table-header">Company Name</th>
-                            <th class="table-header">Courses</th>
-                            <th class="table-header">Users</th>
-                            <th class="table-header">Enrolled</th>
-                            <th class="table-header">Completed</th>
-                            <th class="table-header" style="width: 200px;">Completion %</th>
-                            <th class="table-header">Avg Time</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        if (!empty($company_data)) {
-                            foreach ($company_data as $company) {
-                                $pct = $company['completion_rate'];
-                                $color = '#3b82f6'; // Blue
-                                if ($pct > 70) $color = '#10b981'; // Green
-                                if ($pct < 40) $color = '#f59e0b'; // Amber
+                <div class="glass-table-container">
+                    <!-- Header Row -->
+                    <div style="display: flex; justify-content: space-between; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div style="flex: 1;">Company & Courses</div>
+                        <div style="display: flex; gap: 30px; margin-right: 52px;"> <!-- Fixed alignment: 20px margin + 32px kebab -->
+                            <div style="width: 80px; min-width: 80px; text-align: left; flex-shrink: 0;">Users</div>
+                            <div style="width: 120px; min-width: 120px; text-align: left; flex-shrink: 0;">Enrollment</div>
+                            <div style="width: 160px; min-width: 160px; text-align: left; flex-shrink: 0;">Completion</div>
+                        </div>
+                    </div>
 
-                                echo '<tr class="table-row">
-                                        <td class="table-cell" style="font-weight: 600;">' . $company['name'] . '</td>
-                                        <td class="table-cell">' . $company['courses'] . '</td>
-                                        <td class="table-cell">' . $company['users'] . '</td>
-                                        <td class="table-cell">' . $company['enrolled'] . '</td>
-                                        <td class="table-cell">' . $company['completed'] . '</td>
-                                        <td class="table-cell">
-                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                <div class="progress-bar-slim">
-                                                    <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
-                                                </div>
-                                                <span style="font-weight: 600; font-size: 12px; color: var(--text-primary);">' . $pct . '%</span>
+                    <?php
+                    if (!empty($company_data)) {
+                        foreach ($company_data as $company) {
+                            $pct = $company['completion_rate'];
+                            $active_users = $company['active_users'] ?? 0;
+                            $avg_time = $company['time'] ?? '0h 0m';
+                            
+                            // Color logic
+                            $color = '#3b82f6';
+                            if ($pct > 70) $color = '#10b981';
+                            if ($pct < 40) $color = '#f59e0b';
+                            
+                            // Initials for Icon
+                            $initials = mb_substr($company['name'], 0, 1);
+                            
+                            echo '<div class="glass-list-item">
+                                    <div style="display: flex; align-items: center; flex: 1;">
+                                        <div class="item-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary);">
+                                            ' . $initials . '
+                                        </div>
+                                        <div class="item-info">
+                                            <div class="item-title">' . $company['name'] . '</div>
+                                            <div class="item-subtitle">
+                                                <span class="meta-badge"><i class="fa-solid fa-book-open"></i> ' . $company['courses'] . ' Courses</span>
                                             </div>
-                                        </td>
-                                        <td class="table-cell">' . $company['time'] . '</td>
-                                      </tr>';
-                            }
-                        } else {
-                            echo '<tr><td colspan="7" class="table-cell" style="text-align: center; padding: 24px; color: var(--text-secondary);">No company data available.</td></tr>';
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="data-field-group" style="gap: 30px; margin-right: 20px;">
+                                        <!-- Users Field -->
+                                        <div class="data-field" style="width: 80px; min-width: 80px;">
+                                            <div class="data-label">Users</div>
+                                            <div class="data-value">' . $company['users'] . '</div>
+                                            <div style="font-size: 11px; color: #10b981; margin-top: 2px;">' . $active_users . ' Active</div>
+                                        </div>
+
+                                        <!-- Enrollment Field -->
+                                        <div class="data-field" style="width: 120px; min-width: 120px;">
+                                            <div class="data-label">Stats</div>
+                                            <div class="data-value">' . $company['enrolled'] . ' Enrolled</div>
+                                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">' . $company['completed'] . ' Completed</div>
+                                        </div>
+
+                                        <!-- Completion & Time Field -->
+                                        <div class="data-field" style="width: 160px; min-width: 160px;">
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                                <div class="data-label">Progress</div>
+                                                <div style="font-size: 11px; font-weight: 600; color: ' . $color . ';">' . $pct . '%</div>
+                                            </div>
+                                            <div class="progress-bar-slim">
+                                                <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; align-items: center; gap: 4px;">
+                                                <i class="fa-regular fa-clock"></i> Avg Time: ' . $avg_time . '
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="action-btn-kebab">
+                                        <i class="fa-solid fa-chevron-right"></i>
+                                    </div>
+                                  </div>';
                         }
-                        ?>
-                    </tbody>
-                </table>
+                    } else {
+                        echo '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No company data available.</div>';
+                    }
+                    ?>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -1098,55 +1251,86 @@ body {
                     <div class="card-title">Course Analytics (Top 10 Courses)</div>
                     <a href="#" class="action-link">View All</a>
                 </div>
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th class="table-header">Course Name</th>
-                            <th class="table-header">Enrolled</th>
-                            <th class="table-header">Completed</th>
-                            <th class="table-header" style="width: 200px;">Progress</th>
-                            <th class="table-header">Status</th>
-                            <th class="table-header" style="text-align: right;">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        if (!empty($course_data)) {
-                            foreach ($course_data as $course) {
-                                $pct = $course['progress'];
-                                $color = '#3b82f6'; // Blue
-                                if ($pct > 70) $color = '#10b981'; // Green
-                                if ($pct < 40) $color = '#f59e0b'; // Amber
+                <div class="glass-table-container">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div style="flex: 1;">Course Information</div>
+                        <div style="display: flex; gap: 40px; margin-right: 52px;"> <!-- Fixed alignment -->
+                            <div style="min-width: 100px;">Enrollment</div>
+                            <div style="min-width: 160px;">Progress & Time</div>
+                            <div style="min-width: 80px;">Status</div>
+                        </div>
+                    </div>
 
-                                echo '<tr class="table-row">
-                                        <td class="table-cell">
-                                            <div style="font-weight: 600;">' . $course['fullname'] . '</div>
-                                            <div style="font-size: 11px; color: var(--text-secondary);">' . $course['shortname'] . '</div>
-                                        </td>
-                                        <td class="table-cell">' . $course['enrolled'] . '</td>
-                                        <td class="table-cell">' . $course['completed'] . '</td>
-                                        <td class="table-cell">
-                                            <div style="display: flex; align-items: center; gap: 12px;">
-                                                <div class="progress-bar-slim">
-                                                    <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
-                                                </div>
-                                                <span style="font-weight: 600; font-size: 12px; color: var(--text-primary);">' . $pct . '%</span>
+                    <?php
+                    // Fix: Use $course_data instead of undefined $top_courses
+                    $top_courses = $course_data; 
+                    if (!empty($top_courses)) {
+                        foreach ($top_courses as $course) {
+                            $pct = $course['progress'];
+                            $color = '#3b82f6';
+                            if ($pct > 70) $color = '#10b981';
+                            
+                            $avg_time = $course['avg_time'] ?? '-';
+                            $category = $course['category'] ?? 'General';
+                            
+                            // Status Badge Style
+                            $status_color = ($course['status'] === 'ACTIVE') ? '#10b981' : '#ef4444';
+                            $status_bg = ($course['status'] === 'ACTIVE') ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+
+                            echo '<div class="glass-list-item">
+                                    <div style="display: flex; align-items: center; flex: 1;">
+                                        <div class="item-icon" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+                                            <i class="fa-solid fa-graduation-cap"></i>
+                                        </div>
+                                        <div class="item-info">
+                                            <div class="item-title">' . $course['fullname'] . '</div>
+                                            <div class="item-subtitle">
+                                                <span class="meta-badge">' . $category . '</span>
                                             </div>
-                                        </td>
-                                        <td class="table-cell">
-                                            <span class="status-badge ' . $course['status_class'] . '">' . $course['status'] . '</span>
-                                        </td>
-                                        <td class="table-cell" style="text-align: right;">
-                                            <a href="#" class="action-link">View</a>
-                                        </td>
-                                      </tr>';
-                            }
-                        } else {
-                            echo '<tr><td colspan="6" class="table-cell" style="text-align: center; padding: 24px; color: var(--text-secondary);">No course data available.</td></tr>';
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="data-field-group">
+                                        <!-- Enrollment -->
+                                        <div class="data-field">
+                                            <div class="data-label">Students</div>
+                                            <div class="data-value">' . $course['enrolled'] . ' Enrolled</div>
+                                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 2px;">' . $course['completed'] . ' Completed</div>
+                                        </div>
+
+                                        <!-- Progress & Time -->
+                                        <div class="data-field" style="min-width: 160px;">
+                                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                                <div class="data-label">Avg Progress</div>
+                                                <div style="font-size: 11px; font-weight: 600; color: ' . $color . ';">' . $pct . '%</div>
+                                            </div>
+                                            <div class="progress-bar-slim">
+                                                <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
+                                            </div>
+                                            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px; display: flex; align-items: center; gap: 4px;">
+                                                <i class="fa-regular fa-clock"></i> Time: ' . $avg_time . '
+                                            </div>
+                                        </div>
+
+                                        <!-- Status -->
+                                        <div class="data-field" style="min-width: 80px;">
+                                            <span style="padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; background: ' . $status_bg . '; color: ' . $status_color . ';">
+                                                ' . $course['status'] . '
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <a href="' . $CFG->wwwroot . '/course/view.php?id=' . $course['id'] . '" class="action-btn-kebab" style="text-decoration: none;">
+                                        <i class="fa-solid fa-arrow-right-long"></i>
+                                    </a>
+                                  </div>';
                         }
-                        ?>
-                    </tbody>
-                </table>
+                    } else {
+                        echo '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No courses available.</div>';
+                    }
+                    ?>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -1158,44 +1342,66 @@ body {
              ======================================================================== -->
         
         <?php if ($user_role === 'manager' && isset($role_context['companyname'])): ?>
-        <!-- MANAGER SECTION: My Company Users -->
-        <div class="bento-card card-span-4" style="margin-top: 32px;">
-            <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-building"></i> My Company: <?php echo $role_context['companyname']; ?></div>
-            </div>
-            <div class="card-header">
-                <div class="card-title"><i class="fa-solid fa-users"></i> Company Users</div>
-            </div>
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Last Access</th>
-                        <th>Enrollments</th>
-                        <th>Completions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $company_users = $loader->get_company_users(20);
-                    if (empty($company_users)) {
-                        echo '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No users found in your company</td></tr>';
-                    } else {
-                        foreach ($company_users as $user) {
-                            echo '<tr>';
-                            echo '<td>' . htmlspecialchars($user['fullname']) . '</td>';
-                            echo '<td>' . htmlspecialchars($user['email']) . '</td>';
-                            echo '<td>' . $user['lastaccess'] . '</td>';
-                            echo '<td>' . $user['enrollments'] . '</td>';
-                            echo '<td>' . $user['completions'] . '</td>';
-                            echo '</tr>';
-                        }
+            <!-- MANAGER SECTION: My Company Users -->
+            <div class="glass-table-container" style="margin-top: 32px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px;">
+                    <div class="card-title"><i class="fa-solid fa-users"></i> Company Users</div>
+                </div>
+                
+                <!-- Header -->
+                <div style="display: flex; justify-content: space-between; padding: 0 20px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    <div style="flex: 1;">User Details</div>
+                    <div style="display: flex; gap: 40px; margin-right: 60px;">
+                        <div style="min-width: 120px;">Last Access</div>
+                        <div style="min-width: 140px;">Learning Stats</div>
+                    </div>
+                </div>
+
+                <?php
+                $company_users = $loader->get_company_users(20);
+                if (empty($company_users)) {
+                    echo '<div style="text-align: center; padding: 40px; color: var(--text-secondary);">No users found in your company</div>';
+                } else {
+                    foreach ($company_users as $user) {
+                        // Initials
+                        $initials = mb_substr($user['fullname'], 0, 1);
+                        
+                        echo '<div class="glass-list-item">
+                                <div style="display: flex; align-items: center; flex: 1;">
+                                    <div class="item-icon" style="background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); border-radius: 50%;">
+                                        ' . $initials . '
+                                    </div>
+                                    <div class="item-info">
+                                        <div class="item-title">' . htmlspecialchars($user['fullname']) . '</div>
+                                        <div class="item-subtitle">' . htmlspecialchars($user['email']) . '</div>
+                                    </div>
+                                </div>
+                                
+                                <div class="data-field-group">
+                                    <!-- Last Access -->
+                                    <div class="data-field" style="min-width: 120px;">
+                                        <div class="data-label">Last Active</div>
+                                        <div class="data-value" style="font-size: 13px;">' . $user['lastaccess'] . '</div>
+                                    </div>
+
+                                    <!-- Stats -->
+                                    <div class="data-field" style="min-width: 140px;">
+                                        <div class="data-label">Progress</div>
+                                        <div style="font-size: 13px; color: var(--text-primary);">
+                                            <span style="font-weight: 600;">' . $user['completions'] . '</span> Completed 
+                                            <span style="color: var(--text-secondary);">/ ' . $user['enrollments'] . ' Enrolled</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="action-btn-kebab">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </div>
+                              </div>';
                     }
-                    ?>
-                </tbody>
-            </table>
-        </div>
+                }
+                ?>
+            </div>
         <?php endif; ?>
 
         <?php if ($user_role === 'teacher' && isset($role_context['course_count']) && $role_context['course_count'] > 0): ?>
@@ -1210,9 +1416,10 @@ body {
                 echo '<p style="text-align: center; color: var(--text-secondary); padding: 20px;">No students found in your courses</p>';
             } else {
                 foreach ($my_students as $course_data) {
-                    echo '<div class="bento-card card-span-4" style="margin-bottom: 24px;">';
-                    echo '<div class="card-header" style="margin-bottom: 16px;">';
-                    echo '<div class="card-title" style="display: flex; align-items: center; gap: 10px;">';
+                    echo '<div class="glass-table-container" style="margin-bottom: 32px;">';
+                    // Course Header
+                    echo '<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 0 10px;">';
+                    echo '<div class="card-title" style="display: flex; align-items: center; gap: 10px; font-size: 16px;">';
                     echo '<i class="fa-solid fa-book" style="color: var(--accent-primary);"></i> ' . htmlspecialchars($course_data['course_name']);
                     echo '<span class="status-badge status-active" style="font-size: 11px;">' . $course_data['student_count'] . ' Students</span>';
                     echo '</div>';
@@ -1221,44 +1428,65 @@ body {
                     if (empty($course_data['students'])) {
                         echo '<div style="text-align: center; padding: 30px; color: var(--text-secondary);">';
                         echo '<i class="fa-solid fa-user-slash" style="font-size: 24px; margin-bottom: 10px; opacity: 0.5;"></i>';
-                        echo '<p>No students currently enrolled in this course.</p>';
+                        echo '<p>No students currently enrolled.</p>';
                         echo '</div>';
                     } else {
-                        echo '<div style="overflow-x: auto;">';
-                        echo '<table class="data-table" style="width: 100%;">';
-                        echo '<thead>';
-                        echo '<tr>';
-                        echo '<th class="table-header">Student</th>';
-                        echo '<th class="table-header">Email</th>';
-                        echo '<th class="table-header">Progress</th>';
-                        echo '<th class="table-header">Last Access</th>';
-                        echo '<th class="table-header">Status</th>';
-                        echo '</tr>';
-                        echo '</thead>';
-                        echo '<tbody>';
+                        // Header Row
+                        echo '<div style="display: flex; justify-content: space-between; padding: 0 20px 8px; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 8px;">';
+                        echo '<div style="flex: 1;">Student</div>';
+                        echo '<div style="display: flex; gap: 40px; margin-right: 20px;">';
+                        echo '<div style="min-width: 140px;">Progress</div>';
+                        echo '<div style="min-width: 120px;">Last Access</div>';
+                        echo '<div style="min-width: 80px;">Status</div>';
+                        echo '</div>';
+                        echo '</div>';
+
                         foreach ($course_data['students'] as $student) {
-                            echo '<tr class="table-row">';
-                            echo '<td class="table-cell" style="font-weight: 500;">' . htmlspecialchars($student['fullname']) . '</td>';
-                            echo '<td class="table-cell" style="color: var(--text-secondary);">' . htmlspecialchars($student['email']) . '</td>';
-                            echo '<td class="table-cell">';
-                            echo '<div class="progress-bar-slim">';
-                            echo '<div class="progress-fill" style="width: ' . $student['progress'] . '%; background: var(--accent-success);"></div>';
-                            echo '</div>';
-                            echo '<div style="font-size: 11px; margin-top: 4px; color: var(--text-secondary); text-align: right;">' . $student['progress'] . '%</div>';
-                            echo '</td>';
-                            echo '<td class="table-cell">' . $student['lastaccess'] . '</td>';
-                            echo '<td class="table-cell">';
-                            echo $student['completed'] 
+                            $pct = $student['progress'];
+                            $color = '#3b82f6';
+                            if ($pct > 70) $color = '#10b981';
+                            
+                            $status_badge = $student['completed'] 
                                 ? '<span class="status-badge status-completed">Completed</span>' 
                                 : '<span class="status-badge status-warning">In Progress</span>';
-                            echo '</td>';
-                            echo '</tr>';
+
+                            // Initials
+                            $initials = mb_substr($student['fullname'], 0, 1);
+
+                            echo '<div class="glass-list-item" style="padding: 16px 20px; border: none; background: rgba(255,255,255,0.02); margin-bottom: 4px;">
+                                    <div style="display: flex; align-items: center; flex: 1;">
+                                        <div class="item-icon" style="width: 36px; height: 36px; font-size: 14px; background: rgba(255, 255, 255, 0.1); color: var(--text-primary); border-radius: 50%;">
+                                            ' . $initials . '
+                                        </div>
+                                        <div class="item-info" style="margin-left: 16px;">
+                                            <div class="item-title" style="font-size: 14px;">' . htmlspecialchars($student['fullname']) . '</div>
+                                            <div class="item-subtitle" style="font-size: 12px;">' . htmlspecialchars($student['email']) . '</div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="data-field-group" style="gap: 40px; margin-right: 0;">
+                                        <!-- Progress -->
+                                        <div class="data-field" style="min-width: 140px;">
+                                            <div class="progress-bar-slim" style="width: 100%;">
+                                                <div class="progress-fill" style="width: ' . $pct . '%; background: ' . $color . ';"></div>
+                                            </div>
+                                            <div style="font-size: 11px; margin-top: 4px; color: var(--text-secondary); text-align: right;">' . $pct . '% Complete</div>
+                                        </div>
+
+                                        <!-- Last Access -->
+                                        <div class="data-field" style="min-width: 120px;">
+                                            <div class="data-value" style="font-size: 13px; font-weight: 500;">' . $student['lastaccess'] . '</div>
+                                        </div>
+
+                                        <!-- Status -->
+                                        <div class="data-field" style="min-width: 80px;">
+                                            ' . $status_badge . '
+                                        </div>
+                                    </div>
+                                  </div>';
                         }
-                        echo '</tbody>';
-                        echo '</table>';
-                        echo '</div>';
                     }
-                    echo '</div>'; // End bento-card
+                    echo '</div>'; // End glass-table-container
                 }
             }
             ?>

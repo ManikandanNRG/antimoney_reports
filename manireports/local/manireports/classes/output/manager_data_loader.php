@@ -137,6 +137,10 @@ class manager_data_loader extends dashboard_data_loader {
         // Manager only sees their own company
         $sql = "SELECT c.id, c.name, c.shortname,
                        (SELECT COUNT(*) FROM {company_users} cu WHERE cu.companyid = c.id) as users,
+                       (SELECT COUNT(DISTINCT cu_act.userid) 
+                        FROM {company_users} cu_act
+                        JOIN {user} u_act ON u_act.id = cu_act.userid
+                        WHERE cu_act.companyid = c.id AND u_act.lastaccess > :lastweek) as active_users,
                        (SELECT COUNT(*) FROM {company_course} cc WHERE cc.companyid = c.id) as courses,
                        (SELECT COUNT(DISTINCT ue.id) 
                         FROM {company_users} cu2
@@ -150,7 +154,7 @@ class manager_data_loader extends dashboard_data_loader {
                  WHERE c.id = :companyid";
 
         try {
-            $companies = $DB->get_records_sql($sql, ['companyid' => $this->companyid]);
+            $companies = $DB->get_records_sql($sql, ['companyid' => $this->companyid, 'lastweek' => time() - (7 * 24 * 3600)]);
         } catch (\Exception $e) {
             return [];
         }
@@ -164,9 +168,11 @@ class manager_data_loader extends dashboard_data_loader {
                 'name' => $company->name,
                 'courses' => $company->courses,
                 'users' => $company->users,
+                'active_users' => $company->active_users,
                 'enrolled' => $company->enrolled,
                 'completed' => $company->completed,
-                'completion_rate' => $completion_rate
+                'completion_rate' => $completion_rate,
+                'time' => '0h 0m'
             ];
         }
 
@@ -187,9 +193,12 @@ class manager_data_loader extends dashboard_data_loader {
         }
 
         // Only courses assigned to this company
+        // Only courses assigned to this company
         $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible,
+                       (SELECT name FROM {course_categories} WHERE id = c.category) as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
-                       COUNT(DISTINCT cc.userid) as completed
+                       COUNT(DISTINCT cc.userid) as completed,
+                       AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
                   FROM {course} c
                   JOIN {company_course} compc ON compc.courseid = c.id
                   JOIN {enrol} e ON e.courseid = c.id
@@ -225,9 +234,11 @@ class manager_data_loader extends dashboard_data_loader {
                 'id' => $course->id,
                 'fullname' => $course->fullname,
                 'shortname' => $course->shortname,
+                'category' => $course->category_name,
                 'enrolled' => $course->enrolled,
                 'completed' => $course->completed,
                 'progress' => $progress,
+                'avg_time' => ($course->avg_duration > 0) ? round($course->avg_duration / 3600, 1) . 'h' : '-',
                 'status' => $status,
                 'status_class' => $status_class
             ];
