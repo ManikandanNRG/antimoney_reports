@@ -1258,7 +1258,7 @@ class dashboard_data_loader {
         'timeline_data' => $timeline_data
     ];
 }
-    }
+
 
     /**
      * Get Reminder Data for Dashboard.
