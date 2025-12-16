@@ -1116,30 +1116,43 @@ body {
                     </div>
 
 
-                    <!-- Col 2: Live Courses -->
+                    <!-- Col 2: Live Courses (Scrollable Leaderboard) -->
                     <div>
                         <div style="font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 16px;">Users by Course (Live)</div>
-                        <div style="display: flex; flex-direction: column; gap: 12px;">
-                            <?php foreach ($live_stats['top_courses'] as $course): ?>
+                        <div class="live-list-container" style="height: 200px; overflow-y: auto; padding-right: 8px;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
                                 <?php 
-                                    $percent = ($live_stats['active_users'] > 0) ? ($course->active_count / $live_stats['active_users']) * 100 : 0;
-                                    $color = '#3b82f6'; // Default Blue
-                                    if ($percent > 50) $color = '#8b5cf6'; // Purple for high activity
-                                    if ($percent < 20) $color = '#ef4444'; // Red for low
+                                    $rank = 1;
+                                    foreach ($live_stats['top_courses'] as $course): 
                                 ?>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary); margin-bottom: 4px;">
-                                        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><?php echo $course->fullname; ?></span>
-                                        <span style="font-weight: 600; color: var(--text-primary);"><?php echo $course->active_count; ?></span>
+                                    <?php 
+                                        $percent = ($live_stats['active_users'] > 0) ? ($course->active_count / $live_stats['active_users']) * 100 : 0;
+                                        $color = '#3b82f6'; // Default Blue
+                                        if ($percent > 50) $color = '#8b5cf6'; // Purple for high activity
+                                    ?>
+                                    <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 10px;">
+                                        <!-- Rank Badge -->
+                                        <div style="width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.1); font-size: 10px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-weight: 700; flex-shrink: 0;">
+                                            <?php echo $rank++; ?>
+                                        </div>
+                                        
+                                        <div style="flex: 1; min-width: 0;">
+                                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                                <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary);" title="<?php echo $course->fullname; ?>">
+                                                    <?php echo $course->fullname; ?>
+                                                </span>
+                                                <span style="font-weight: 600; color: #10b981;"><?php echo $course->active_count; ?></span>
+                                            </div>
+                                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+                                                <div style="width: <?php echo $percent; ?>%; height: 100%; background: <?php echo $color; ?>; border-radius: 2px;"></div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div style="width: 100%; height: 6px; background: var(--border-color); border-radius: 3px; overflow: hidden;">
-                                        <div style="width: <?php echo $percent; ?>%; height: 100%; background: <?php echo $color; ?>; border-radius: 3px;"></div>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                            <?php if (empty($live_stats['top_courses'])): ?>
-                                <div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 20px;">No active courses right now.</div>
-                            <?php endif; ?>
+                                <?php endforeach; ?>
+                                <?php if (empty($live_stats['top_courses'])): ?>
+                                    <div style="font-size: 12px; color: var(--text-secondary); text-align: center; padding: 20px;">No active courses right now.</div>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </div>
 

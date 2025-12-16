@@ -1187,7 +1187,7 @@ class dashboard_data_loader {
                         GROUP BY c.id, c.fullname
                         ORDER BY active_count DESC";
     
-    $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $since], 0, 5);
+    $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $since], 0, 10);
     
     // If no recent activity, fallback to enrollment count (but strictly for display structure)
     if (empty($top_courses)) {
@@ -1197,7 +1197,7 @@ class dashboard_data_loader {
                          JOIN {user_enrolments} ue ON ue.enrolid = e.id 
                          GROUP BY c.id, c.fullname 
                          ORDER BY active_count DESC";
-        $top_courses = $DB->get_records_sql($sql_fallback, null, 0, 5);
+        $top_courses = $DB->get_records_sql($sql_fallback, null, 0, 10);
     }
 
     $formatted_top_courses = [];
