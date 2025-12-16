@@ -1251,42 +1251,33 @@ class dashboard_data_loader {
     
     // Map Data: Active Users by Country (Last 5 mins)
     $map_data = [];
-    if ($DB->get_manager()->table_exists('logstore_standard_log')) {
-        $window = time() - 300;
-        // Fetch distinct users active in last 5 mins and their country
-        $sql_map = "SELECT u.country, COUNT(DISTINCT u.id) as user_count
-                      FROM {user} u
-                      JOIN {logstore_standard_log} l ON l.userid = u.id
-                     WHERE l.timecreated > :window AND u.deleted = 0
-                  GROUP BY u.country";
-        
-        $country_records = $DB->get_records_sql($sql_map, ['window' => $window]);
-        
-        // Aggregate (handling empty/null as 'IN')
-        $buckets_map = ['IN' => 0]; // Ensure India bucket exists
-        
-        foreach ($country_records as $rec) {
-            $code = !empty($rec->country) ? strtoupper($rec->country) : 'IN';
-            if (!isset($buckets_map[$code])) {
-                $buckets_map[$code] = 0;
-            }
-            $buckets_map[$code] += $rec->user_count;
+    $window = time() - 300;
+    
+    // Use {user} table directly via lastaccess for consistency with 'active_users' KPI
+    $sql_map = "SELECT country, COUNT(id) as user_count
+                  FROM {user}
+                 WHERE lastaccess > :window AND deleted = 0
+              GROUP BY country";
+    
+    $country_records = $DB->get_records_sql($sql_map, ['window' => $window]);
+    
+    // Aggregate (handling empty/null as 'IN')
+    $buckets_map = [];
+    
+    // If no records found but active_users > 0, it might be the admin with 0 lastaccess update? 
+    // Usually lastaccess updates on every page load.
+    
+    foreach ($country_records as $rec) {
+        $code = !empty($rec->country) ? strtoupper($rec->country) : 'IN';
+        if (!isset($buckets_map[$code])) {
+            $buckets_map[$code] = 0;
         }
+        $buckets_map[$code] += $rec->user_count;
+    }
 
-        // Format for VectorMap (array of objects is usually cleaner for markers)
-        // Or simple object { "IN": 5, "US": 2 }
-        // Let's return markers: [ {name: 'India', coords: [lat, lon] -- complex }, OR better: just codes and let JS handle coords?
-        // jsVectorMap markers need coords. Visualizing by Region fill is easier? Active users usually shown as markers.
-        // Let's use simple region data first, or if we want blinking markers, we need lat/long map.
-        // SIMPLER APPROACH: Pass data as { "IN": 10, "US": 5 } and let frontend use a map that highlights regions OR markers lookup.
-        // User asked for "blinking pointer". Markers are best.
-        // We will need a JS lookup for Country Code -> Lat/Long.
-        // Providing raw country counts to frontend is best.
-        
-        foreach ($buckets_map as $code => $count) {
-            if ($count > 0) {
-                $map_data[] = ['code' => $code, 'value' => $count];
-            }
+    foreach ($buckets_map as $code => $count) {
+        if ($count > 0) {
+            $map_data[] = ['code' => $code, 'value' => $count];
         }
     }
 
