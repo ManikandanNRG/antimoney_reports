@@ -3473,6 +3473,17 @@ function openCourseDrawer(courseId) {
                     </div>
                 </div>
             `;
+        })
+        .catch(err => {
+            console.error('Drawer Error:', err);
+            content.innerHTML = `
+                <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: var(--accent-danger); margin-bottom: 20px;"></i>
+                    <h3 style="color: var(--text-primary);">Error Loading Details</h3>
+                    <p style="color: var(--text-secondary);">Could not retrieve course information.</p>
+                    <button onclick="closeCourseDrawer()" class="export-btn" style="margin-top: 20px;">Close</button>
+                </div>
+            `;
         });
 }
 

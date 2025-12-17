@@ -839,33 +839,58 @@ class dashboard_data_loader {
     public function get_course_details($courseid) {
         global $DB;
         
-        // Basic Info
-        $course = $DB->get_record('course', ['id' => $courseid], 'fullname, shortname, startdate, visible, summary');
-        $category = $DB->get_field('course_categories', 'name', ['id' => $course->category]);
-        
-        // Teachers
-        $context = \context_course::instance($courseid);
-        $teachers = get_role_users(3, $context, true, 'u.id, u.firstname, u.lastname, u.email'); // 3 = editing teacher usually
-        $teacher_list = [];
-        foreach ($teachers as $t) {
-            $teacher_list[] = fullname($t);
+        // Debug Log
+        error_log("Manireports Debug: Fetching details for course ID: " . $courseid);
+
+        // 1. Basic Info
+        $course = $DB->get_record('course', ['id' => $courseid], 'fullname, shortname, startdate, visible, summary, category');
+        if (!$course) {
+             error_log("Manireports Error: Course not found with ID: " . $courseid);
+             return ['error' => 'Course not found'];
         }
 
-        // Stats
-        $enrolled = $DB->count_records('user_enrolments', ['enrolid' => $courseid]); // simplified, ideally via enrol join
-        // Better Enrol Count
+        $category = $DB->get_field('course_categories', 'name', ['id' => $course->category]);
+        if (!$category) $category = 'Uncategorized';
+        
+        // 2. Teachers (Robust SQL Method)
+        $teacher_list = [];
+        try {
+            $context = \context_course::instance($courseid);
+            $teacher_role_ids = array_keys($DB->get_records_sql("SELECT id FROM {role} WHERE shortname IN ('editingteacher', 'teacher')"));
+            
+            if (!empty($teacher_role_ids)) {
+                list($in_sql, $params) = $DB->get_in_or_equal($teacher_role_ids, SQL_PARAMS_NAMED);
+                $params['ctxid'] = $context->id;
+                
+                $sql = "SELECT u.id, u.firstname, u.lastname
+                        FROM {user} u
+                        JOIN {role_assignments} ra ON ra.userid = u.id
+                        WHERE ra.contextid = :ctxid AND ra.roleid $in_sql";
+                
+                $teachers = $DB->get_records_sql($sql, $params);
+                foreach ($teachers as $t) {
+                    $teacher_list[] = fullname($t);
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("Manireports Warning: Failed to fetch teachers: " . $e->getMessage());
+        }
+
+        // 3. Stats
+        // Accurate Enrol Count via SQL
         $enrolled = $DB->count_records_sql("SELECT COUNT(ue.id) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = ?", [$courseid]);
         
-        $completed = $DB->count_records('course_completions', ['course' => $courseid, 'timecompleted' => ['>', 0]]); // fix syntax
+        // Accurate Completion Count via SQL
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
-
+        
         return [
             'id' => $courseid,
             'fullname' => $course->fullname,
             'shortname' => $course->shortname,
             'category' => $category,
-            'summary' => strip_tags($course->summary),
+            'summary' => isset($course->summary) ? strip_tags((string)$course->summary) : '',
             'teachers' => implode(', ', $teacher_list),
+
             'stats' => [
                 'enrolled' => $enrolled,
                 'completed' => $completed,
