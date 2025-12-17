@@ -97,7 +97,14 @@ switch ($action) {
              $html_rows = '<tr><td colspan="5" style="text-align: center; padding: 30px; color: var(--text-secondary);">No courses found.</td></tr>';
         }
 
-        echo json_encode(['html' => $html_rows, 'pagination' => $result['pagination']]);
+        // Fetch Metrics for KPI Cards
+        $metrics = $loader->get_courses_tab_metrics($search, $category, $start_date, $end_date);
+
+        echo json_encode([
+            'html' => $html_rows, 
+            'pagination' => $result['pagination'],
+            'metrics' => $metrics
+        ]);
         break;
 
     case 'get_course_details':

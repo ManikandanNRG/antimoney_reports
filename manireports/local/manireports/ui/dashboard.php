@@ -1719,19 +1719,19 @@ body {
                 <!-- Row 1: KPIs -->
                 <div class="bento-card card-span-1">
                     <div class="card-title"><i class="fa-solid fa-book-open" style="color: var(--accent-primary);"></i> Active Courses</div>
-                    <div class="card-value"><?php echo $courses_metrics['active_courses']; ?></div>
+                    <div class="card-value" id="kpiCoursesActive"><?php echo $courses_metrics['active_courses']; ?></div>
                 </div>
                 <div class="bento-card card-span-1">
                     <div class="card-title"><i class="fa-solid fa-chart-pie" style="color: var(--accent-success);"></i> Avg Completion</div>
-                    <div class="card-value"><?php echo $courses_metrics['avg_completion']; ?>%</div>
+                    <div class="card-value" id="kpiCoursesAvg"><?php echo $courses_metrics['avg_completion']; ?>%</div>
                 </div>
                 <div class="bento-card card-span-1">
                     <div class="card-title"><i class="fa-solid fa-users" style="color: var(--accent-warning);"></i> Total Enrollments</div>
-                    <div class="card-value"><?php echo number_format($courses_metrics['total_enrollments']); ?></div>
+                    <div class="card-value" id="kpiCoursesEnrollments"><?php echo number_format($courses_metrics['total_enrollments']); ?></div>
                 </div>
                 <div class="bento-card card-span-1">
                     <div class="card-title"><i class="fa-solid fa-certificate" style="color: var(--accent-secondary);"></i> Certificates</div>
-                    <div class="card-value"><?php echo number_format($courses_metrics['certificates']); ?></div>
+                    <div class="card-value" id="kpiCoursesCertificates"><?php echo number_format($courses_metrics['certificates']); ?></div>
                 </div>
 
                 <?php if ($user_role !== 'student'): ?>
@@ -1827,6 +1827,14 @@ body {
                     } else {
                         paginationEl.style.display = 'none';
                     }
+
+                    // Update metrics
+                    if (data.metrics) {
+                        if(document.getElementById('kpiCoursesActive')) document.getElementById('kpiCoursesActive').innerText = data.metrics.active_courses;
+                        if(document.getElementById('kpiCoursesAvg')) document.getElementById('kpiCoursesAvg').innerText = data.metrics.avg_completion + '%';
+                        if(document.getElementById('kpiCoursesEnrollments')) document.getElementById('kpiCoursesEnrollments').innerText = new Intl.NumberFormat().format(data.metrics.total_enrollments);
+                        if(document.getElementById('kpiCoursesCertificates')) document.getElementById('kpiCoursesCertificates').innerText = new Intl.NumberFormat().format(data.metrics.certificates);
+                    }
                 })
                 .catch(err => {
                     console.error('Error loading courses:', err);
@@ -1864,6 +1872,12 @@ body {
         function clearCourseFilters() {
             document.getElementById('courseSearchInput').value = '';
             document.getElementById('courseCategorySelect').value = '0';
+            
+            // Clear Date Filters
+            if(document.getElementById('courseDateStart')) document.getElementById('courseDateStart').value = '';
+            if(document.getElementById('courseDateEnd')) document.getElementById('courseDateEnd').value = '';
+            if(document.getElementById('courseDateRangeLabel')) document.getElementById('courseDateRangeLabel').innerText = 'Select Date Range';
+            
             currentCoursePage = 1;
             loadCourses(1);
         }
