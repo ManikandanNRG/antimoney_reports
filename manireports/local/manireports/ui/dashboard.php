@@ -1676,6 +1676,12 @@ body {
                 
                 <!-- Filter Actions -->
                 <div style="display: flex; gap: 8px;">
+                     <!-- Date Filter -->
+                    <div class="filter-item" style="display: flex; gap: 8px; align-items: center; margin-right: 8px;">
+                        <input type="text" id="courseDateStart" placeholder="Start Date" onfocus="(this.type='date')" onblur="(this.type='text')" style="width: 130px; padding: 10px 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); outline: none; color: var(--text-primary); border-radius: 10px;">
+                        <span style="color: var(--text-secondary);">&mdash;</span>
+                        <input type="text" id="courseDateEnd" placeholder="End Date" onfocus="(this.type='date')" onblur="(this.type='text')" style="width: 130px; padding: 10px 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); outline: none; color: var(--text-primary); border-radius: 10px;">
+                    </div>
                     <button class="export-btn" onclick="loadCourses(1)" style="padding: 10px 20px; font-size: 14px;">Apply</button>
                     <button class="export-btn" onclick="clearCourseFilters()" style="background: var(--glass-bg); color: var(--text-secondary); border: 1px solid var(--glass-border); padding: 10px 20px; font-size: 14px;">Clear</button>
                 </div>
@@ -1766,6 +1772,8 @@ body {
             const tbody = document.getElementById('coursesTableBody');
             const search = document.getElementById('courseSearchInput').value;
             const category = document.getElementById('courseCategorySelect').value;
+            const dateStart = document.getElementById('courseDateStart') ? document.getElementById('courseDateStart').value : '';
+            const dateEnd = document.getElementById('courseDateEnd') ? document.getElementById('courseDateEnd').value : '';
             const paginationEl = document.getElementById('coursesPagination');
             
             // Fade out current content slightly to indicate loading
@@ -1775,7 +1783,9 @@ body {
                         '&sesskey=<?php echo sesskey(); ?>' +
                         '&page=' + currentCoursePage +
                         '&search=' + encodeURIComponent(search) +
-                        '&category=' + category;
+                        '&category=' + category + 
+                        '&start_date=' + encodeURIComponent(dateStart) +
+                        '&end_date=' + encodeURIComponent(dateEnd);
 
             fetch(url)
                 .then(response => response.json())

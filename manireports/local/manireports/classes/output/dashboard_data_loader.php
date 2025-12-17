@@ -755,6 +755,11 @@ class dashboard_data_loader {
         $params = [];
         $sql_where = "c.id > 1";
 
+        if ($start_date > 0 && $end_date > 0) {
+            $params['start_date'] = $start_date;
+            $params['end_date'] = $end_date;
+        }
+
         if (!empty($search)) {
             $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
             $params['search'] = '%' . $search . '%';
@@ -779,7 +784,8 @@ class dashboard_data_loader {
                   JOIN {course_categories} cat ON cat.id = c.category
                   JOIN {enrol} e ON e.courseid = c.id
                   LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                  LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                  LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0" . 
+                  (($start_date > 0 && $end_date > 0) ? " AND cc.timecompleted >= :start_date AND cc.timecompleted <= :end_date" : "") . "
                  WHERE $sql_where
               GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
               ORDER BY enrolled DESC";

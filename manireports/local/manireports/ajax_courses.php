@@ -12,6 +12,12 @@ $page = optional_param('page', 1, PARAM_INT);
 $limit = optional_param('limit', 20, PARAM_INT);
 $search = optional_param('search', '', PARAM_TEXT);
 $category = optional_param('category', 0, PARAM_INT);
+$start_str = optional_param('start_date', '', PARAM_TEXT);
+$end_str = optional_param('end_date', '', PARAM_TEXT);
+
+// Convert Date Strings to Timestamps
+$start_date = !empty($start_str) ? strtotime($start_str) : 0;
+$end_date = !empty($end_str) ? strtotime($end_str . ' 23:59:59') : 0;
 
 // Initialize Loader based on Role
 $user_context = \context_user::instance($USER->id);
@@ -31,7 +37,7 @@ if ($is_admin) {
 
 switch ($action) {
     case 'get_courses':
-        $result = $loader->get_courses_page($page, $limit, $search, $category);
+        $result = $loader->get_courses_page($page, $limit, $search, $category, $start_date, $end_date);
         
         // Return HTML rows for the table
         $html_rows = '';
