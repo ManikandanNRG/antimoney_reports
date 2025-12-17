@@ -1660,20 +1660,25 @@ body {
         <!-- COURSES TAB -->
         <div id="tab-courses" class="tab-content">
             <!-- Filter Bar -->
-            <div class="filter-area" style="margin-bottom: 32px; background: var(--glass-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
+            <div class="filter-area" style="margin-bottom: 32px; background: var(--glass-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border); display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
                 <!-- Search -->
-                <div class="filter-item" style="flex-grow: 1;">
+                <div class="filter-item" style="flex: 1; min-width: 300px;">
                     <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
-                    <input type="text" id="courseSearchInput" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);" onkeyup="debounceLoadCourses()">
+                    <input type="text" id="courseSearchInput" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2); border: none; outline: none; color: var(--text-primary);" onkeyup="debounceLoadCourses()">
                 </div>
                 <!-- Category Filter -->
                 <div class="filter-item">
-                    <select id="courseCategorySelect" class="filter-select" onchange="loadCourses(1)">
-                        <option value="0">All Categories</option>
-                        <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
+                    <select id="courseCategorySelect" class="filter-select" style="background: var(--glass-bg); color: var(--text-primary); border: 1px solid var(--glass-border); padding: 10px 16px; border-radius: 12px; font-size: 14px; outline: none; cursor: pointer;">
+                        <option value="0" style="background: var(--bg-body); color: var(--text-primary);">All Categories</option>
+                        <?php foreach ($course_categories as $id => $name) { echo "<option value='$id' style='background: var(--bg-body); color: var(--text-primary);'>$name</option>"; } ?>
                     </select>
                 </div>
-                <!-- REMOVED: Local Date Filters (Consolidated to Global Header) -->
+                
+                <!-- Filter Actions -->
+                <div style="display: flex; gap: 8px;">
+                    <button class="export-btn" onclick="loadCourses(1)" style="padding: 10px 20px; font-size: 14px;">Apply</button>
+                    <button class="export-btn" onclick="clearCourseFilters()" style="background: var(--glass-bg); color: var(--text-secondary); border: 1px solid var(--glass-border); padding: 10px 20px; font-size: 14px;">Clear</button>
+                </div>
             </div>
 
             <div class="bento-grid">
@@ -1816,6 +1821,13 @@ body {
                 currentCoursePage = 1; // Reset to page 1 on search
                 loadCourses(1);
             }, 500); // 500ms delay
+        }
+
+        function clearCourseFilters() {
+            document.getElementById('courseSearchInput').value = '';
+            document.getElementById('courseCategorySelect').value = '0';
+            currentCoursePage = 1;
+            loadCourses(1);
         }
 
         // Initialize on Load
