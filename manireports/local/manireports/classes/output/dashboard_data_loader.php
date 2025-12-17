@@ -1199,8 +1199,8 @@ class dashboard_data_loader {
         $active_courses_count = $DB->count_records('course', ['visible' => 1]);
         
         // Top Active Courses (Live)
-    // We'll consider "active" as courses with recent log activity in the last 24h
-    $since = time() - (24 * 3600);
+    // We'll consider "active" as courses with recent log activity in the last 5 minutes
+    $since = time() - 300;
     $sql_top_courses = "SELECT c.id, c.fullname, COUNT(DISTINCT l.userid) as active_count
                         FROM {course} c
                         JOIN {logstore_standard_log} l ON l.courseid = c.id
@@ -1210,15 +1210,9 @@ class dashboard_data_loader {
     
     $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $since], 0, 10);
     
-    // If no recent activity, fallback to enrollment count (but strictly for display structure)
+    // If no recent activity, return empty to be accurate
     if (empty($top_courses)) {
-        $sql_fallback = "SELECT c.id, c.fullname, COUNT(ue.id) as active_count 
-                         FROM {course} c 
-                         JOIN {enrol} e ON e.courseid = c.id 
-                         JOIN {user_enrolments} ue ON ue.enrolid = e.id 
-                         GROUP BY c.id, c.fullname 
-                         ORDER BY active_count DESC";
-        $top_courses = $DB->get_records_sql($sql_fallback, null, 0, 10);
+        $top_courses = [];
     }
 
     $formatted_top_courses = [];
