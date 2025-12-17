@@ -1677,13 +1677,41 @@ body {
                 <!-- Filter Actions -->
                 <div style="display: flex; gap: 8px;">
                      <!-- Date Filter -->
-                    <div class="filter-item" style="display: flex; gap: 8px; align-items: center; margin-right: 8px;">
-                        <input type="text" id="courseDateStart" placeholder="Start Date" onfocus="(this.type='date')" onblur="(this.type='text')" style="width: 130px; padding: 10px 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); outline: none; color: var(--text-primary); border-radius: 10px;">
-                        <span style="color: var(--text-secondary);">&mdash;</span>
-                        <input type="text" id="courseDateEnd" placeholder="End Date" onfocus="(this.type='date')" onblur="(this.type='text')" style="width: 130px; padding: 10px 14px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); outline: none; color: var(--text-primary); border-radius: 10px;">
+                     <!-- Date Filter Popover Trigger -->
+                    <div style="position: relative;">
+                        <button id="courseDateRangeTrigger" class="filter-select" onclick="toggleCourseDatePopover()" style="background: var(--glass-bg); color: var(--text-primary); border: 1px solid var(--glass-border); padding: 10px 16px; border-radius: 12px; font-size: 14px; outline: none; cursor: pointer; display: flex; align-items: center; gap: 8px; min-width: 200px;">
+                            <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
+                            <span id="courseDateRangeLabel">Select Date Range</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: auto; color: var(--text-secondary);"></i>
+                        </button>
+                        
+                        <!-- Popover Content (Exact Match to Overview) -->
+                        <div id="courseDatePopover" style="display: none; position: absolute; top: 110%; right: 0; background: rgba(30, 41, 59, 0.95); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); padding: 20px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 1000; width: 340px;">
+                            <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Select Date Range</div>
+                            
+                            <div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center;">
+                                <input type="date" id="courseDateStart" class="filter-input" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); width: 100%;" placeholder="dd-mm-yyyy">
+                                <span style="color: var(--text-secondary); font-weight: bold;">:</span>
+                                <input type="date" id="courseDateEnd" class="filter-input" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); width: 100%;" placeholder="dd-mm-yyyy">
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+                                <button class="filter-select quick-filter-btn" onclick="setCourseDateFilter('1W')" style="justify-content: center;">1W</button>
+                                <button class="filter-select quick-filter-btn" onclick="setCourseDateFilter('1M')" style="justify-content: center;">1M</button>
+                                <button class="filter-select quick-filter-btn" onclick="setCourseDateFilter('3M')" style="justify-content: center;">3M</button>
+                                <button class="filter-select quick-filter-btn" onclick="setCourseDateFilter('YTD')" style="justify-content: center;">YTD</button>
+                            </div>
+                            
+                            <button class="filter-select quick-filter-btn" onclick="setCourseDateFilter('ALL')" style="width: 100%; margin-bottom: 16px; justify-content: center;">ALL TIME</button>
+                            
+                            <div style="display: flex; gap: 10px;">
+                                <button class="export-btn" onclick="applyCourseDateFilter()" style="flex: 1; justify-content: center; background: var(--accent-primary); border-radius: 8px;">Apply Filter</button>
+                                <button class="export-btn" onclick="clearCourseFilters()" style="flex: 1; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); justify-content: center; border-radius: 8px;">Clear</button>
+                            </div>
+                        </div>
                     </div>
-                    <button class="export-btn" onclick="loadCourses(1)" style="padding: 10px 20px; font-size: 14px;">Apply</button>
-                    <button class="export-btn" onclick="clearCourseFilters()" style="background: var(--glass-bg); color: var(--text-secondary); border: 1px solid var(--glass-border); padding: 10px 20px; font-size: 14px;">Clear</button>
+
+
                 </div>
             </div>
 
@@ -2638,6 +2666,76 @@ function switchTab(tabName) {
 // ========================================================================
 
 
+// ===============================
+// COURSE DATE FILTER LOGIC
+// ===============================
+function toggleCourseDatePopover() {
+    const popover = document.getElementById('courseDatePopover');
+    if (popover.style.display === 'none') {
+        popover.style.display = 'block';
+    } else {
+        popover.style.display = 'none';
+    }
+}
+
+function setCourseDateFilter(range) {
+    const today = new Date();
+    let startDate = new Date();
+
+    const buttons = document.querySelectorAll('#courseDatePopover .quick-filter-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    if (window.event && window.event.target) window.event.target.classList.add('active');
+
+    switch(range) {
+        case '1W': startDate.setDate(today.getDate() - 7); break;
+        case '1M': startDate.setMonth(today.getMonth() - 1); break;
+        case '3M': startDate.setMonth(today.getMonth() - 3); break;
+        case 'YTD': startDate = new Date(today.getFullYear(), 0, 1); break;
+        case 'ALL': startDate = null; break;
+    }
+
+    const formatDate = (date) => {
+        const d = date.getDate().toString().padStart(2, '0');
+        const m = (date.getMonth() + 1).toString().padStart(2, '0');
+        const y = date.getFullYear();
+        return `${y}-${m}-${d}`;
+    };
+
+    // Update Label logic
+    const label = document.getElementById('courseDateRangeLabel');
+    if (label) label.innerText = (range === 'ALL') ? 'All Time' : 'Last ' + range;
+
+    const startElem = document.getElementById('courseDateStart');
+    const endElem = document.getElementById('courseDateEnd');
+    
+    if (range === 'ALL') {
+         if (startElem) startElem.value = '';
+         if (endElem) endElem.value = '';
+    } else {
+        if (startElem && startDate) startElem.value = formatDate(startDate);
+        if (endElem) endElem.value = formatDate(today);
+    }
+}
+
+function applyCourseDateFilter() {
+    // 1. Update the label if custom range
+    const start = document.getElementById('courseDateStart').value;
+    const end = document.getElementById('courseDateEnd').value;
+    const label = document.getElementById('courseDateRangeLabel');
+    
+    if (start && end) {
+        label.innerText = `${start} to ${end}`;
+    } else if (!start && !end) {
+        label.innerText = 'All Time';
+    }
+
+    // 2. Hide Popover
+    document.getElementById('courseDatePopover').style.display = 'none';
+
+    // 3. Trigger Load
+    loadCourses(1);
+}
+
 // Date Filter Logic (Popover)
 function toggleDatePopover() {
     const popover = document.getElementById('datePopover');
@@ -2650,11 +2748,18 @@ function toggleDatePopover() {
 
 // Close popover when clicking outside
 document.addEventListener('click', function(event) {
-    // Date Popover
+    // 1. Overview Date Popover
     const popover = document.getElementById('datePopover');
     const trigger = document.getElementById('dateRangeTrigger');
     if (popover && trigger && !popover.contains(event.target) && !trigger.contains(event.target)) {
         popover.style.display = 'none';
+    }
+
+    // 2. Course Date Popover
+    const coursePopover = document.getElementById('courseDatePopover');
+    const courseTrigger = document.getElementById('courseDateRangeTrigger');
+    if (coursePopover && courseTrigger && !coursePopover.contains(event.target) && !courseTrigger.contains(event.target)) {
+        coursePopover.style.display = 'none';
     }
     
     // Export Dropdown
