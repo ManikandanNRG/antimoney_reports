@@ -126,21 +126,40 @@ if (isset($role_context['course_count'])) {
 $start_param = optional_param('start', '', PARAM_TEXT);
 $end_param = optional_param('end', '', PARAM_TEXT);
 
+// Default to Last 30 Days if no filter is set (To match UI label)
+if (empty($start_param) && empty($end_param)) {
+    $start_param = date('d-m-Y', strtotime('-30 days'));
+    $end_param = date('d-m-Y');
+}
+
 $start_timestamp = 0;
 $end_timestamp = 0;
 
 if ($start_param) {
-    $dt = DateTime::createFromFormat('d-m-Y', $start_param);
-    if ($dt) {
-        $dt->setTime(0, 0, 0);
-        $start_timestamp = $dt->getTimestamp();
+    // If it's a Unix timestamp (numeric), use it directly
+    if (is_numeric($start_param)) {
+        $start_timestamp = $start_param;
+        // Convert back to d-m-Y for display in inputs
+        $start_param = date('d-m-Y', $start_param);
+    } else {
+        $dt = DateTime::createFromFormat('d-m-Y', $start_param);
+        if ($dt) {
+            $dt->setTime(0, 0, 0);
+            $start_timestamp = $dt->getTimestamp();
+        }
     }
 }
 if ($end_param) {
-    $dt = DateTime::createFromFormat('d-m-Y', $end_param);
-    if ($dt) {
-        $dt->setTime(23, 59, 59);
-        $end_timestamp = $dt->getTimestamp();
+    // If it's a Unix timestamp
+    if (is_numeric($end_param)) {
+        $end_timestamp = $end_param;
+        $end_param = date('d-m-Y', $end_param);
+    } else {
+        $dt = DateTime::createFromFormat('d-m-Y', $end_param);
+        if ($dt) {
+            $dt->setTime(23, 59, 59);
+            $end_timestamp = $dt->getTimestamp();
+        }
     }
 }
 
@@ -455,8 +474,10 @@ body {
 .filter-select, .filter-input {
     padding: 6px 12px; background: rgba(0, 0, 0, 0.1); border: 1px solid var(--glass-border);
     border-radius: 8px; color: var(--text-primary); font-family: inherit; outline: none;
-    transition: var(--transition); min-width: 120px; font-size: 13px;
+    transition: var(--transition); font-size: 13px; /* Removed min-width global, added locally if needed */
 }
+.filter-input { min-width: 120px; }
+.quick-filter-btn { min-width: 0 !important; width: 100%; text-align: center; }
 [data-theme="light"] .filter-select, [data-theme="light"] .filter-input { background: rgba(255, 255, 255, 0.5); }
 .filter-select:focus, .filter-input:focus { border-color: var(--accent-primary); background: rgba(0, 0, 0, 0.15); }
 .export-btn {
@@ -513,7 +534,10 @@ body {
 .card-trend { font-size: 14px; display: flex; align-items: center; gap: 4px; }
 .trend-up { color: var(--accent-success); }
 .trend-down { color: var(--accent-danger); }
+.trend-up { color: var(--accent-success); }
+.trend-down { color: var(--accent-danger); }
 .card-illustration { position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; object-fit: contain; opacity: 0.6; pointer-events: none; z-index: 1; }
+.card-illustration-icon { position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 64px; opacity: 0.1; color: var(--text-primary); pointer-events: none; z-index: 1; }
 .card-content-wrapper { position: relative; z-index: 2; }
 .table-header { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; padding: 12px; text-align: left; }
 .table-row { border-bottom: 1px solid var(--glass-border); transition: var(--transition); }
@@ -784,11 +808,7 @@ body {
                     <button class="glass-btn small" onclick="toggleExportMenu()" title="Export Report" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--accent-primary); color: white; cursor: pointer;">
                         <i class="fa-solid fa-download"></i>
                     </button>
-                    <div class="dropdown-menu" id="exportDropdown" style="right: 0; left: auto;">
-                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')"><i class="fa-solid fa-file-csv"></i> Export CSV</div>
-                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'xlsx')"><i class="fa-solid fa-file-excel"></i> Export Excel</div>
-                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')"><i class="fa-solid fa-file-pdf"></i> Export PDF</div>
-                    </div>
+                    <!-- Export Dropdown moved to root -->
                  </div>
             </div>
         </div>
@@ -813,6 +833,17 @@ body {
                 <button class="export-btn" onclick="clearAllFilters()" style="flex: 1; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); justify-content: center; border-radius: 8px;">Clear</button>
             </div>
         </div>
+
+        <!-- Export Dropdown Global (Fixed Position) -->
+        <div id="exportDropdown" style="display: none; position: fixed; top: 190px; right: 20px; background: rgba(30, 41, 59, 0.95); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); padding: 8px; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 9999; width: 180px;">
+            <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')" style="padding: 10px; border-radius: 8px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"><i class="fa-solid fa-file-csv"></i> Export CSV</div>
+            <div class="dropdown-item" onclick="triggerExport('course_completion', 'xlsx')" style="padding: 10px; border-radius: 8px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"><i class="fa-solid fa-file-excel"></i> Export Excel</div>
+            <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')" style="padding: 10px; border-radius: 8px; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s;"><i class="fa-solid fa-file-pdf"></i> Export PDF</div>
+        </div>
+
+        <style>
+            .dropdown-item:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary); }
+        </style>
 
 
 
@@ -891,7 +922,7 @@ body {
 
             <!-- KPI 1 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/boy?username=Company" class="card-illustration" alt="KPI1">
+                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>"></i></div>
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>" style="color: var(--accent-primary);"></i> <?php echo $kpi_labels['kpi1']; ?></div>
@@ -903,7 +934,7 @@ body {
 
             <!-- KPI 2 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/girl?username=Course" class="card-illustration" alt="KPI2">
+                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>"></i></div>
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>" style="color: var(--accent-success);"></i> <?php echo $kpi_labels['kpi2']; ?></div>
@@ -915,7 +946,7 @@ body {
 
             <!-- KPI 3 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/boy?username=Users" class="card-illustration" alt="KPI3">
+                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>"></i></div>
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>" style="color: var(--accent-warning);"></i> <?php echo $kpi_labels['kpi3']; ?></div>
@@ -927,7 +958,7 @@ body {
 
             <!-- KPI 4 -->
             <div class="bento-card card-span-1">
-                <img src="https://avatar.iran.liara.run/public/girl?username=Complete" class="card-illustration" alt="KPI4">
+                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>"></i></div>
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>" style="color: var(--accent-secondary);"></i> <?php echo $kpi_labels['kpi4']; ?></div>
@@ -2474,10 +2505,23 @@ function toggleDatePopover() {
 
 // Close popover when clicking outside
 document.addEventListener('click', function(event) {
+    // Date Popover
     const popover = document.getElementById('datePopover');
     const trigger = document.getElementById('dateRangeTrigger');
     if (popover && trigger && !popover.contains(event.target) && !trigger.contains(event.target)) {
         popover.style.display = 'none';
+    }
+    
+    // Export Dropdown
+    const exportMenu = document.getElementById('exportDropdown');
+    // We need to identify the export trigger button. It doesn't have an ID.
+    // Let's rely on the click event bubbling or add a check if it's NOT the button.
+    // Safest is to add an ID/class to the button or check target closest.
+    if (exportMenu && exportMenu.style.display === 'block') {
+         // Using closest to check if click is inside menu or trigger
+         if (!event.target.closest('#exportDropdown') && !event.target.closest('button[onclick="toggleExportMenu()"]')) {
+             exportMenu.style.display = 'none';
+         }
     }
 });
 function setDateFilter(range) {
@@ -2570,8 +2614,16 @@ function clearAllFilters() {
 // Export Logic
 function toggleExportMenu() {
     const menu = document.getElementById('exportDropdown');
+    const datePopover = document.getElementById('datePopover');
     if (menu) {
-        menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        // Toggle menu
+        if (menu.style.display === 'block') {
+            menu.style.display = 'none';
+        } else {
+            // Close other popover if open
+            if (datePopover) datePopover.style.display = 'none';
+            menu.style.display = 'block';
+        }
     }
 }
 
