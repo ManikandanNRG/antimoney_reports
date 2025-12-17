@@ -2996,43 +2996,53 @@ document.addEventListener('DOMContentLoaded', function() {
             hover: { fill: '#34d399', stroke: '#ffffff', strokeWidth: 2 }
         };
 
-        new jsVectorMap({
+        // Fix: Only enable visualizeData if we have values, otherwise it crashes with hexToRgb error
+        const values = {};
+        markers.forEach(m => { values[m.name] = m.value; });
+
+        const mapConfig = {
             selector: '#world-map-markers',
             map: 'world',
             zoomButtons: false,
             zoomOnScroll: false,
-            visualizeData: { scale: ['#10b981'], values: {} }, 
             regionStyle: {
-                initial: { fill: 'rgba(148, 163, 184, 0.2)' }
-            },
-            markers: markers,
-            markerStyle: markerStyle,
-            labels: {
-                markers: {
-                    render: (marker) => marker.value > 0 ? marker.value : '' // Only show count if needed? Maybe too cluttered.
-                }
+                initial: { fill: '#334155' } // Use Hex to avoid hexToRgb error
             },
             onLoaded(map) {
-                // Add CSS animation class to markers
                  document.querySelectorAll('.jvm-marker').forEach(el => {
                      el.classList.add('map-pulse');
                  });
             },
             tooltip: {
                 text: function(name, count) {
-                   return 'User ' + count
+                   return 'User ' + count;
                 }
-            },
-            onMarkerTooltipShow(event, tooltip, index) {
+            }
+        };
+
+        // Only add markers if we actually have data
+        if (markers.length > 0) {
+            mapConfig.markers = markers;
+            mapConfig.markerStyle = markerStyle;
+            mapConfig.labels = {
+                markers: {
+                    render: (marker) => marker.value > 0 ? marker.value : ''
+                }
+            };
+            // removed visualizeData entirely as it causes crashes on single color scales
+            
+            mapConfig.onMarkerTooltipShow = function(event, tooltip, index) {
                 tooltip.text(
                     '<div style="text-align:center;">' + 
                     '<b style="color:#fff;">' + markers[index].name + '</b><br/>' + 
                     '<span style="color:#10b981;">● ' + markers[index].value + ' Active Users</span>' +
                     '</div>',
-                    true // HTML
+                    true
                 );
-            }
-        });
+            };
+        }
+
+        new jsVectorMap(mapConfig);
     }
 
     // Add Pulse CSS via JS if not in CSS file yet
