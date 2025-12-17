@@ -1729,11 +1729,11 @@ body {
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead class="sticky-header">
                             <tr>
-                                <th class="table-header">Course Name & Category</th>
-                                <th class="table-header">Enrollment</th>
-                                <th class="table-header" style="width: 180px;">Progress & Time</th>
-                                <th class="table-header">Status</th>
-                                <th class="table-header" style="text-align: right;">Action</th>
+                                <th class="table-header" style="width: 50%; max-width: 400px;">Course Name & Category</th>
+                                <th class="table-header" style="width: 15%;">Enrollment</th>
+                                <th class="table-header" style="width: 15%;">Progress & Time</th>
+                                <th class="table-header" style="width: 10%; text-align: right;">Status</th>
+                                <th class="table-header" style="width: 10%; text-align: right;">Action</th>
                             </tr>
                         </thead>
                         <tbody id="coursesTableBody">

@@ -38,15 +38,15 @@ switch ($action) {
         foreach ($result['rows'] as $course) {
             $html_rows .= '<tr class="table-row">';
             // Course & Category
-            $html_rows .= '<td class="table-cell">';
-            $html_rows .= '<div style="font-weight: 600; color: var(--text-primary);">' . htmlspecialchars($course['fullname']) . '</div>';
-            $html_rows .= '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">' . htmlspecialchars($course['category']) . '</div>';
+            $html_rows .= '<td class="table-cell" style="white-space: normal; word-wrap: break-word; max-width: 300px;">';
+            $html_rows .= '<div style="font-weight: 600; color: var(--text-primary); line-height: 1.4;">' . htmlspecialchars($course['fullname']) . '</div>';
+            $html_rows .= '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">' . htmlspecialchars($course['category']) . '</div>';
             $html_rows .= '</td>';
             
             // Enrolled with Sparkline
             $html_rows .= '<td class="table-cell">';
-            $html_rows .= '<div style="display: flex; align-items: center; gap: 12px;">';
-            $html_rows .= '<div style="font-weight: 600;">' . $course['enrolled'] . ' <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">Students</span></div>';
+            $html_rows .= '<div style="display: flex; flex-direction: column; gap: 4px;">';
+            $html_rows .= '<div style="font-weight: 600; font-size: 15px; white-space: nowrap;">' . $course['enrolled'] . ' <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">Students</span></div>';
             
             // Generate Random Sparkline Path
             $pts = [];
@@ -75,7 +75,7 @@ switch ($action) {
             $html_rows .= '</td>';
             
             // Status
-            $html_rows .= '<td class="table-cell">';
+            $html_rows .= '<td class="table-cell" style="text-align: right;">';
             $html_rows .= '<span class="status-badge ' . $course['status_class'] . '">' . $course['status'] . '</span>';
             $html_rows .= '</td>';
             
