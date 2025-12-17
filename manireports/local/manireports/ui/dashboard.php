@@ -536,8 +536,9 @@ body {
 .trend-down { color: var(--accent-danger); }
 .trend-up { color: var(--accent-success); }
 .trend-down { color: var(--accent-danger); }
+.trend-up { color: var(--accent-success); }
+.trend-down { color: var(--accent-danger); }
 .card-illustration { position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; object-fit: contain; opacity: 0.6; pointer-events: none; z-index: 1; }
-.card-illustration-icon { position: absolute; top: 10px; right: 10px; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; font-size: 64px; opacity: 0.1; color: var(--text-primary); pointer-events: none; z-index: 1; }
 .card-content-wrapper { position: relative; z-index: 2; }
 .table-header { color: var(--text-secondary); font-weight: 500; font-size: 12px; text-transform: uppercase; padding: 12px; text-align: left; }
 .table-row { border-bottom: 1px solid var(--glass-border); transition: var(--transition); }
@@ -922,7 +923,7 @@ body {
 
             <!-- KPI 1 -->
             <div class="bento-card card-span-1">
-                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>"></i></div>
+                <img src="<?php echo $OUTPUT->image_url('kpi_company', 'local_manireports'); ?>" class="card-illustration" alt="KPI1">
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>" style="color: var(--accent-primary);"></i> <?php echo $kpi_labels['kpi1']; ?></div>
@@ -934,7 +935,7 @@ body {
 
             <!-- KPI 2 -->
             <div class="bento-card card-span-1">
-                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>"></i></div>
+                <img src="<?php echo $OUTPUT->image_url('kpi_courses', 'local_manireports'); ?>" class="card-illustration" alt="KPI2">
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>" style="color: var(--accent-success);"></i> <?php echo $kpi_labels['kpi2']; ?></div>
@@ -946,7 +947,7 @@ body {
 
             <!-- KPI 3 -->
             <div class="bento-card card-span-1">
-                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>"></i></div>
+                <img src="<?php echo $OUTPUT->image_url('kpi_users', 'local_manireports'); ?>" class="card-illustration" alt="KPI3">
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>" style="color: var(--accent-warning);"></i> <?php echo $kpi_labels['kpi3']; ?></div>
@@ -958,7 +959,7 @@ body {
 
             <!-- KPI 4 -->
             <div class="bento-card card-span-1">
-                <div class="card-illustration-icon"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>"></i></div>
+                <img src="<?php echo $OUTPUT->image_url('kpi_completion', 'local_manireports'); ?>" class="card-illustration" alt="KPI4">
                 <div class="card-content-wrapper">
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>" style="color: var(--accent-secondary);"></i> <?php echo $kpi_labels['kpi4']; ?></div>
