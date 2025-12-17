@@ -900,6 +900,12 @@ body {
                         'icon3' => 'fa-users',
                         'icon4' => 'fa-trophy'
                     ];
+                    $kpi_values = [
+                        'kpi1' => $kpi_data['companies'], // Fixed: Mapped to companies
+                        'kpi2' => $kpi_data['courses'],
+                        'kpi3' => number_format($kpi_data['users']), // Fixed: Mapped to users
+                        'kpi4' => $kpi_data['completion_rate']
+                    ];
                     break;
                 case 'manager':
                     $kpi_labels = [
@@ -911,6 +917,12 @@ body {
                         'icon2' => 'fa-book',
                         'icon3' => 'fa-users',
                         'icon4' => 'fa-trophy'
+                    ];
+                    $kpi_values = [
+                        'kpi1' => isset($role_context['companyname']) ? $role_context['companyname'] : 'My Company',
+                        'kpi2' => $kpi_data['courses'],
+                        'kpi3' => $kpi_data['users'],
+                        'kpi4' => $kpi_data['completion_rate']
                     ];
                     break;
                 case 'teacher':
@@ -924,6 +936,12 @@ body {
                         'icon3' => 'fa-user-graduate',
                         'icon4' => 'fa-chart-line'
                     ];
+                    $kpi_values = [
+                        'kpi1' => $kpi_data['courses'], // Fixed: Mapped to courses
+                        'kpi2' => $kpi_data['active_users'], // In Progress count logic
+                        'kpi3' => $kpi_data['users'], // Total Students
+                        'kpi4' => $kpi_data['completion_rate']
+                    ];
                     break;
                 case 'student':
                     $kpi_labels = [
@@ -935,6 +953,12 @@ body {
                         'icon2' => 'fa-spinner',
                         'icon3' => 'fa-check-circle',
                         'icon4' => 'fa-chart-line'
+                    ];
+                    $kpi_values = [
+                        'kpi1' => $kpi_data['users'], // Enrolled
+                        'kpi2' => $kpi_data['courses'], // In Progress
+                        'kpi3' => $kpi_data['companies'], // Completed
+                        'kpi4' => $kpi_data['completion_rate']
                     ];
                     break;
                 default:
@@ -948,6 +972,12 @@ body {
                         'icon3' => 'fa-users',
                         'icon4' => 'fa-trophy'
                     ];
+                    $kpi_values = [
+                        'kpi1' => $kpi_data['companies'],
+                        'kpi2' => $kpi_data['courses'],
+                        'kpi3' => $kpi_data['users'],
+                        'kpi4' => $kpi_data['completion_rate']
+                    ];
             }
             ?>
             <!-- KPI Cards (Always Visible) -->
@@ -960,7 +990,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon1']; ?>" style="color: var(--accent-primary);"></i> <?php echo $kpi_labels['kpi1']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo ($user_role === 'manager' && isset($role_context['companyname'])) ? $role_context['companyname'] : $kpi_data['users']; ?></div>
+                    <div class="card-value"><?php echo $kpi_values['kpi1']; ?></div>
                     <div style="height: 60px;"><canvas id="chartCompanies"></canvas></div>
                 </div>
             </div>
@@ -972,7 +1002,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon2']; ?>" style="color: var(--accent-success);"></i> <?php echo $kpi_labels['kpi2']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['courses']; ?></div>
+                    <div class="card-value"><?php echo $kpi_values['kpi2']; ?></div>
                     <div style="height: 60px;"><canvas id="chartCourses"></canvas></div>
                 </div>
             </div>
@@ -984,7 +1014,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon3']; ?>" style="color: var(--accent-warning);"></i> <?php echo $kpi_labels['kpi3']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo number_format($kpi_data['companies']); ?></div>
+                    <div class="card-value"><?php echo $kpi_values['kpi3']; ?></div>
                     <div style="height: 60px;"><canvas id="chartUsers"></canvas></div>
                 </div>
             </div>
@@ -996,7 +1026,7 @@ body {
                     <div class="card-header">
                         <div class="card-title"><i class="fa-solid <?php echo $kpi_labels['icon4']; ?>" style="color: var(--accent-secondary);"></i> <?php echo $kpi_labels['kpi4']; ?></div>
                     </div>
-                    <div class="card-value"><?php echo $kpi_data['completion_rate']; ?><?php echo ($user_role === 'student' || $user_role === 'teacher') ? '%' : '%'; ?></div>
+                    <div class="card-value"><?php echo $kpi_values['kpi4']; ?><?php echo ($user_role === 'student' || $user_role === 'teacher') ? '%' : '%'; ?></div>
                     <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin-top: 20px;">
                         <div style="width: <?php echo $kpi_data['completion_rate']; ?>%; height: 100%; background: var(--accent-secondary); border-radius: 3px;"></div>
                     </div>
