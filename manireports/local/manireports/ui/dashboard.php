@@ -126,11 +126,14 @@ if (isset($role_context['course_count'])) {
 $start_param = optional_param('start', '', PARAM_TEXT);
 $end_param = optional_param('end', '', PARAM_TEXT);
 
-// Default to Last 30 Days if no filter is set (To match UI label)
-if (empty($start_param) && empty($end_param)) {
-    $start_param = date('d-m-Y', strtotime('-30 days'));
-    $end_param = date('d-m-Y');
+// Logic Fix: If start_param is '01-01-2000' (used as dummy for 'ALL'), treat as empty (All Time)
+// Timestamp 946684800 is 01-01-2000
+if ($start_param == '01-01-2000' || $start_param == '946684800') {
+    $start_param = '';
+    $end_param = '';
 }
+
+// Default: No filter = All Time (Logic handled by empty params)
 
 $start_timestamp = 0;
 $end_timestamp = 0;
@@ -208,25 +211,54 @@ error_log("Dashboard Data Loader: Using " . get_class($loader) . " for role '{$u
 
 // Fetch Data
 // 1. KPIs
-$kpi_data = $loader->get_admin_kpis();
+try {
+    $kpi_data = $loader->get_admin_kpis();
+} catch (\Exception $e) {
+    $kpi_data = ['companies' => 0, 'courses' => 0, 'users' => 0, 'completion_rate' => 0];
+    error_log("Error loading KPIs: " . $e->getMessage());
+}
 
 // 2. System Health
-$system_health = $loader->get_system_health();
+try {
+    $system_health = $loader->get_system_health();
+} catch (\Exception $e) {
+    $system_health = ['db_size' => '0MB', 'file_size' => '0MB', 'cache_hit_rate' => 0, 'cron_status' => 0];
+}
 
 // 3. User Roles
-$role_data = $loader->get_user_roles_distribution();
+try {
+    $role_data = $loader->get_user_roles_distribution();
+} catch (\Exception $e) {
+    $role_data = ['admin' => 0, 'teacher' => 0, 'student' => 0];
+}
 
 // 4. Trend Data
-$trend_data = $loader->get_completion_trends();
+try {
+    $trend_data = $loader->get_completion_trends();
+} catch (\Exception $e) {
+    $trend_data = ['labels' => [], 'enrollments' => [], 'completions' => []];
+}
 
 // 5. Company Analytics (New Method)
-$company_data = $loader->get_company_analytics(5);
+try {
+    $company_data = $loader->get_company_analytics(5);
+} catch (\Exception $e) {
+     $company_data = []; // Return empty array on failure
+}
 
 // 6. Top Courses Analytics (New Method)
-$course_data = $loader->get_top_courses_analytics(10);
+try {
+    $course_data = $loader->get_top_courses_analytics(10);
+} catch (\Exception $e) {
+    $course_data = [];
+}
 
 // 7. Avg Engagement (Time Spent) - Real Data
-$avg_time_data = $loader->get_avg_daily_engagement();
+try {
+    $avg_time_data = $loader->get_avg_daily_engagement();
+} catch (\Exception $e) {
+    $avg_time_data = ['labels' => [], 'data' => []];
+}
 
 // 7. Live Statistics
 try {
@@ -410,8 +442,8 @@ echo $OUTPUT->header();
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
 <style>
+/* Dashboard Styles */
 :root {
     --bg-body: #0f172a;
     --glass-bg: rgba(30, 41, 59, 0.7);
@@ -797,7 +829,7 @@ body {
             <div class="tab-actions" style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
                  <button class="glass-btn small" id="dateRangeTrigger" onclick="toggleDatePopover()" style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px;">
                      <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i> 
-                     <span id="dateRangeLabel">Last 30 Days</span>
+                     <span id="dateRangeLabel"><?php echo ($start_param && $end_param) ? $start_param . ' to ' . $end_param : 'All Time'; ?></span>
                      <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
                  </button>
                  
@@ -2541,7 +2573,7 @@ function setDateFilter(range) {
         case '1M': startDate.setMonth(today.getMonth() - 1); break;
         case '3M': startDate.setMonth(today.getMonth() - 3); break;
         case 'YTD': startDate = new Date(today.getFullYear(), 0, 1); break;
-        case 'ALL': startDate = new Date(2000, 0, 1); break;
+        case 'ALL': startDate = null; break; // Use null to indicate clear
     }
 
     const formatDate = (date) => {
@@ -2558,8 +2590,14 @@ function setDateFilter(range) {
 
     const startElem = document.getElementById('dateStart');
     const endElem = document.getElementById('dateEnd');
-    if (startElem) startElem.value = formatDate(startDate);
-    if (endElem) endElem.value = formatDate(today);
+    
+    if (range === 'ALL') {
+         if (startElem) startElem.value = '';
+         if (endElem) endElem.value = '';
+    } else {
+        if (startElem && startDate) startElem.value = formatDate(startDate);
+        if (endElem) endElem.value = formatDate(today);
+    }
 
     console.log(`Filter applied: ${range}`);
 }
@@ -2581,20 +2619,38 @@ function applyDateFilter() {
     }
 
     // Convert to Unix Timestamp (start of day)
-    const startTime = start ? new Date(start).getTime() / 1000 : 0;
+    // Convert to Unix Timestamp (start of day)
+    let startTime = start ? new Date(start).getTime() / 1000 : 0;
     // End of day: set to 23:59:59
-    const endTime = end ? new Date(end).getTime() / 1000 + 86399 : 0; 
+    let endTime = end ? new Date(end).getTime() / 1000 + 86399 : 0;
+
+    // Only convert if inputs are not empty
+    if (start) {
+        const d1 = new Date(start);
+        startTime = Math.floor(d1.getTime() / 1000);
+        // Format to d-m-Y for URL param
+        start = `${d1.getDate().toString().padStart(2, '0')}-${(d1.getMonth() + 1).toString().padStart(2, '0')}-${d1.getFullYear()}`;
+    }
+    
+    if (end) {
+        const d2 = new Date(end);
+        endTime = Math.floor(d2.getTime() / 1000) + 86399; // End of day
+        end = `${d2.getDate().toString().padStart(2, '0')}-${(d2.getMonth() + 1).toString().padStart(2, '0')}-${d2.getFullYear()}`;
+    }
 
     // Reload with params
     const url = new URL(window.location.href);
-    if (startTime > 0) url.searchParams.set('start', startTime);
-    if (endTime > 0) url.searchParams.set('end', endTime);
+    if (start) url.searchParams.set('start', start);
+    else url.searchParams.delete('start'); // Remove param if empty (All Time)
+    
+    if (end) url.searchParams.set('end', end);
+    else url.searchParams.delete('end'); // Remove param if empty
     
     // Update label text if element exists
     const label = document.getElementById('dateRangeLabel');
     if (label) {
         if (start && end) label.innerText = start + ' to ' + end;
-        else label.innerText = 'Custom';
+        else label.innerText = 'All Time';
     }
     
     // Hide popover
@@ -2663,7 +2719,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Helper to safely init chart
     const initChart = (id, config) => {
         const el = document.getElementById(id);
-        if (el) new Chart(el, config);
+        if (el && typeof Chart !== 'undefined') {
+            try {
+                new Chart(el, config);
+            } catch (e) {
+                console.error('Error init chart ' + id, e);
+            }
+        } else {
+            console.warn('Canvas or Chart.js missing for ' + id);
+        }
     };
 
     // KPI Mini Charts
@@ -2704,10 +2768,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initChart('activeUsersChart', {
         type: 'bar',
         data: {
-                labels: <?php echo json_encode($live_stats['timeline_labels']); ?>,
+                labels: <?php echo json_encode($live_stats['timeline_labels'] ?? []); ?>,
                 datasets: [{
                     label: 'Active Users',
-                    data: <?php echo json_encode($live_stats['timeline_data']); ?>,
+                    data: <?php echo json_encode($live_stats['timeline_data'] ?? []); ?>,
                     backgroundColor: '#6366f1',
                     borderRadius: 4
                 }]
@@ -2727,10 +2791,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initChart('timeSpentChart', {
         type: 'line',
         data: {
-            labels: <?php echo json_encode($avg_time_data['labels']); ?>,
+            labels: <?php echo json_encode($avg_time_data['labels'] ?? []); ?>,
             datasets: [{
                 label: 'Avg Actions/User',
-                data: <?php echo json_encode($avg_time_data['data']); ?>,
+                data: <?php echo json_encode($avg_time_data['data'] ?? []); ?>,
                 borderColor: '#8b5cf6',
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
                 fill: true,
@@ -2756,11 +2820,11 @@ document.addEventListener('DOMContentLoaded', function() {
     initChart('completionTrendChart', {
         type: 'line',
         data: {
-            labels: <?php echo json_encode($trend_data['labels']); ?>,
+            labels: <?php echo json_encode($trend_data['labels'] ?? []); ?>,
             datasets: [
                 {
                     label: 'Enrolled',
-                    data: <?php echo json_encode($trend_data['enrollments']); ?>,
+                    data: <?php echo json_encode($trend_data['enrollments'] ?? []); ?>,
                     borderColor: '#10b981',
                     backgroundColor: (ctx) => {
                         const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
@@ -2774,7 +2838,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 {
                     label: 'Completed',
-                    data: <?php echo json_encode($trend_data['completions']); ?>,
+                    data: <?php echo json_encode($trend_data['completions'] ?? []); ?>,
                     borderColor: '#f59e0b',
                     backgroundColor: (ctx) => {
                         const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, 300);
