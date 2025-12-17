@@ -757,7 +757,7 @@ body {
         </header>
 
         <!-- Tab Menu -->
-        <div class="tab-menu">
+        <div class="tab-menu" style="display: flex; align-items: center; padding-right: 20px;">
             <!-- PHASE 3: Added data-roles attributes for tab filtering -->
             <div class="tab-item active" onclick="switchTab('overview')" data-tab="overview" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-grid-2"></i> Overview</div>
             <div class="tab-item" onclick="switchTab('courses')" data-tab="courses" data-roles="admin,manager,teacher,student"><i class="fa-solid fa-book-open"></i> Courses</div>
@@ -767,55 +767,54 @@ body {
             <div class="tab-item" onclick="switchTab('certificates')" data-tab="certificates" data-roles="admin"><i class="fa-solid fa-certificate"></i> Cert Offload</div>
             <div class="tab-item" onclick="switchTab('reports')" data-tab="reports" data-roles="admin,manager,teacher"><i class="fa-solid fa-file-lines"></i> Reports</div>
             <div class="tab-item" onclick="switchTab('reminders')" data-tab="reminders" data-roles="admin"><i class="fa-solid fa-bell"></i> Reminders</div>
+
+            <!-- Compact Filter & Actions (Right Aligned) -->
+            <div class="tab-actions" style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                 <button class="glass-btn small" id="dateRangeTrigger" onclick="toggleDatePopover()" style="padding: 6px 12px; font-size: 13px; border-radius: 8px; border: 1px solid var(--glass-border); background: rgba(0,0,0,0.2); color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                     <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i> 
+                     <span id="dateRangeLabel">Last 30 Days</span>
+                     <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                 </button>
+                 
+                 <!-- Date Popover (Moved outside to avoid clipping) -->
+                 <!-- Placeholder for trigger logic reference if needed -->
+
+                 <!-- Export Trigger -->
+                 <div style="position: relative;">
+                    <button class="glass-btn small" onclick="toggleExportMenu()" title="Export Report" style="padding: 6px 12px; border-radius: 8px; border: 1px solid var(--glass-border); background: var(--accent-primary); color: white; cursor: pointer;">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                    <div class="dropdown-menu" id="exportDropdown" style="right: 0; left: auto;">
+                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')"><i class="fa-solid fa-file-csv"></i> Export CSV</div>
+                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'xlsx')"><i class="fa-solid fa-file-excel"></i> Export Excel</div>
+                        <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')"><i class="fa-solid fa-file-pdf"></i> Export PDF</div>
+                    </div>
+                 </div>
+            </div>
         </div>
 
-        <!-- Filter Area -->
-        <div class="filter-area" style="z-index: 3000;">
-            <div class="filter-item">
-                <i class="fa-regular fa-calendar" style="color: var(--accent-primary); cursor: pointer;" onclick="document.getElementById('dateStart').showPicker()"></i>
-                <input type="date" id="dateStart" class="filter-input" placeholder="Start Date" style="width: 140px;" value="<?php echo $start_param; ?>">
-                <span style="color: var(--text-secondary);">-</span>
-                <input type="date" id="dateEnd" class="filter-input" placeholder="End Date" style="width: 140px;" value="<?php echo $end_param; ?>">
+        <!-- Date Popover (Moved here to avoid clipping by tab-menu overflow) -->
+        <div id="datePopover" style="display: none; position: fixed; top: 140px; right: 40px; background: rgba(30, 41, 59, 0.95); border: 1px solid var(--glass-border); backdrop-filter: blur(20px); padding: 20px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); z-index: 9999; width: 340px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Select Date Range</div>
+            <div style="margin-bottom: 16px; display: flex; gap: 8px; align-items: center;">
+                <input type="date" id="dateStart" class="filter-input" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);" value="<?php echo $start_param; ?>">
+                <span style="color: var(--text-secondary); font-weight: bold;">:</span>
+                <input type="date" id="dateEnd" class="filter-input" style="flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1);" value="<?php echo $end_param; ?>">
             </div>
-
-            <div class="filter-item">
-                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1W')">1W</button>
-                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1M')">1M</button>
-                <button class="filter-select quick-filter-btn" onclick="setDateFilter('3M')">3M</button>
-                <button class="filter-select quick-filter-btn" onclick="setDateFilter('YTD')">YTD</button>
-                <button class="filter-select quick-filter-btn active" onclick="setDateFilter('ALL')">ALL</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1W')" style="justify-content: center;">1W</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('1M')" style="justify-content: center;">1M</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('3M')" style="justify-content: center;">3M</button>
+                <button class="filter-select quick-filter-btn" onclick="setDateFilter('YTD')" style="justify-content: center;">YTD</button>
             </div>
-
-            <div class="filter-item">
-                <button class="export-btn" onclick="applyDateFilter()" style="padding: 6px 14px; font-size: 13px;">
-                    <i class="fa-solid fa-filter"></i> Apply
-                </button>
-                <button class="export-btn" onclick="clearAllFilters()" style="padding: 6px 14px; font-size: 13px; background: var(--accent-danger);">
-                    <i class="fa-solid fa-xmark"></i> Clear Filters
-                </button>
-            </div>
-
-            <div style="flex: 1;"></div>
-
-            <!-- Export Dropdown -->
-            <div style="position: relative;">
-                <button class="export-btn" onclick="toggleExportMenu()">
-                    <i class="fa-solid fa-download"></i> Export Report
-                    <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 4px;"></i>
-                </button>
-                <div class="dropdown-menu" id="exportDropdown">
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'csv')">
-                        <i class="fa-solid fa-file-csv"></i> Export as CSV
-                    </div>
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'xlsx')">
-                        <i class="fa-solid fa-file-excel"></i> Export as Excel
-                    </div>
-                    <div class="dropdown-item" onclick="triggerExport('course_completion', 'pdf')">
-                        <i class="fa-solid fa-file-pdf"></i> Export as PDF
-                    </div>
-                </div>
+            <button class="filter-select quick-filter-btn" onclick="setDateFilter('ALL')" style="width: 100%; margin-bottom: 16px; justify-content: center;">ALL TIME</button>
+            <div style="display: flex; gap: 10px;">
+                <button class="export-btn" onclick="applyDateFilter()" style="flex: 1; justify-content: center; background: var(--accent-primary); border-radius: 8px;">Apply Filter</button>
+                <button class="export-btn" onclick="clearAllFilters()" style="flex: 1; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); justify-content: center; border-radius: 8px;">Clear</button>
             </div>
         </div>
+
+
 
         <!-- Content Area -->
         <div class="content-area">
@@ -2463,7 +2462,24 @@ function switchTab(tabName) {
 // ========================================================================
 
 
-// Date Filter Logic
+// Date Filter Logic (Popover)
+function toggleDatePopover() {
+    const popover = document.getElementById('datePopover');
+    if (popover.style.display === 'none') {
+        popover.style.display = 'block';
+    } else {
+        popover.style.display = 'none';
+    }
+}
+
+// Close popover when clicking outside
+document.addEventListener('click', function(event) {
+    const popover = document.getElementById('datePopover');
+    const trigger = document.getElementById('dateRangeTrigger');
+    if (popover && trigger && !popover.contains(event.target) && !trigger.contains(event.target)) {
+        popover.style.display = 'none';
+    }
+});
 function setDateFilter(range) {
     const event = window.event;
     if (event) {
@@ -2484,11 +2500,16 @@ function setDateFilter(range) {
     }
 
     const formatDate = (date) => {
+        // Use Y-m-d for input type="date" value
         const d = date.getDate().toString().padStart(2, '0');
         const m = (date.getMonth() + 1).toString().padStart(2, '0');
         const y = date.getFullYear();
-        return `${d}-${m}-${y}`;
+        return `${y}-${m}-${d}`;
     };
+
+    // Update Label logic
+    const label = document.getElementById('dateRangeLabel');
+    if (label) label.innerText = (range === 'ALL') ? 'All Time' : 'Last ' + range;
 
     const startElem = document.getElementById('dateStart');
     const endElem = document.getElementById('dateEnd');
@@ -2501,19 +2522,43 @@ function setDateFilter(range) {
 // Apply Date Filter from date inputs
 function applyDateFilter() {
     const startInput = document.getElementById('dateStart');
-    const endInput = document.getElementById('endEnd');
+    const endInput = document.getElementById('dateEnd');
     
-    if (startInput && endInput) {
-        const url = new URL(window.location.href);
-        if (startInput.value) {
-            url.searchParams.set('start', startInput.value);
-        }
-        if (endInput.value) {
-            url.searchParams.set('end', endInput.value);
-        }
-        window.location.href = url.toString();
+    if (!startInput || !endInput) return;
+
+    let start = startInput.value;
+    let end = endInput.value;
+
+    // Basic validation
+    if (start && end && start > end) {
+        alert('Start date cannot be after end date');
+        return;
     }
+
+    // Convert to Unix Timestamp (start of day)
+    const startTime = start ? new Date(start).getTime() / 1000 : 0;
+    // End of day: set to 23:59:59
+    const endTime = end ? new Date(end).getTime() / 1000 + 86399 : 0; 
+
+    // Reload with params
+    const url = new URL(window.location.href);
+    if (startTime > 0) url.searchParams.set('start', startTime);
+    if (endTime > 0) url.searchParams.set('end', endTime);
+    
+    // Update label text if element exists
+    const label = document.getElementById('dateRangeLabel');
+    if (label) {
+        if (start && end) label.innerText = start + ' to ' + end;
+        else label.innerText = 'Custom';
+    }
+    
+    // Hide popover
+    const popover = document.getElementById('datePopover');
+    if (popover) popover.style.display = 'none';
+
+    window.location.href = url.toString();
 }
+
 
 // Clear All Filters
 function clearAllFilters() {

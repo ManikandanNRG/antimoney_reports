@@ -89,15 +89,36 @@ class dashboard_data_loader {
         // Given the label "Total Users", it's ambiguous. Let's keep Total Users as ALL TIME for now to avoid confusion,
         // unless the user explicitly asked for "New Users".
         
-        $totalusers = $DB->count_records_select('user', 'deleted = 0 AND suspended = 0 AND id > 2');
+        // Total Users (Filtered by timecreated if date range is set)
+        // If filters are active, this becomes "New Users in Period"
+        $user_where = 'deleted = 0 AND suspended = 0 AND id > 2';
+        $course_where = 'id > 1';
+        $params = [];
 
-        // Total Courses (All Time)
-        $totalcourses = $DB->count_records_select('course', 'id > 1');
+        if ($this->startdate > 0) {
+            $user_where .= " AND timecreated >= :start AND timecreated <= :end";
+            $course_where .= " AND timecreated >= :start_c AND timecreated <= :end_c";
+            
+            $params['start'] = $this->startdate;
+            $params['end'] = $this->enddate;
+            // Duplicate params for course query to avoid ambiguity if merged, though separate calls are fine.
+            // Actually get_records_select uses separate params arrays, so keys can be same.
+        }
+
+        $totalusers = $DB->count_records_select('user', $user_where, $params);
+        $totalcourses = $DB->count_records_select('course', $course_where, ($this->startdate > 0 ? ['start_c' => $this->startdate, 'end_c' => $this->enddate] : []));
 
         // Total Companies (IOMAD)
         $totalcompanies = 0;
         if ($this->is_iomad_installed()) {
-            $totalcompanies = $DB->count_records('company');
+            $company_where = '';
+            $company_params = [];
+            if ($this->startdate > 0) {
+                 // Assuming company table has timecreated
+                 // $company_where = "timecreated >= :start AND timecreated <= :end";
+                 // $company_params = ['start' => $this->startdate, 'end' => $this->enddate];
+            }
+            $totalcompanies = $DB->count_records('company'); // Keep all-time for companies for now unless requested
         }
 
         // Overall Completion Rate (Filtered by date if possible)
