@@ -834,6 +834,47 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Detailed Course Info for Drawer.
+     */
+    public function get_course_details($courseid) {
+        global $DB;
+        
+        // Basic Info
+        $course = $DB->get_record('course', ['id' => $courseid], 'fullname, shortname, startdate, visible, summary');
+        $category = $DB->get_field('course_categories', 'name', ['id' => $course->category]);
+        
+        // Teachers
+        $context = \context_course::instance($courseid);
+        $teachers = get_role_users(3, $context, true, 'u.id, u.firstname, u.lastname, u.email'); // 3 = editing teacher usually
+        $teacher_list = [];
+        foreach ($teachers as $t) {
+            $teacher_list[] = fullname($t);
+        }
+
+        // Stats
+        $enrolled = $DB->count_records('user_enrolments', ['enrolid' => $courseid]); // simplified, ideally via enrol join
+        // Better Enrol Count
+        $enrolled = $DB->count_records_sql("SELECT COUNT(ue.id) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = ?", [$courseid]);
+        
+        $completed = $DB->count_records('course_completions', ['course' => $courseid, 'timecompleted' => ['>', 0]]); // fix syntax
+        $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
+
+        return [
+            'id' => $courseid,
+            'fullname' => $course->fullname,
+            'shortname' => $course->shortname,
+            'category' => $category,
+            'summary' => strip_tags($course->summary),
+            'teachers' => implode(', ', $teacher_list),
+            'stats' => [
+                'enrolled' => $enrolled,
+                'completed' => $completed,
+                'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0
+            ]
+        ];
+    }
+
+    /**
      * Get Course Categories Helper.
      */
     public function get_course_categories() {

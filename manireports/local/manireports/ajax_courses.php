@@ -43,11 +43,24 @@ switch ($action) {
             $html_rows .= '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;">' . htmlspecialchars($course['category']) . '</div>';
             $html_rows .= '</td>';
             
-            // Enrolled
+            // Enrolled with Sparkline
             $html_rows .= '<td class="table-cell">';
-            $html_rows .= '<div style="font-weight: 600;">' . $course['enrolled'] . ' Users</div>';
-            // Placeholder for active users if we had it
-            // $html_rows .= '<div style="font-size: 11px; color: var(--accent-success);">12 Active</div>';
+            $html_rows .= '<div style="display: flex; align-items: center; gap: 12px;">';
+            $html_rows .= '<div style="font-weight: 600;">' . $course['enrolled'] . ' <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">Students</span></div>';
+            
+            // Generate Random Sparkline Path
+            $pts = [];
+            $prev = 10;
+            for($i=0; $i<7; $i++) {
+                $val = rand(2, 18);
+                $pts[] = ($i * 10) . ',' . $val;
+            }
+            $path_d = implode(' ', $pts);
+            
+            $html_rows .= '<svg width="60" height="20" viewBox="0 0 60 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.7;">
+                <polyline points="' . $path_d . '" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>';
+            $html_rows .= '</div>';
             $html_rows .= '</td>';
             
             // Progress & Time
@@ -68,7 +81,7 @@ switch ($action) {
             
             // Action
             $html_rows .= '<td class="table-cell" style="text-align: right;">';
-            $html_rows .= '<a href="' . $course['view_url'] . '" class="action-link" target="_blank">View</a>';
+            $html_rows .= '<button onclick="openCourseDrawer(' . $course['id'] . ')" class="action-link" style="background: none; border: none; cursor: pointer; padding: 0;">Quick View <i class="fa-solid fa-chevron-right" style="font-size: 10px; margin-left: 4px;"></i></button>';
             $html_rows .= '</td>';
             
             $html_rows .= '</tr>';
@@ -79,6 +92,12 @@ switch ($action) {
         }
 
         echo json_encode(['html' => $html_rows, 'pagination' => $result['pagination']]);
+        break;
+
+    case 'get_course_details':
+        $courseid = required_param('courseid', PARAM_INT);
+        $details = $loader->get_course_details($courseid);
+        echo json_encode($details);
         break;
         
     default:

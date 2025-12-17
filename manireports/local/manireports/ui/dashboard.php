@@ -1727,7 +1727,7 @@ body {
                         <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="triggerExport('course_completion', 'csv')">Export CSV</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
+                        <thead class="sticky-header">
                             <tr>
                                 <th class="table-header">Course Name & Category</th>
                                 <th class="table-header">Enrollment</th>
@@ -3428,6 +3428,58 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 });
+
+// Drawer Logic
+function openCourseDrawer(courseId) {
+    document.getElementById('courseDrawerBackdrop').classList.add('open');
+    document.getElementById('courseDrawer').classList.add('open');
+    
+    const content = document.getElementById('drawerContent');
+    content.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center;"><div class="manireports-loading-spinner"></div></div>';
+
+    fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_course_details&courseid=' + courseId + '&sesskey=<?php echo sesskey(); ?>')
+        .then(res => res.json())
+        .then(data => {
+            content.innerHTML = `
+                <div style="padding: 40px;">
+                    <div style="margin-bottom: 24px;">
+                        <span class="status-badge status-active" style="font-size: 12px;">${data.category}</span>
+                    </div>
+                    <h2 style="margin: 0 0 16px; font-size: 32px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">${data.fullname}</h2>
+                    <p style="color: var(--text-secondary); line-height: 1.7; font-size: 15px; margin-bottom: 32px;">${data.summary || 'No description available for this course.'}</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px;">
+                        <div class="bento-card" style="padding: 20px;">
+                            <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Enrolled Users</div>
+                            <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.enrolled}</div>
+                        </div>
+                        <div class="bento-card" style="padding: 20px;">
+                            <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-check-circle" style="color: var(--accent-success);"></i> Completions</div>
+                            <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.completed} <span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">(${data.stats.completion_rate}%)</span></div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 40px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Course Instructors</h3>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            ${data.teachers ? data.teachers.split(', ').map(t => `<div style="padding: 10px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);"><i class="fa-solid fa-user-tie" style="color: var(--text-secondary);"></i> ${t}</div>`).join('') : '<span style="color: var(--text-secondary);">No teachers assigned</span>'}
+                        </div>
+                    </div>
+
+                    <div style="padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                        <a href="<?php echo $CFG->wwwroot; ?>/course/view.php?id=${data.id}" target="_blank" class="export-btn" style="display: block; text-align: center; text-decoration: none; padding: 16px; font-size: 16px; border-radius: 16px;">
+                            Open Course Dashboard <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: 8px;"></i>
+                        </a>
+                    </div>
+                </div>
+            `;
+        });
+}
+
+function closeCourseDrawer() {
+    document.getElementById('courseDrawerBackdrop').classList.remove('open');
+    document.getElementById('courseDrawer').classList.remove('open');
+}
 </script>
 <style>
 @keyframes pulse {
@@ -3435,6 +3487,13 @@ document.addEventListener('DOMContentLoaded', function() {
     70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
     100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
+
+/* Sticky Header & Drawer Styles */
+.sticky-header th { position: sticky; top: 0; z-index: 10; background: var(--glass-bg); backdrop-filter: blur(10px); box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.course-drawer { position: fixed; top: 0; right: -600px; width: 600px; height: 100vh; background: var(--bg-body); border-left: 1px solid var(--glass-border); z-index: 6000; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; box-shadow: -10px 0 40px rgba(0,0,0,0.5); }
+.course-drawer.open { right: 0; }
+.drawer-backdrop { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 5999; display: none; backdrop-filter: blur(2px); }
+.drawer-backdrop.open { display: block; }
 </style>
 
 
@@ -3506,3 +3565,16 @@ function closeJobModal() {
 <?php
 echo $OUTPUT->footer();
 ?>
+<!-- Course Drawer & Backdrop -->
+<div id="courseDrawerBackdrop" class="drawer-backdrop" onclick="closeCourseDrawer()"></div>
+<div id="courseDrawer" class="course-drawer">
+    <div style="padding: 24px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="margin: 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary);">Quick View</h3>
+        <button onclick="closeCourseDrawer()" style="background: none; border: none; color: var(--text-primary); cursor: pointer; font-size: 20px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="drawerContent" style="flex: 1; overflow-y: auto;">
+        <!-- Content -->
+    </div>
+</div>
+
+<?php echo $OUTPUT->footer(); ?>
