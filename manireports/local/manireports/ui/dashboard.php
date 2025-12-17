@@ -1661,22 +1661,19 @@ body {
         <div id="tab-courses" class="tab-content">
             <!-- Filter Bar -->
             <div class="filter-area" style="margin-bottom: 32px; background: var(--glass-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border);">
+                <!-- Search -->
                 <div class="filter-item" style="flex-grow: 1;">
                     <i class="fa-solid fa-search" style="color: var(--text-secondary);"></i>
-                    <input type="text" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);">
+                    <input type="text" id="courseSearchInput" class="filter-input" placeholder="Search Companies or Courses..." style="width: 100%; font-size: 16px; padding: 12px 16px; background: rgba(0,0,0,0.2);" onkeyup="debounceLoadCourses()">
                 </div>
+                <!-- Category Filter -->
                 <div class="filter-item">
-                    <i class="fa-regular fa-calendar" style="color: var(--accent-primary);"></i>
-                    <input type="text" class="filter-input" placeholder="Start Date" style="width: 110px;">
-                    <span style="color: var(--text-secondary);">-</span>
-                    <input type="text" class="filter-input" placeholder="End Date" style="width: 110px;">
-                </div>
-                <div class="filter-item">
-                    <select class="filter-select">
+                    <select id="courseCategorySelect" class="filter-select" onchange="loadCourses(1)">
                         <option value="0">All Categories</option>
                         <?php foreach ($course_categories as $id => $name) { echo "<option value='$id'>$name</option>"; } ?>
                     </select>
                 </div>
+                <!-- REMOVED: Local Date Filters (Consolidated to Global Header) -->
             </div>
 
             <div class="bento-grid">
@@ -1699,7 +1696,7 @@ body {
                 </div>
 
                 <?php if ($user_role !== 'student'): ?>
-                <!-- Row 2: Charts (Hidden for Students) -->
+                <!-- Row 2: Charts -->
                 <div class="bento-card card-span-3">
                     <div class="card-header">
                         <div class="card-title">Enrollment Trends</div>
@@ -1718,7 +1715,7 @@ body {
                 </div>
                 <?php endif; ?>
 
-                <!-- Row 3: Advanced Table -->
+                <!-- Row 3: Advanced Table (AJAX Powered) -->
                 <div class="bento-card card-span-4">
                     <div class="card-header">
                         <div class="card-title">Comprehensive Course List</div>
@@ -1727,44 +1724,107 @@ body {
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead>
                             <tr>
-                                <th class="table-header">Course Name</th>
-                                <th class="table-header">Category</th>
-                                <th class="table-header">Enrolled</th>
-                                <th class="table-header">Completed</th>
-                                <th class="table-header" style="width: 150px;">Progress</th>
-                                <th class="table-header">Avg Time</th>
+                                <th class="table-header">Course Name & Category</th>
+                                <th class="table-header">Enrollment</th>
+                                <th class="table-header" style="width: 180px;">Progress & Time</th>
                                 <th class="table-header">Status</th>
                                 <th class="table-header" style="text-align: right;">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php if (!empty($comprehensive_courses)): ?>
-                                <?php foreach ($comprehensive_courses as $course): ?>
-                                <tr class="table-row">
-                                    <td class="table-cell" style="font-weight: 600;"><?php echo $course['fullname']; ?></td>
-                                    <td class="table-cell" style="color: var(--text-secondary); font-size: 13px;"><?php echo $course['category']; ?></td>
-                                    <td class="table-cell"><?php echo $course['enrolled']; ?></td>
-                                    <td class="table-cell"><?php echo $course['completed']; ?></td>
-                                    <td class="table-cell">
-                                        <div class="progress-bar-slim">
-                                            <div class="progress-fill" style="width: <?php echo $course['progress']; ?>%; background: var(--accent-primary);"></div>
-                                        </div>
-                                    </td>
-                                    <td class="table-cell"><?php echo $course['avg_time']; ?></td>
-                                    <td class="table-cell"><span class="status-badge <?php echo $course['status_class']; ?>"><?php echo $course['status']; ?></span></td>
-                                    <td class="table-cell" style="text-align: right;">
-                                        <a href="#" class="action-link">View Report</a>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr><td colspan="8" class="table-cell" style="text-align: center;">No courses found.</td></tr>
-                            <?php endif; ?>
+                        <tbody id="coursesTableBody">
+                            <!-- Loaded via AJAX -->
+                            <tr><td colspan="5" style="text-align: center; padding: 40px;">Loading courses...</td></tr>
                         </tbody>
                     </table>
+                    
+                    <!-- Pagination Controls -->
+                    <div id="coursesPagination" style="padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--glass-border); display: none;">
+                        <div id="coursesCountInfo" style="color: var(--text-secondary); font-size: 13px;"></div>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="btnPrevCourse" class="export-btn" onclick="changeCoursePage(-1)" style="padding: 6px 12px; font-size: 12px;">Previous</button>
+                            <span id="coursesPageInfo" style="display: flex; align-items: center; padding: 0 8px; color: var(--text-primary); font-size: 13px;">Page 1</span>
+                            <button id="btnNextCourse" class="export-btn" onclick="changeCoursePage(1)" style="padding: 6px 12px; font-size: 12px;">Next</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+        
+        <script>
+        // AJAX COURSES LOGIC
+        let currentCoursePage = 1;
+        let courseDebounceTimer;
+
+        function loadCourses(page) {
+            if (page) currentCoursePage = page;
+            
+            const tbody = document.getElementById('coursesTableBody');
+            const search = document.getElementById('courseSearchInput').value;
+            const category = document.getElementById('courseCategorySelect').value;
+            const paginationEl = document.getElementById('coursesPagination');
+            
+            // Fade out current content slightly to indicate loading
+            tbody.style.opacity = '0.5';
+
+            const url = '<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_courses' +
+                        '&sesskey=<?php echo sesskey(); ?>' +
+                        '&page=' + currentCoursePage +
+                        '&search=' + encodeURIComponent(search) +
+                        '&category=' + category;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    tbody.innerHTML = data.html;
+                    tbody.style.opacity = '1';
+                    
+                    if (data.pagination && data.pagination.total_pages > 0) {
+                        paginationEl.style.display = 'flex';
+                        updateCoursePagination(data.pagination);
+                    } else {
+                        paginationEl.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error('Error loading courses:', err);
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px; color: var(--accent-danger);">Error loading courses.</td></tr>';
+                    tbody.style.opacity = '1';
+                });
+        }
+
+        function updateCoursePagination(pg) {
+            const start = ((pg.current_page - 1) * pg.per_page) + 1;
+            const end = Math.min(pg.current_page * pg.per_page, pg.total_records);
+            
+            document.getElementById('coursesCountInfo').innerText = `Showing ${start} to ${end} of ${pg.total_records} courses`;
+            document.getElementById('coursesPageInfo').innerText = `Page ${pg.current_page} of ${pg.total_pages}`;
+            
+            const btnPrev = document.getElementById('btnPrevCourse');
+            const btnNext = document.getElementById('btnNextCourse');
+            
+            btnPrev.disabled = (pg.current_page <= 1);
+            btnNext.disabled = (pg.current_page >= pg.total_pages);
+            
+            // Update onclick handlers to pass specific page numbers
+            btnPrev.onclick = () => loadCourses(pg.current_page - 1);
+            btnNext.onclick = () => loadCourses(pg.current_page + 1);
+        }
+
+        function debounceLoadCourses() {
+            clearTimeout(courseDebounceTimer);
+            courseDebounceTimer = setTimeout(() => {
+                currentCoursePage = 1; // Reset to page 1 on search
+                loadCourses(1);
+            }, 500); // 500ms delay
+        }
+
+        // Initialize on Load
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('tab-courses')) {
+                loadCourses(1);
+            }
+        });
+        </script>
 
         <!-- EMAIL OFFLOAD TAB -->
         <div id="tab-email" class="tab-content">

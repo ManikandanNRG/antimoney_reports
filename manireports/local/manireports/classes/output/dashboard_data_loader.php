@@ -746,6 +746,94 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Comprehensive Course List - Paginated for AJAX.
+     */
+    public function get_courses_page($page = 1, $limit = 20, $search = '', $category = 0, $start_date = 0, $end_date = 0) {
+        global $DB, $CFG;
+
+        $offset = ($page - 1) * $limit;
+        $params = [];
+        $sql_where = "c.id > 1";
+
+        if (!empty($search)) {
+            $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
+            $params['search'] = '%' . $search . '%';
+            $params['search2'] = '%' . $search . '%';
+        }
+
+        if ($category > 0) {
+            $sql_where .= " AND c.category = :category";
+            $params['category'] = $category;
+        }
+
+        // Count Total
+        $total_records = $DB->count_records_sql("SELECT COUNT(c.id) FROM {course} c WHERE $sql_where", $params);
+        $total_pages = ceil($total_records / $limit);
+
+        // Main Query
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name as category_name,
+                       COUNT(DISTINCT ue.userid) as enrolled,
+                       COUNT(DISTINCT cc.userid) as completed,
+                       AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
+                  FROM {course} c
+                  JOIN {course_categories} cat ON cat.id = c.category
+                  JOIN {enrol} e ON e.courseid = c.id
+                  LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id
+                  LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0
+                 WHERE $sql_where
+              GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
+              ORDER BY enrolled DESC";
+
+        try {
+            $courses = $DB->get_records_sql($sql, $params, $offset, $limit);
+        } catch (\Exception $e) {
+            return ['rows' => [], 'pagination' => ['total' => 0, 'pages' => 0, 'current' => $page]];
+        }
+
+        // Process Rows
+        $rows = [];
+        foreach ($courses as $course) {
+            $progress = ($course->enrolled > 0) ? round(($course->completed / $course->enrolled) * 100) : 0;
+            
+            $status_label = 'Active';
+            $status_class = 'status-active';
+            
+            if ($course->visible == 0) {
+                $status_label = 'Hidden';
+                $status_class = 'status-retired'; // Grey
+            } elseif ($course->startdate > time()) {
+                $status_label = 'Upcoming';
+                $status_class = 'status-upcoming'; // Blue/Info
+            }
+
+            $course_url = new \moodle_url('/course/view.php', ['id' => $course->id]);
+
+            $rows[] = [
+                'id' => $course->id,
+                'fullname' => $course->fullname,
+                'category' => $course->category_name,
+                'enrolled' => $course->enrolled,
+                'completed' => $course->completed,
+                'progress' => $progress,
+                'avg_time' => ($course->avg_duration > 0) ? round($course->avg_duration / 3600, 1) . 'h' : '-',
+                'status' => $status_label,
+                'status_class' => $status_class,
+                'view_url' => $course_url->out(false)
+            ];
+        }
+
+        return [
+            'rows' => $rows,
+            'pagination' => [
+                'total_records' => $total_records,
+                'total_pages' => $total_pages,
+                'current_page' => $page,
+                'per_page' => $limit
+            ]
+        ];
+    }
+
+    /**
      * Get Course Categories Helper.
      */
     public function get_course_categories() {
