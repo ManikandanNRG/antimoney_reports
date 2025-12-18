@@ -3599,7 +3599,7 @@ function openCourseDrawer(courseId) {
 
                     <!-- IOMAD Configuration -->
                     <div style="margin-bottom: 40px;">
-                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Configuration</h3>
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">License Information</h3>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                             <!-- License Badge -->
                             <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; ${data.iomad && data.iomad.licensed == 1 ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : 'background: rgba(148, 163, 184, 0.1); color: var(--text-secondary); border: 1px solid var(--glass-border);'}">
@@ -3607,16 +3607,22 @@ function openCourseDrawer(courseId) {
                                 ${data.iomad && data.iomad.licensed == 1 ? 'Licensed' : 'Non-Licensed'}
                             </div>
 
-                            <!-- Training Expiry -->
-                            ${data.iomad && data.iomad.validto > 0 ? `
-                            <div style="padding: 8px 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #f59e0b; font-size: 13px;">
-                                <i class="fa-solid fa-clock"></i> Training expires after ${data.iomad.validto} days
+                            <!-- License Count & Utilized (Only if licensed) -->
+                            ${data.iomad && data.iomad.licensed == 1 ? `
+                            <div style="padding: 8px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #6366f1; font-size: 13px;">
+                                <i class="fa-solid fa-ticket"></i> ${data.iomad.license_used || 0} / ${data.iomad.license_count || 0} Licenses Used
                             </div>` : ''}
 
-                            <!-- Enrollment Expiry -->
-                            ${data.iomad && data.iomad.enrolperiod > 0 ? `
+                            <!-- License Expiry (Only if licensed and has expiry) -->
+                            ${data.iomad && data.iomad.licensed == 1 && data.iomad.license_expiry > 0 ? `
+                            <div style="padding: 8px 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #f59e0b; font-size: 13px;">
+                                <i class="fa-solid fa-calendar-xmark"></i> Expires: ${new Date(data.iomad.license_expiry * 1000).toLocaleDateString()}
+                            </div>` : ''}
+
+                            <!-- Valid Length (Training Window) -->
+                            ${data.iomad && data.iomad.validto > 0 ? `
                             <div style="padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #3b82f6; font-size: 13px;">
-                                <i class="fa-solid fa-hourglass-half"></i> Enrollment expires after ${data.iomad.enrolperiod} days
+                                <i class="fa-solid fa-clock"></i> ${data.iomad.validto} days to complete
                             </div>` : ''}
                         </div>
                     </div>

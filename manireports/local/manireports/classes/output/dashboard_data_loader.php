@@ -947,23 +947,42 @@ class dashboard_data_loader {
         // Accurate Completion Count via SQL
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
         
-        // 4. IOMAD Details
-        $iomad_info = [
-            'licensed' => 0,
-            'validto' => 0, // Training expires (days)
-            'enrolperiod' => 0 // Enrolment expires (days)
-        ];
+        // 4. License Details from companylicense tables
+    $iomad_info = [
+        'licensed' => 0,
+        'license_count' => 0,      // Total licenses allocated
+        'license_used' => 0,       // Licenses used/utilized
+        'license_expiry' => 0,     // License expiry timestamp
+        'validto' => 0,            // Valid length in days
+        'enrolperiod' => 0         // Enrollment period
+    ];
+    
+    try {
+        $tables = $DB->get_tables();
         
-        try {
-            $icc = $DB->get_record('block_iomad_company_courses', ['courseid' => $courseid], 'licensed, validto, enrolperiod');
-            if ($icc) {
-                $iomad_info['licensed'] = $icc->licensed;
-                $iomad_info['validto'] = $icc->validto;
-                $iomad_info['enrolperiod'] = $icc->enrolperiod;
+        // Check if license tables exist
+        if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables)) {
+            // Get license info for this course
+            $license_sql = "SELECT cl.id, cl.name, cl.allocation as license_count, cl.used as license_used, 
+                                   cl.expirydate as license_expiry, cl.validlength as validto
+                            FROM {companylicense_courses} lc
+                            JOIN {companylicense} cl ON cl.id = lc.licenseid
+                            WHERE lc.courseid = ?
+                            ORDER BY cl.expirydate DESC
+                            LIMIT 1";
+            $license = $DB->get_record_sql($license_sql, [$courseid]);
+            
+            if ($license) {
+                $iomad_info['licensed'] = 1;
+                $iomad_info['license_count'] = (int)$license->license_count;
+                $iomad_info['license_used'] = (int)$license->license_used;
+                $iomad_info['license_expiry'] = (int)$license->license_expiry;
+                $iomad_info['validto'] = (int)$license->validto;
             }
-        } catch (\Exception $e) { 
-            // Ignore if table doesn't exist or error
         }
+    } catch (\Exception $e) { 
+        error_log("Manireports: License fetch error - " . $e->getMessage());
+    }
 
         return [
             'id' => $courseid,
