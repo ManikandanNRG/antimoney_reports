@@ -948,41 +948,76 @@ class dashboard_data_loader {
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
         
         // 4. License Details from companylicense tables
-    $iomad_info = [
-        'licensed' => 0,
-        'license_count' => 0,      // Total licenses allocated
-        'license_used' => 0,       // Licenses used/utilized
-        'license_expiry' => 0,     // License expiry timestamp
-        'validto' => 0,            // Valid length in days
-        'enrolperiod' => 0         // Enrollment period
-    ];
-    
-    try {
-        $tables = $DB->get_tables();
+        $iomad_info = [
+            'licensed' => 0,
+            'license_status' => 'none',      // none, active, expiring, expired
+            'license_count' => 0,            // Total licenses in pool
+            'license_used' => 0,             // Licenses allocated
+            'license_remaining' => 0,        // Available licenses
+            'license_expiry' => 0,           // Expiry timestamp
+            'license_expiry_date' => '',     // Formatted expiry date
+            'days_until_expiry' => 0,        // Days until expiry (negative if expired)
+            'is_expired' => false,           // Boolean for expired status
+            'training_window' => 0,          // Days users have to complete after allocation
+            'usage_percent' => 0             // Percentage of licenses used
+        ];
         
-        // Check if license tables exist
-        if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables)) {
-            // Get license info for this course
-            $license_sql = "SELECT cl.id, cl.name, cl.allocation as license_count, cl.used as license_used, 
-                                   cl.expirydate as license_expiry, cl.validlength as validto
-                            FROM {companylicense_courses} lc
-                            JOIN {companylicense} cl ON cl.id = lc.licenseid
-                            WHERE lc.courseid = ?
-                            ORDER BY cl.expirydate DESC
-                            LIMIT 1";
-            $license = $DB->get_record_sql($license_sql, [$courseid]);
+        try {
+            $tables = $DB->get_tables();
             
-            if ($license) {
-                $iomad_info['licensed'] = 1;
-                $iomad_info['license_count'] = (int)$license->license_count;
-                $iomad_info['license_used'] = (int)$license->license_used;
-                $iomad_info['license_expiry'] = (int)$license->license_expiry;
-                $iomad_info['validto'] = (int)$license->validto;
+            if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables)) {
+                $license_sql = "SELECT cl.id, cl.name, cl.allocation as license_count, cl.used as license_used, 
+                                       cl.expirydate as license_expiry, cl.validlength as training_window
+                                FROM {companylicense_courses} lc
+                                JOIN {companylicense} cl ON cl.id = lc.licenseid
+                                WHERE lc.courseid = ?
+                                ORDER BY cl.expirydate DESC
+                                LIMIT 1";
+                $license = $DB->get_record_sql($license_sql, [$courseid]);
+                
+                if ($license) {
+                    $now = time();
+                    $expiry = (int)$license->license_expiry;
+                    $total = (int)$license->license_count;
+                    $used = (int)$license->license_used;
+                    $remaining = max(0, $total - $used);
+                    
+                    // Calculate days until expiry
+                    $days_until_expiry = ($expiry > 0) ? floor(($expiry - $now) / 86400) : 0;
+                    $is_expired = ($expiry > 0 && $expiry < $now);
+                    
+                    // Determine license status
+                    $status = 'active';
+                    if ($is_expired) {
+                        $status = 'expired';
+                    } elseif ($days_until_expiry <= 30 && $days_until_expiry > 0) {
+                        $status = 'expiring'; // Expiring soon (within 30 days)
+                    } elseif ($remaining == 0 && $total > 0) {
+                        $status = 'exhausted'; // No licenses remaining
+                    }
+                    
+                    // Calculate usage percentage
+                    $usage_percent = ($total > 0) ? round(($used / $total) * 100) : 0;
+                    
+                    // Format expiry date
+                    $expiry_date_formatted = ($expiry > 0) ? date('M d, Y', $expiry) : '';
+                    
+                    $iomad_info['licensed'] = 1;
+                    $iomad_info['license_status'] = $status;
+                    $iomad_info['license_count'] = $total;
+                    $iomad_info['license_used'] = $used;
+                    $iomad_info['license_remaining'] = $remaining;
+                    $iomad_info['license_expiry'] = $expiry;
+                    $iomad_info['license_expiry_date'] = $expiry_date_formatted;
+                    $iomad_info['days_until_expiry'] = $days_until_expiry;
+                    $iomad_info['is_expired'] = $is_expired;
+                    $iomad_info['training_window'] = (int)$license->training_window;
+                    $iomad_info['usage_percent'] = $usage_percent;
+                }
             }
+        } catch (\Exception $e) { 
+            error_log("Manireports: License fetch error - " . $e->getMessage());
         }
-    } catch (\Exception $e) { 
-        error_log("Manireports: License fetch error - " . $e->getMessage());
-    }
 
         return [
             'id' => $courseid,

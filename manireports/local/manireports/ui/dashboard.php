@@ -3597,34 +3597,75 @@ function openCourseDrawer(courseId) {
                         </div>
                     </div>
 
-                    <!-- IOMAD Configuration -->
+                    <!-- License Information Section -->
                     <div style="margin-bottom: 40px;">
                         <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">License Information</h3>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            <!-- License Badge -->
-                            <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; ${data.iomad && data.iomad.licensed == 1 ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : 'background: rgba(148, 163, 184, 0.1); color: var(--text-secondary); border: 1px solid var(--glass-border);'}">
-                                <i class="fa-solid ${data.iomad && data.iomad.licensed == 1 ? 'fa-check-circle' : 'fa-circle-xmark'}"></i>
-                                ${data.iomad && data.iomad.licensed == 1 ? 'Licensed' : 'Non-Licensed'}
+                        
+                        ${data.iomad && data.iomad.licensed == 1 ? `
+                        <!-- Licensed Course -->
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
+                            <!-- Status Row -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                                <!-- Status Badge -->
+                                <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px;
+                                    ${data.iomad.license_status === 'expired' ? 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);' : 
+                                      data.iomad.license_status === 'expiring' ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);' :
+                                      data.iomad.license_status === 'exhausted' ? 'background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3);' :
+                                      'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);'}">
+                                    <i class="fa-solid ${data.iomad.license_status === 'expired' ? 'fa-circle-xmark' : 
+                                                         data.iomad.license_status === 'expiring' ? 'fa-exclamation-triangle' :
+                                                         data.iomad.license_status === 'exhausted' ? 'fa-ticket' : 'fa-check-circle'}"></i>
+                                    ${data.iomad.license_status === 'expired' ? 'EXPIRED' : 
+                                      data.iomad.license_status === 'expiring' ? 'EXPIRING SOON' :
+                                      data.iomad.license_status === 'exhausted' ? 'NO LICENSES LEFT' : 'ACTIVE'}
+                                </div>
                             </div>
-
-                            <!-- License Count & Utilized (Only if licensed) -->
-                            ${data.iomad && data.iomad.licensed == 1 ? `
-                            <div style="padding: 8px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #6366f1; font-size: 13px;">
-                                <i class="fa-solid fa-ticket"></i> ${data.iomad.license_used || 0} / ${data.iomad.license_count || 0} Licenses Used
-                            </div>` : ''}
-
-                            <!-- License Expiry (Only if licensed and has expiry) -->
-                            ${data.iomad && data.iomad.licensed == 1 && data.iomad.license_expiry > 0 ? `
-                            <div style="padding: 8px 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #f59e0b; font-size: 13px;">
-                                <i class="fa-solid fa-calendar-xmark"></i> Expires: ${new Date(data.iomad.license_expiry * 1000).toLocaleDateString()}
-                            </div>` : ''}
-
-                            <!-- Valid Length (Training Window) -->
-                            ${data.iomad && data.iomad.validto > 0 ? `
-                            <div style="padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #3b82f6; font-size: 13px;">
-                                <i class="fa-solid fa-clock"></i> ${data.iomad.validto} days to complete
-                            </div>` : ''}
+                            
+                            <!-- License Pool Usage -->
+                            <div style="margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                    <span style="color: var(--text-secondary); font-size: 13px;">License Pool</span>
+                                    <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;">
+                                        ${data.iomad.license_used} / ${data.iomad.license_count} used 
+                                        <span style="color: var(--text-secondary);">(${data.iomad.license_remaining} remaining)</span>
+                                    </span>
+                                </div>
+                                <div style="height: 8px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; overflow: hidden;">
+                                    <div style="height: 100%; width: ${data.iomad.usage_percent}%; border-radius: 4px;
+                                        background: ${data.iomad.usage_percent >= 90 ? '#ef4444' : data.iomad.usage_percent >= 70 ? '#f59e0b' : '#10b981'};
+                                        transition: width 0.3s ease;"></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Expiry Info -->
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                                ${data.iomad.license_expiry > 0 ? `
+                                <div style="padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+                                    ${data.iomad.is_expired ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444;' : 
+                                      data.iomad.days_until_expiry <= 30 ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #f59e0b;' :
+                                      'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #3b82f6;'}">
+                                    <i class="fa-solid fa-calendar"></i>
+                                    ${data.iomad.is_expired ? 
+                                        '<strong>Expired</strong> ' + Math.abs(data.iomad.days_until_expiry) + ' days ago (' + data.iomad.license_expiry_date + ')' :
+                                        '<strong>Expires</strong> in ' + data.iomad.days_until_expiry + ' days (' + data.iomad.license_expiry_date + ')'}
+                                </div>` : ''}
+                                
+                                ${data.iomad.training_window > 0 ? `
+                                <div style="padding: 10px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 10px; color: #6366f1; font-size: 13px;">
+                                    <i class="fa-solid fa-hourglass-half"></i>
+                                    <strong>${data.iomad.training_window}-day</strong> training window per user
+                                </div>` : ''}
+                            </div>
                         </div>
+                        ` : `
+                        <!-- Non-Licensed Course -->
+                        <div style="padding: 20px; background: rgba(148, 163, 184, 0.05); border: 1px solid var(--glass-border); border-radius: 16px; text-align: center;">
+                            <div style="display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; background: rgba(148, 163, 184, 0.1); border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-secondary); font-size: 14px;">
+                                <i class="fa-solid fa-circle-xmark"></i>
+                                <span>This course is not using license-based enrollment</span>
+                            </div>
+                        </div>
+                        `}
                     </div>
 
                     <div style="padding-top: 20px; border-top: 1px solid var(--glass-border);">
