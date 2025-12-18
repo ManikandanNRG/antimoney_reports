@@ -1763,10 +1763,12 @@ body {
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead class="sticky-header">
                             <tr>
-                                <th class="table-header" style="width: 50%; max-width: 400px;">Course Name & Category</th>
-                                <th class="table-header" style="width: 15%;">Enrollment</th>
-                                <th class="table-header" style="width: 15%;">Progress & Time</th>
-                                <th class="table-header" style="width: 10%; text-align: right;">Status</th>
+                                <th class="table-header" style="width: 25%;">Course Name</th>
+                                <th class="table-header" style="width: 15%;">Company</th>
+                                <th class="table-header" style="width: 10%;">Enrolled</th>
+                                <th class="table-header" style="width: 10%;">Completed</th>
+                                <th class="table-header" style="width: 10%;">In Progress</th>
+                                <th class="table-header" style="width: 10%;">License</th>
                                 <th class="table-header" style="width: 10%; text-align: right;">Action</th>
                             </tr>
                         </thead>
@@ -3592,6 +3594,30 @@ function openCourseDrawer(courseId) {
                         <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Course Instructors</h3>
                         <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                             ${data.teachers ? data.teachers.split(', ').map(t => `<div style="padding: 10px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);"><i class="fa-solid fa-user-tie" style="color: var(--text-secondary);"></i> ${t}</div>`).join('') : '<span style="color: var(--text-secondary);">No teachers assigned</span>'}
+                        </div>
+                    </div>
+
+                    <!-- IOMAD Configuration -->
+                    <div style="margin-bottom: 40px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Configuration</h3>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <!-- License Badge -->
+                            <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; ${data.iomad && data.iomad.licensed == 1 ? 'background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);' : 'background: rgba(148, 163, 184, 0.1); color: var(--text-secondary); border: 1px solid var(--glass-border);'}">
+                                <i class="fa-solid ${data.iomad && data.iomad.licensed == 1 ? 'fa-check-circle' : 'fa-circle-xmark'}"></i>
+                                ${data.iomad && data.iomad.licensed == 1 ? 'Licensed' : 'Non-Licensed'}
+                            </div>
+
+                            <!-- Training Expiry -->
+                            ${data.iomad && data.iomad.validto > 0 ? `
+                            <div style="padding: 8px 16px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #f59e0b; font-size: 13px;">
+                                <i class="fa-solid fa-clock"></i> Training expires after ${data.iomad.validto} days
+                            </div>` : ''}
+
+                            <!-- Enrollment Expiry -->
+                            ${data.iomad && data.iomad.enrolperiod > 0 ? `
+                            <div style="padding: 8px 16px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: #3b82f6; font-size: 13px;">
+                                <i class="fa-solid fa-hourglass-half"></i> Enrollment expires after ${data.iomad.enrolperiod} days
+                            </div>` : ''}
                         </div>
                     </div>
 

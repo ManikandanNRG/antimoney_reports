@@ -49,40 +49,33 @@ switch ($action) {
             $html_rows .= '<div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">' . htmlspecialchars($course['category']) . '</div>';
             $html_rows .= '</td>';
             
-            // Enrolled with Sparkline
+            // Company
             $html_rows .= '<td class="table-cell">';
-            $html_rows .= '<div style="display: flex; flex-direction: column; gap: 4px;">';
-            $html_rows .= '<div style="font-weight: 600; font-size: 15px; white-space: nowrap;">' . $course['enrolled'] . ' <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">Students</span></div>';
-            
-            // Generate Random Sparkline Path
-            $pts = [];
-            $prev = 10;
-            for($i=0; $i<7; $i++) {
-                $val = rand(2, 18);
-                $pts[] = ($i * 10) . ',' . $val;
-            }
-            $path_d = implode(' ', $pts);
-            
-            $html_rows .= '<svg width="60" height="20" viewBox="0 0 60 20" fill="none" xmlns="http://www.w3.org/2000/svg" style="opacity: 0.7;">
-                <polyline points="' . $path_d . '" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>';
-            $html_rows .= '</div>';
+            $html_rows .= '<div style="font-size: 13px; color: var(--text-primary);">' . htmlspecialchars($course['company']) . '</div>';
+            $html_rows .= '</td>';
+
+            // Enrolled
+            $html_rows .= '<td class="table-cell">';
+            $html_rows .= '<div style="font-weight: 600; font-size: 15px;">' . $course['enrolled'] . ' <span style="font-size: 11px; font-weight: 400; color: var(--text-secondary);">Recipients</span></div>';
             $html_rows .= '</td>';
             
-            // Progress & Time
+            // Completed
             $html_rows .= '<td class="table-cell">';
-            $html_rows .= '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">';
-            $html_rows .= '<div class="progress-bar-slim" style="width: 80px;">';
-            $html_rows .= '<div class="progress-fill" style="width: ' . $course['progress'] . '%; background: var(--accent-primary);"></div>';
-            $html_rows .= '</div>';
-            $html_rows .= '<span style="font-size: 12px; font-weight: 600;">' . $course['progress'] . '%</span>';
-            $html_rows .= '</div>';
-            $html_rows .= '<div style="font-size: 11px; color: var(--text-secondary);">Avg: ' . $course['avg_time'] . '</div>';
+            $html_rows .= '<div style="font-weight: 600; font-size: 15px; color: var(--accent-success);">' . $course['completed'] . '</div>';
             $html_rows .= '</td>';
+
+            // In Progress (Active)
+            $html_rows .= '<td class="table-cell">';
+            $html_rows .= '<div style="font-weight: 600; font-size: 15px; color: var(--accent-warning);">' . $course['in_progress'] . '</div>';
+            $html_rows .= '</td>';
+
+            // License Status
+            $is_licensed = ($course['licensed'] == 1);
+            $lic_label = $is_licensed ? 'Licensed' : 'Non-Licensed';
+            $lic_style = $is_licensed ? 'background: rgba(16, 185, 129, 0.2); color: #10b981;' : 'background: rgba(148, 163, 184, 0.2); color: var(--text-secondary);';
             
-            // Status
-            $html_rows .= '<td class="table-cell" style="text-align: right;">';
-            $html_rows .= '<span class="status-badge ' . $course['status_class'] . '">' . $course['status'] . '</span>';
+            $html_rows .= '<td class="table-cell">';
+            $html_rows .= '<span style="padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; text-transform: uppercase; ' . $lic_style . '">' . $lic_label . '</span>';
             $html_rows .= '</td>';
             
             // Action

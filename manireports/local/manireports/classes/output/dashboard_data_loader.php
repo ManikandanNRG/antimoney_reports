@@ -775,17 +775,16 @@ class dashboard_data_loader {
         $total_records = $DB->count_records_sql("SELECT COUNT(c.id) FROM {course} c WHERE $sql_where", $params);
         $total_pages = ceil($total_records / $limit);
 
-        // Main Query
-        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name as category_name,
+        // Main Query - Simple baseline that ALWAYS works
+        $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, 
+                       cat.name as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
-                       COUNT(DISTINCT cc.userid) as completed,
-                       AVG(CASE WHEN cc.timecompleted > 0 THEN (cc.timecompleted - cc.timeenrolled) ELSE NULL END) as avg_duration
+                       COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 THEN cc.userid END) as completed
                   FROM {course} c
                   JOIN {course_categories} cat ON cat.id = c.category
-                  JOIN {enrol} e ON e.courseid = c.id
+                  LEFT JOIN {enrol} e ON e.courseid = c.id
                   LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                  LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted > 0" . 
-                  (($start_date > 0 && $end_date > 0) ? " AND cc.timecompleted >= :start_date AND cc.timecompleted <= :end_date" : "") . "
+                  LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid
                  WHERE $sql_where
               GROUP BY c.id, c.fullname, c.shortname, c.startdate, c.visible, cat.name
               ORDER BY enrolled DESC";
@@ -793,35 +792,72 @@ class dashboard_data_loader {
         try {
             $courses = $DB->get_records_sql($sql, $params, $offset, $limit);
         } catch (\Exception $e) {
+            error_log("Manireports get_courses_page SQL Error: " . $e->getMessage());
             return ['rows' => [], 'pagination' => ['total' => 0, 'pages' => 0, 'current' => $page]];
+        }
+
+        // Try to fetch IOMAD data separately (won't break if tables don't exist)
+        $iomad_data = [];
+        try {
+            $iomad_sql = "SELECT icc.courseid, comp.name as company_name, icc.licensed, icc.validto, icc.enrolperiod
+                          FROM {block_iomad_company_courses} icc
+                          LEFT JOIN {company} comp ON comp.id = icc.companyid";
+            $iomad_records = $DB->get_records_sql($iomad_sql);
+            foreach ($iomad_records as $rec) {
+                $iomad_data[$rec->courseid] = $rec;
+            }
+        } catch (\Exception $e) {
+            // IOMAD tables don't exist - that's OK
+            error_log("Manireports IOMAD tables not found: " . $e->getMessage());
         }
 
         // Process Rows
         $rows = [];
         foreach ($courses as $course) {
-            $progress = ($course->enrolled > 0) ? round(($course->completed / $course->enrolled) * 100) : 0;
+            $enrolled_count = isset($course->enrolled) ? (int)$course->enrolled : 0;
+            $completed_count = isset($course->completed) ? (int)$course->completed : 0;
+            $in_progress_count = max(0, $enrolled_count - $completed_count);
+            
+            $progress = ($enrolled_count > 0) ? round(($completed_count / $enrolled_count) * 100) : 0;
             
             $status_label = 'Active';
             $status_class = 'status-active';
             
-            if ($course->visible == 0) {
+            if (isset($course->visible) && $course->visible == 0) {
                 $status_label = 'Hidden';
-                $status_class = 'status-retired'; // Grey
-            } elseif ($course->startdate > time()) {
+                $status_class = 'status-retired';
+            } elseif (isset($course->startdate) && $course->startdate > time()) {
                 $status_label = 'Upcoming';
-                $status_class = 'status-upcoming'; // Blue/Info
+                $status_class = 'status-upcoming';
+            }
+
+            // Get IOMAD data if available
+            $company_name = '-';
+            $licensed = 0;
+            $validto = 0;
+            $enrolperiod = 0;
+            if (isset($iomad_data[$course->id])) {
+                $iomad = $iomad_data[$course->id];
+                $company_name = !empty($iomad->company_name) ? $iomad->company_name : '-';
+                $licensed = isset($iomad->licensed) ? (int)$iomad->licensed : 0;
+                $validto = isset($iomad->validto) ? (int)$iomad->validto : 0;
+                $enrolperiod = isset($iomad->enrolperiod) ? (int)$iomad->enrolperiod : 0;
             }
 
             $course_url = new \moodle_url('/course/view.php', ['id' => $course->id]);
 
             $rows[] = [
                 'id' => $course->id,
-                'fullname' => $course->fullname,
-                'category' => $course->category_name,
-                'enrolled' => $course->enrolled,
-                'completed' => $course->completed,
+                'fullname' => $course->fullname ?? 'Unknown',
+                'category' => $course->category_name ?? '-',
+                'company' => $company_name,
+                'enrolled' => $enrolled_count,
+                'completed' => $completed_count,
+                'in_progress' => $in_progress_count,
+                'licensed' => $licensed,
+                'validto' => $validto,
+                'enrolperiod' => $enrolperiod,
                 'progress' => $progress,
-                'avg_time' => ($course->avg_duration > 0) ? round($course->avg_duration / 3600, 1) . 'h' : '-',
                 'status' => $status_label,
                 'status_class' => $status_class,
                 'view_url' => $course_url->out(false)
@@ -889,11 +925,30 @@ class dashboard_data_loader {
         // Accurate Completion Count via SQL
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
         
+        // 4. IOMAD Details
+        $iomad_info = [
+            'licensed' => 0,
+            'validto' => 0, // Training expires (days)
+            'enrolperiod' => 0 // Enrolment expires (days)
+        ];
+        
+        try {
+            $icc = $DB->get_record('block_iomad_company_courses', ['courseid' => $courseid], 'licensed, validto, enrolperiod');
+            if ($icc) {
+                $iomad_info['licensed'] = $icc->licensed;
+                $iomad_info['validto'] = $icc->validto;
+                $iomad_info['enrolperiod'] = $icc->enrolperiod;
+            }
+        } catch (\Exception $e) { 
+            // Ignore if table doesn't exist or error
+        }
+
         return [
             'id' => $courseid,
             'fullname' => $course->fullname,
             'shortname' => $course->shortname,
             'category' => $category,
+            'iomad' => $iomad_info, // Inject IOMAD details
             'summary' => isset($course->summary) ? strip_tags((string)$course->summary) : '',
             'teachers' => implode(', ', $teacher_list),
 
