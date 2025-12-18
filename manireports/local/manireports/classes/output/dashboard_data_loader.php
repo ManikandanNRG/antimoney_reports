@@ -799,16 +799,24 @@ class dashboard_data_loader {
         // Try to fetch IOMAD data separately (won't break if tables don't exist)
         $iomad_data = [];
         try {
-            $iomad_sql = "SELECT icc.courseid, comp.name as company_name, icc.licensed, icc.validto, icc.enrolperiod
-                          FROM {block_iomad_company_courses} icc
-                          LEFT JOIN {company} comp ON comp.id = icc.companyid";
-            $iomad_records = $DB->get_records_sql($iomad_sql);
-            foreach ($iomad_records as $rec) {
-                $iomad_data[$rec->courseid] = $rec;
+            // Check if company_course table exists
+            $tables = $DB->get_tables();
+            if (in_array('company_course', $tables)) {
+                // company_course table only has: courseid, companyid
+                $iomad_sql = "SELECT cc.courseid, comp.name as company_name
+                              FROM {company_course} cc
+                              LEFT JOIN {company} comp ON comp.id = cc.companyid";
+                $iomad_records = $DB->get_records_sql($iomad_sql);
+                error_log("Manireports IOMAD: Found " . count($iomad_records) . " company-course mappings");
+                foreach ($iomad_records as $rec) {
+                    $iomad_data[$rec->courseid] = $rec;
+                    error_log("Manireports IOMAD: Course {$rec->courseid} => Company: " . ($rec->company_name ?? 'NULL'));
+                }
+            } else {
+                error_log("Manireports IOMAD: company_course table does not exist");
             }
         } catch (\Exception $e) {
-            // IOMAD tables don't exist - that's OK
-            error_log("Manireports IOMAD tables not found: " . $e->getMessage());
+            error_log("Manireports IOMAD tables error: " . $e->getMessage());
         }
 
         // Process Rows
