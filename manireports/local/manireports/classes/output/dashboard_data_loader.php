@@ -798,22 +798,32 @@ class dashboard_data_loader {
 
         // Try to fetch IOMAD data separately (won't break if tables don't exist)
         $iomad_data = [];
+        $license_data = [];
         try {
-            // Check if company_course table exists
             $tables = $DB->get_tables();
+            
+            // Fetch company-course mappings
             if (in_array('company_course', $tables)) {
-                // company_course table only has: courseid, companyid
                 $iomad_sql = "SELECT cc.courseid, comp.name as company_name
                               FROM {company_course} cc
                               LEFT JOIN {company} comp ON comp.id = cc.companyid";
                 $iomad_records = $DB->get_records_sql($iomad_sql);
-                error_log("Manireports IOMAD: Found " . count($iomad_records) . " company-course mappings");
                 foreach ($iomad_records as $rec) {
                     $iomad_data[$rec->courseid] = $rec;
-                    error_log("Manireports IOMAD: Course {$rec->courseid} => Company: " . ($rec->company_name ?? 'NULL'));
                 }
-            } else {
-                error_log("Manireports IOMAD: company_course table does not exist");
+            }
+            
+            // Fetch license data from companylicense_courses
+            if (in_array('companylicense_courses', $tables)) {
+                $license_sql = "SELECT DISTINCT lc.courseid, 
+                                       cl.validlength as validto,
+                                       cl.expirydate as enrolperiod
+                                FROM {companylicense_courses} lc
+                                JOIN {companylicense} cl ON cl.id = lc.licenseid";
+                $license_records = $DB->get_records_sql($license_sql);
+                foreach ($license_records as $rec) {
+                    $license_data[$rec->courseid] = $rec;
+                }
             }
         } catch (\Exception $e) {
             error_log("Manireports IOMAD tables error: " . $e->getMessage());
@@ -841,15 +851,19 @@ class dashboard_data_loader {
 
             // Get IOMAD data if available
             $company_name = '-';
-            $licensed = 0;
-            $validto = 0;
-            $enrolperiod = 0;
             if (isset($iomad_data[$course->id])) {
                 $iomad = $iomad_data[$course->id];
                 $company_name = !empty($iomad->company_name) ? $iomad->company_name : '-';
-                $licensed = isset($iomad->licensed) ? (int)$iomad->licensed : 0;
-                $validto = isset($iomad->validto) ? (int)$iomad->validto : 0;
-                $enrolperiod = isset($iomad->enrolperiod) ? (int)$iomad->enrolperiod : 0;
+            }
+            
+            // Get license data if available (course is licensed if it exists in companylicense_courses)
+            $licensed = isset($license_data[$course->id]) ? 1 : 0;
+            $validto = 0;
+            $enrolperiod = 0;
+            if (isset($license_data[$course->id])) {
+                $lic = $license_data[$course->id];
+                $validto = isset($lic->validto) ? (int)$lic->validto : 0;
+                $enrolperiod = isset($lic->enrolperiod) ? (int)$lic->enrolperiod : 0;
             }
 
             $course_url = new \moodle_url('/course/view.php', ['id' => $course->id]);
