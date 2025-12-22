@@ -1564,41 +1564,61 @@ class dashboard_data_loader {
     $timeline_labels = [];
     $timeline_data = [];
     
-    // Initialize 24h buckets
+    // Initialize 24h buckets (Key: "H:00" in USER'S local time)
     $buckets = [];
     for ($i = 23; $i >= 0; $i--) {
-        $hour_timestamp = strtotime("-{$i} hours");
-        $hour_key = date('H:00', $hour_timestamp);
-        $buckets[$hour_key] = 0;
+        $timestamp = time() - ($i * 3600);
+        $user_date = usergetdate($timestamp);
+        $hour_label = sprintf("%02d:00", $user_date['hours']);
+        $buckets[$hour_label] = 0;
+        
+        // Store label order to ensure correct sorting later
+        $timeline_labels[] = $hour_label;
     }
 
     // Fetch log counts grouped by hour
     if ($DB->get_manager()->table_exists('logstore_standard_log')) {
         $since_timestamp = time() - (24 * 3600);
-        $sql_timeline = "SELECT FROM_UNIXTIME(timecreated, '%H:00') as hour_slot, COUNT(DISTINCT userid) as user_count
+        
+        // Fetch raw timestamps instead of grouping in SQL (to handle timezone in PHP)
+        $sql_timeline = "SELECT id, timecreated, userid
                          FROM {logstore_standard_log}
                          WHERE timecreated > :since
-                         GROUP BY hour_slot
-                         ORDER BY hour_slot ASC";
+                         ORDER BY timecreated ASC";
         
         try {
-            $activity_logs = $DB->get_records_sql($sql_timeline, ['since' => $since_timestamp]);
+            $activity_logs = $DB->get_recordset_sql($sql_timeline, ['since' => $since_timestamp]);
+            
+            // Process logs and aggregate by User's Local Hour
+            $unique_users_per_hour = []; // Format: ['11:00' => [userid1, userid2]]
+            
             foreach ($activity_logs as $log) {
-                if (isset($buckets[$log->hour_slot])) {
-                    $buckets[$log->hour_slot] = $log->user_count;
+                // Convert UTC timestamp to USER'S local time
+                $date_info = usergetdate($log->timecreated); 
+                $hour_key = sprintf("%02d:00", $date_info['hours']);
+                
+                if (!isset($unique_users_per_hour[$hour_key])) {
+                    $unique_users_per_hour[$hour_key] = [];
+                }
+                $unique_users_per_hour[$hour_key][$log->userid] = true;
+            }
+            $activity_logs->close();
+            
+            // Fill buckets with counts
+            foreach ($buckets as $hour_label => $zero) {
+                if (isset($unique_users_per_hour[$hour_label])) {
+                    $buckets[$hour_label] = count($unique_users_per_hour[$hour_label]);
                 }
             }
+            
         } catch (\Exception $e) {
-            // Fallback if FROM_UNIXTIME isn't supported or other DB error
-            // Keep 0s
+            // Keep 0s on error
         }
     }
 
     // Flatten for Chart.js
-    foreach ($buckets as $label => $count) {
-        $timeline_labels[] = $label;
-        $timeline_data[] = $count;
-    }
+    $timeline_data = array_values($buckets);
+    // Labels are already populated in order
     
     // Map Data: Active Users by Country (Last 5 mins)
     $map_data = [];
