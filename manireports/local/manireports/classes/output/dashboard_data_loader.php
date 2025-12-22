@@ -1772,14 +1772,37 @@ class dashboard_data_loader {
         }
 
         // 4. Get SCORM total time per user (sum of all cmi.total_time values)
+        // ISO 8601 duration format: PT[H]H[M]M[S]S e.g., PT1H30M45.5S or PT14M23.28S
         $user_scorm_times = [];
         $sql_time = "SELECT sst.userid, SUM(
                         CASE 
                             WHEN sst.value LIKE 'PT%' THEN 
                                 COALESCE(
-                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'H', 1), 'PT', -1) AS UNSIGNED) * 3600 +
-                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'M', 1), 'H', -1), 'PT', -1) AS UNSIGNED) * 60 +
-                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'S', 1), 'M', -1) AS DECIMAL(10,2)),
+                                    -- Hours: only if 'H' exists in string
+                                    CASE WHEN sst.value LIKE '%H%' 
+                                         THEN CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'H', 1), 'PT', -1) AS UNSIGNED) * 3600 
+                                         ELSE 0 
+                                    END +
+                                    -- Minutes: only if 'M' exists in string
+                                    CASE WHEN sst.value LIKE '%M%' 
+                                         THEN CAST(
+                                            CASE WHEN sst.value LIKE '%H%' 
+                                                 THEN SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'M', 1), 'H', -1)
+                                                 ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'M', 1), 'PT', -1)
+                                            END AS UNSIGNED) * 60 
+                                         ELSE 0 
+                                    END +
+                                    -- Seconds: only if 'S' exists in string
+                                    CASE WHEN sst.value LIKE '%S' 
+                                         THEN CAST(
+                                            CASE WHEN sst.value LIKE '%M%' 
+                                                 THEN SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'S', 1), 'M', -1)
+                                                 WHEN sst.value LIKE '%H%' 
+                                                 THEN SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'S', 1), 'H', -1)
+                                                 ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'S', 1), 'PT', -1)
+                                            END AS DECIMAL(10,2))
+                                         ELSE 0 
+                                    END,
                                     0
                                 )
                             WHEN sst.value LIKE '%:%' THEN
