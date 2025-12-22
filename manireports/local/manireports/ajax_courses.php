@@ -120,7 +120,16 @@ switch ($action) {
         error_reporting(0);
         while (ob_get_level()) ob_end_clean();
         
-        $filename = 'Report_Company_' . $companyid . '_Course_' . $courseid . '_' . date('Y-m-d') . '.csv';
+        
+        // Fetch Names for Filename
+        $company_name = $DB->get_field('company', 'name', ['id' => $companyid]);
+        $course_name = $DB->get_field('course', 'fullname', ['id' => $courseid]);
+        
+        // Sanitize names
+        $company_clean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $company_name);
+        $course_clean = preg_replace('/[^a-zA-Z0-9_\-]/', '_', $course_name);
+        
+        $filename = 'Report_' . $company_clean . '_' . $course_clean . '_' . date('Y-m-d') . '.csv';
         
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');

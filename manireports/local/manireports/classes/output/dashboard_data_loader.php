@@ -1745,6 +1745,59 @@ class dashboard_data_loader {
     public function get_company_course_user_report($courseid, $companyid) {
         global $DB;
         
+        // 1. Get total completion-enabled activities
+        $total_activities = $DB->count_records_select('course_modules', 
+            "course = ? AND completion > 0 AND visible = 1", 
+            [$courseid]
+        );
+
+        // 2. Get course completion aggregation method for activities (criteriatype=4)
+        // method: 1 = ALL, 2 = ANY
+        $aggr_method = $DB->get_field('course_completion_aggr_methd', 'method', 
+            ['course' => $courseid, 'criteriatype' => 4]);
+        $is_any_aggregation = ($aggr_method == 2);
+
+        // 3. Get completed activity counts per user
+        $user_activity_counts = [];
+        if ($total_activities > 0) {
+            $sql_counts = "SELECT cmc.userid, COUNT(cmc.id) as numcompleted
+                           FROM {course_modules_completion} cmc
+                           JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                           WHERE cm.course = :courseid 
+                             AND cm.completion > 0
+                             AND cm.visible = 1 
+                             AND cmc.completionstate > 0 
+                           GROUP BY cmc.userid";
+            $user_activity_counts = $DB->get_records_sql_menu($sql_counts, ['courseid' => $courseid]);
+        }
+
+        // 4. Get SCORM total time per user (sum of all cmi.total_time values)
+        $user_scorm_times = [];
+        $sql_time = "SELECT sst.userid, SUM(
+                        CASE 
+                            WHEN sst.value LIKE 'PT%' THEN 
+                                COALESCE(
+                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'H', 1), 'PT', -1) AS UNSIGNED) * 3600 +
+                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'M', 1), 'H', -1), 'PT', -1) AS UNSIGNED) * 60 +
+                                    CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(sst.value, 'S', 1), 'M', -1) AS DECIMAL(10,2)),
+                                    0
+                                )
+                            WHEN sst.value LIKE '%:%' THEN
+                                TIME_TO_SEC(sst.value)
+                            ELSE 0
+                        END
+                     ) as total_seconds
+                     FROM {scorm_scoes_track} sst
+                     JOIN {scorm} s ON s.id = sst.scormid
+                     WHERE s.course = :courseid
+                       AND sst.element = 'cmi.total_time'
+                     GROUP BY sst.userid";
+        $time_records = $DB->get_records_sql($sql_time, ['courseid' => $courseid]);
+        foreach ($time_records as $rec) {
+            $user_scorm_times[$rec->userid] = (int)$rec->total_seconds;
+        }
+
+        // 5. Get User Records
         $sql = "SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended,
                        ue.timestart as enrol_date,
                        cc.timecompleted, cc.timestarted,
@@ -1761,32 +1814,50 @@ class dashboard_data_loader {
                    AND u.deleted = 0";
                    
         $records = $DB->get_records_sql($sql, ['courseid' => $courseid, 'companyid' => $companyid]);
-        
+
         $rows = [];
         foreach ($records as $rec) {
-            // Calculate Progress/Status
+            // Calculate Status
             $status = 'Not Started';
             if ($rec->suspended) {
                 $status = 'Suspended';
             } elseif ($rec->timecompleted > 0) {
                 $status = 'Completed';
             } elseif (isset($rec->timestarted) && $rec->timestarted > 0) {
-                // If course completion record exists and has a start time, it's in progress
                 $status = 'In Progress';
             } elseif ($rec->lastaccess > 0) {
-                 // Fallback: if last access > 0 but no completion record started, assume In Progress
-                 $status = 'In Progress';
+                $status = 'In Progress';
+            }
+            
+            // Completion % logic (respecting aggregation method)
+            $completed_count = isset($user_activity_counts[$rec->id]) ? (int)$user_activity_counts[$rec->id] : 0;
+            $progress = 0;
+            
+            if ($status === 'Completed') {
+                $progress = 100;
+            } elseif ($total_activities > 0 && $completed_count > 0) {
+                if ($is_any_aggregation) {
+                    // ANY aggregation: 1+ completed = 100%
+                    $progress = 100;
+                } else {
+                    // ALL aggregation: percentage based
+                    $progress = round(($completed_count / $total_activities) * 100);
+                }
             }
             
             // Format Grade
             $grade = ($rec->finalgrade !== null) ? round($rec->finalgrade, 1) : '-';
+            
+            // Time Spent from SCORM tracking
+            $time_seconds = isset($user_scorm_times[$rec->id]) ? $user_scorm_times[$rec->id] : 0;
+            $time_spent = $this->format_time_duration($time_seconds);
             
             $rows[] = [
                 'username' => fullname($rec),
                 'email' => $rec->email,
                 'enrol_date' => userdate($rec->enrol_date, '%d-%b-%Y'),
                 'last_access' => $rec->lastaccess > 0 ? userdate($rec->lastaccess, '%d-%b-%Y %H:%M') : 'Never',
-                'time_spent' => '-', // Time spent is complex to calculate accurately without specific logs, placeholder for now
+                'time_spent' => $time_spent,
                 'grade' => $grade,
                 'completion' => $progress . '%',
                 'status' => $status
@@ -1794,6 +1865,27 @@ class dashboard_data_loader {
         }
         
         return $rows;
+    }
+
+    /**
+     * Format seconds into human readable time (HH:MM:SS or X mins)
+     */
+    private function format_time_duration($seconds) {
+        if ($seconds <= 0) {
+            return '0 mins';
+        }
+        
+        $hours = floor($seconds / 3600);
+        $mins = floor(($seconds % 3600) / 60);
+        $secs = $seconds % 60;
+        
+        if ($hours > 0) {
+            return sprintf('%d:%02d:%02d', $hours, $mins, $secs);
+        } elseif ($mins > 0) {
+            return $mins . ' mins';
+        } else {
+            return $secs . ' secs';
+        }
     }
 
     /**
