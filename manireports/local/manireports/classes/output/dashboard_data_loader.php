@@ -1494,27 +1494,57 @@ class dashboard_data_loader {
     public function get_live_statistics() {
         global $DB;
         
-        // Active Users (last 5 mins)
-        $active_users = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [time() - 300]);
-        
-        // Users Active Today
+        $window = time() - 300; // 5 minutes
         $today_start = strtotime('today midnight');
-        $peak_today = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [$today_start]);
         
-        // Active Courses
-        $active_courses_count = $DB->count_records('course', ['visible' => 1]);
+        // Initialize defaults
+        $active_users = 0;
+        $peak_today = 0;
+        $active_courses_count = 0;
+        
+        // Use Logstore Standard for Accuracy if available
+        if ($DB->get_manager()->table_exists('logstore_standard_log')) {
+            // 1. Active Users (Real-time from logs)
+            $active_users = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {logstore_standard_log} 
+                  WHERE timecreated > ? AND userid > 0", 
+                [$window]
+            );
+
+            // 2. Users Active Today (Unique Visitors)
+            $peak_today = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT userid) FROM {logstore_standard_log} 
+                  WHERE timecreated > ? AND userid > 0", 
+                [$today_start]
+            );
+
+            // 3. Active Courses (Courses with activity in last 5 min)
+            $active_courses_count = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT courseid) FROM {logstore_standard_log} 
+                  WHERE timecreated > ? AND courseid > 1", 
+                [$window]
+            );
+        } else {
+            // Fallback to legacy method if logstore not available
+            $active_users = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [$window]);
+            $peak_today = $DB->count_records_select('user', 'lastaccess > ? AND deleted = 0', [$today_start]);
+            $active_courses_count = $DB->count_records('course', ['visible' => 1]); // Fallback to all courses
+        }
         
         // Top Active Courses (Live)
-    // We'll consider "active" as courses with recent log activity in the last 5 minutes
-    $since = time() - 300;
-    $sql_top_courses = "SELECT c.id, c.fullname, COUNT(DISTINCT l.userid) as active_count
-                        FROM {course} c
-                        JOIN {logstore_standard_log} l ON l.courseid = c.id
-                        WHERE l.timecreated > :since AND c.visible = 1 AND c.id > 1
-                        GROUP BY c.id, c.fullname
-                        ORDER BY active_count DESC";
-    
-    $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $since], 0, 10);
+        // We'll consider "active" as courses with recent log activity in the last 5 minutes
+        $sql_top_courses = "SELECT c.id, c.fullname, COUNT(DISTINCT l.userid) as active_count
+                            FROM {course} c
+                            JOIN {logstore_standard_log} l ON l.courseid = c.id
+                            WHERE l.timecreated > :since AND c.visible = 1 AND c.id > 1
+                            GROUP BY c.id, c.fullname
+                            ORDER BY active_count DESC";
+        
+        try {
+            $top_courses = $DB->get_records_sql($sql_top_courses, ['since' => $window], 0, 10);
+        } catch (\Exception $e) {
+            $top_courses = [];
+        }
     
     // If no recent activity, return empty to be accurate
     if (empty($top_courses)) {
