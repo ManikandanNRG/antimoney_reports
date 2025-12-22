@@ -819,7 +819,7 @@ class dashboard_data_loader {
             
             // Fetch company-course mappings
             if (in_array('company_course', $tables)) {
-                $iomad_sql = "SELECT cc.courseid, comp.name as company_name, comp.id as company_id
+                $iomad_sql = "SELECT cc.id, cc.courseid, comp.name as company_name, comp.id as company_id
                               FROM {company_course} cc
                               LEFT JOIN {company} comp ON comp.id = cc.companyid";
                 $iomad_records = $DB->get_records_sql($iomad_sql);
