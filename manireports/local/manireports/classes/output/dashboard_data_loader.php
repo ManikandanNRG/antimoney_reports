@@ -752,34 +752,49 @@ class dashboard_data_loader {
         global $DB, $CFG;
 
         $offset = ($page - 1) * $limit;
-        $params = [];
         $sql_where = "c.id > 1";
-
-        if ($start_date > 0 && $end_date > 0) {
-            $params['start_date'] = $start_date;
-            $params['end_date'] = $end_date;
-        }
 
         if (!empty($search)) {
             $sql_where .= " AND (c.fullname LIKE :search OR c.shortname LIKE :search2)";
-            $params['search'] = '%' . $search . '%';
-            $params['search2'] = '%' . $search . '%';
         }
 
         if ($category > 0) {
             $sql_where .= " AND c.category = :category";
-            $params['category'] = $category;
         }
 
-        // Count Total
-        $total_records = $DB->count_records_sql("SELECT COUNT(c.id) FROM {course} c WHERE $sql_where", $params);
+        // Count Total (without date filter for count - we want all courses)
+        $count_params = [];
+        if (!empty($search)) {
+            $count_params['search'] = '%' . $search . '%';
+            $count_params['search2'] = '%' . $search . '%';
+        }
+        if ($category > 0) {
+            $count_params['category'] = $category;
+        }
+        $total_records = $DB->count_records_sql("SELECT COUNT(c.id) FROM {course} c WHERE $sql_where", $count_params);
         $total_pages = ceil($total_records / $limit);
 
-        // Main Query - Simple baseline that ALWAYS works
+        // Build completion date condition
+        $completion_date_join = "";
+        if ($start_date > 0 && $end_date > 0) {
+            $completion_date_join = " AND cc.timecompleted >= " . (int)$start_date . " AND cc.timecompleted <= " . (int)$end_date;
+        }
+
+        // Build params for main query (without date params since we're using literal values)
+        $query_params = [];
+        if (!empty($search)) {
+            $query_params['search'] = '%' . $search . '%';
+            $query_params['search2'] = '%' . $search . '%';
+        }
+        if ($category > 0) {
+            $query_params['category'] = $category;
+        }
+
+        // Main Query - With date-filtered completions
         $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, 
                        cat.name as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
-                       COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 THEN cc.userid END) as completed
+                       COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 $completion_date_join THEN cc.userid END) as completed
                   FROM {course} c
                   JOIN {course_categories} cat ON cat.id = c.category
                   LEFT JOIN {enrol} e ON e.courseid = c.id
@@ -790,7 +805,7 @@ class dashboard_data_loader {
               ORDER BY enrolled DESC";
 
         try {
-            $courses = $DB->get_records_sql($sql, $params, $offset, $limit);
+            $courses = $DB->get_records_sql($sql, $query_params, $offset, $limit);
         } catch (\Exception $e) {
             error_log("Manireports get_courses_page SQL Error: " . $e->getMessage());
             return ['rows' => [], 'pagination' => ['total' => 0, 'pages' => 0, 'current' => $page]];
