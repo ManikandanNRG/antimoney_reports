@@ -105,6 +105,46 @@ switch ($action) {
         $details = $loader->get_course_details($courseid);
         echo json_encode($details);
         break;
+
+    case 'get_course_distribution':
+        $courseid = required_param('courseid', PARAM_INT);
+        $distribution = $loader->get_course_company_distribution($courseid);
+        echo json_encode($distribution);
+        break;
+
+    case 'export_course_distribution':
+        $courseid = required_param('courseid', PARAM_INT);
+        $companyid = required_param('companyid', PARAM_INT);
+        
+        // Prevent debug output from corrupting CSV
+        error_reporting(0);
+        while (ob_get_level()) ob_end_clean();
+        
+        $filename = 'Report_Company_' . $companyid . '_Course_' . $courseid . '_' . date('Y-m-d') . '.csv';
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        
+        $output = fopen('php://output', 'w');
+        
+        // BOM for Excel
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Headers
+        fputcsv($output, [
+            'Username', 'Email', 'Enrollment Date', 'Last Access', 
+            'Time Spent', 'Grade', 'Completion', 'Status'
+        ]);
+        
+        // Data
+        $rows = $loader->get_company_course_user_report($courseid, $companyid);
+        foreach ($rows as $row) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        exit();
+        break;
         
     default:
         echo json_encode(['error' => 'Invalid action']);

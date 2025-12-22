@@ -3664,125 +3664,170 @@ function openCourseDrawer(courseId) {
     const content = document.getElementById('drawerContent');
     content.innerHTML = '<div style="height: 100%; display: flex; align-items: center; justify-content: center;"><div class="manireports-loading-spinner"></div></div>';
 
-    fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_course_details&courseid=' + courseId + '&sesskey=<?php echo sesskey(); ?>')
-        .then(res => res.json())
-        .then(data => {
-            content.innerHTML = `
-                <div style="padding: 40px;">
-                    <div style="margin-bottom: 24px;">
-                        <span class="status-badge status-active" style="font-size: 12px;">${data.category}</span>
+    // Fetch Details AND Distribution in parallel
+    Promise.all([
+        fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_course_details&courseid=' + courseId + '&sesskey=<?php echo sesskey(); ?>').then(r => r.json()),
+        fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_course_distribution&courseid=' + courseId + '&sesskey=<?php echo sesskey(); ?>').then(r => r.json())
+    ])
+    .then(([data, distribution]) => {
+        // --- 1. Top Section (Header & Stats) ---
+        let html = `
+            <div style="padding: 40px;">
+                <div style="margin-bottom: 24px;">
+                    <span class="status-badge status-active" style="font-size: 12px;">${data.category}</span>
+                </div>
+                <h2 style="margin: 0 0 16px; font-size: 32px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">${data.fullname}</h2>
+                <p style="color: var(--text-secondary); line-height: 1.7; font-size: 15px; margin-bottom: 32px;">${data.summary || 'No description available for this course.'}</p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px;">
+                    <div class="bento-card" style="padding: 20px;">
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Enrolled Users</div>
+                        <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.enrolled}</div>
                     </div>
-                    <h2 style="margin: 0 0 16px; font-size: 32px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">${data.fullname}</h2>
-                    <p style="color: var(--text-secondary); line-height: 1.7; font-size: 15px; margin-bottom: 32px;">${data.summary || 'No description available for this course.'}</p>
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px;">
-                        <div class="bento-card" style="padding: 20px;">
-                            <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Enrolled Users</div>
-                            <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.enrolled}</div>
-                        </div>
-                        <div class="bento-card" style="padding: 20px;">
-                            <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-check-circle" style="color: var(--accent-success);"></i> Completions</div>
-                            <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.completed} <span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">(${data.stats.completion_rate}%)</span></div>
-                        </div>
+                    <div class="bento-card" style="padding: 20px;">
+                        <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-check-circle" style="color: var(--accent-success);"></i> Completions</div>
+                        <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.completed} <span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">(${data.stats.completion_rate}%)</span></div>
                     </div>
-                    
-                    <div style="margin-bottom: 40px;">
-                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Course Instructors</h3>
-                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                            ${data.teachers ? data.teachers.split(', ').map(t => `<div style="padding: 10px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);"><i class="fa-solid fa-user-tie" style="color: var(--text-secondary);"></i> ${t}</div>`).join('') : '<span style="color: var(--text-secondary);">No teachers assigned</span>'}
-                        </div>
-                    </div>
+                </div>`;
 
-                    <!-- License Information Section -->
-                    <div style="margin-bottom: 40px;">
-                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">License Information</h3>
+        // --- 2. Company Distribution Section (NEW) ---
+        if (distribution && distribution.length > 0) {
+            html += `
+                <div style="margin-bottom: 40px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden;">
+                    <div style="padding: 16px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">Company Distribution</h3>
+                    </div>
+                    <div style="width: 100%; overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
+                            <thead>
+                                <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--glass-border);">
+                                    <th style="text-align: left; padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Company</th>
+                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Enrolled</th>
+                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">In Progress</th>
+                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Completed</th>
+                                    <th style="text-align: right; padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${distribution.map(d => `
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                        <td style="padding: 12px 20px; color: var(--text-primary); font-size: 13px; font-weight: 500;">${d.name}</td>
+                                        <td style="padding: 12px 20px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.enrolled}</td>
+                                        <td style="padding: 12px 20px; color: var(--accent-warning); font-size: 13px; text-align: center;">${d.in_progress}</td>
+                                        <td style="padding: 12px 20px; color: var(--accent-success); font-size: 13px; text-align: center;">${d.completed}</td>
+                                        <td style="padding: 12px 20px; text-align: right;">
+                                            <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=export_course_distribution&courseid=${courseId}&companyid=${d.company_id}&sesskey=<?php echo sesskey(); ?>" target="_blank" 
+                                               style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500; transition: background 0.2s;">
+                                               <i class="fa-solid fa-download"></i> Download
+                                            </a>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }
+
+        // --- 3. Teachers & License Info (Existing) ---
+        html += `
+                <div style="margin-bottom: 40px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">Course Instructors</h3>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                        ${data.teachers ? data.teachers.split(', ').map(t => `<div style="padding: 10px 16px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 12px; display: flex; align-items: center; gap: 8px; color: var(--text-primary);"><i class="fa-solid fa-user-tie" style="color: var(--text-secondary);"></i> ${t}</div>`).join('') : '<span style="color: var(--text-secondary);">No teachers assigned</span>'}
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 40px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">License Information</h3>
+                    
+                    ${data.iomad && data.iomad.licensed == 1 ? `
+                    <!-- Licensed Course -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
+                        <!-- Status Row -->
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
+                            <!-- Status Badge -->
+                            <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px;
+                                ${data.iomad.license_status === 'expired' ? 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);' : 
+                                  data.iomad.license_status === 'expiring' ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);' :
+                                  data.iomad.license_status === 'exhausted' ? 'background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3);' :
+                                  'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);'}">
+                                <i class="fa-solid ${data.iomad.license_status === 'expired' ? 'fa-circle-xmark' : 
+                                                     data.iomad.license_status === 'expiring' ? 'fa-exclamation-triangle' :
+                                                     data.iomad.license_status === 'exhausted' ? 'fa-ticket' : 'fa-check-circle'}"></i>
+                                ${data.iomad.license_status === 'expired' ? 'EXPIRED' : 
+                                  data.iomad.license_status === 'expiring' ? 'EXPIRING SOON' :
+                                  data.iomad.license_status === 'exhausted' ? 'NO LICENSES LEFT' : 'ACTIVE'}
+                            </div>
+                        </div>
                         
-                        ${data.iomad && data.iomad.licensed == 1 ? `
-                        <!-- Licensed Course -->
-                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
-                            <!-- Status Row -->
-                            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
-                                <!-- Status Badge -->
-                                <div style="padding: 8px 16px; border-radius: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px;
-                                    ${data.iomad.license_status === 'expired' ? 'background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);' : 
-                                      data.iomad.license_status === 'expiring' ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);' :
-                                      data.iomad.license_status === 'exhausted' ? 'background: rgba(168, 85, 247, 0.15); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3);' :
-                                      'background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);'}">
-                                    <i class="fa-solid ${data.iomad.license_status === 'expired' ? 'fa-circle-xmark' : 
-                                                         data.iomad.license_status === 'expiring' ? 'fa-exclamation-triangle' :
-                                                         data.iomad.license_status === 'exhausted' ? 'fa-ticket' : 'fa-check-circle'}"></i>
-                                    ${data.iomad.license_status === 'expired' ? 'EXPIRED' : 
-                                      data.iomad.license_status === 'expiring' ? 'EXPIRING SOON' :
-                                      data.iomad.license_status === 'exhausted' ? 'NO LICENSES LEFT' : 'ACTIVE'}
-                                </div>
+                        <!-- License Pool Usage -->
+                        <div style="margin-bottom: 16px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                                <span style="color: var(--text-secondary); font-size: 13px;">License Pool</span>
+                                <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;">
+                                    ${data.iomad.license_used} / ${data.iomad.license_count} used 
+                                    <span style="color: var(--text-secondary);">(${data.iomad.license_remaining} remaining)</span>
+                                </span>
                             </div>
-                            
-                            <!-- License Pool Usage -->
-                            <div style="margin-bottom: 16px;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                                    <span style="color: var(--text-secondary); font-size: 13px;">License Pool</span>
-                                    <span style="color: var(--text-primary); font-weight: 600; font-size: 13px;">
-                                        ${data.iomad.license_used} / ${data.iomad.license_count} used 
-                                        <span style="color: var(--text-secondary);">(${data.iomad.license_remaining} remaining)</span>
-                                    </span>
-                                </div>
-                                <div style="height: 8px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; overflow: hidden;">
-                                    <div style="height: 100%; width: ${data.iomad.usage_percent}%; border-radius: 4px;
-                                        background: ${data.iomad.usage_percent >= 90 ? '#ef4444' : data.iomad.usage_percent >= 70 ? '#f59e0b' : '#10b981'};
-                                        transition: width 0.3s ease;"></div>
-                                </div>
-                            </div>
-                            
-                            <!-- Expiry Info -->
-                            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                                ${data.iomad.license_expiry > 0 ? `
-                                <div style="padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px;
-                                    ${data.iomad.is_expired ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444;' : 
-                                      data.iomad.days_until_expiry <= 30 ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #f59e0b;' :
-                                      'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #3b82f6;'}">
-                                    <i class="fa-solid fa-calendar"></i>
-                                    ${data.iomad.is_expired ? 
-                                        '<strong>Expired</strong> ' + Math.abs(data.iomad.days_until_expiry) + ' days ago (' + data.iomad.license_expiry_date + ')' :
-                                        '<strong>Expires</strong> in ' + data.iomad.days_until_expiry + ' days (' + data.iomad.license_expiry_date + ')'}
-                                </div>` : ''}
-                                
-                                ${data.iomad.training_window > 0 ? `
-                                <div style="padding: 10px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 10px; color: #6366f1; font-size: 13px;">
-                                    <i class="fa-solid fa-hourglass-half"></i>
-                                    <strong>${data.iomad.training_window}-day</strong> training window per user
-                                </div>` : ''}
+                            <div style="height: 8px; background: rgba(148, 163, 184, 0.2); border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: ${data.iomad.usage_percent}%; border-radius: 4px;
+                                    background: ${data.iomad.usage_percent >= 90 ? '#ef4444' : data.iomad.usage_percent >= 70 ? '#f59e0b' : '#10b981'};
+                                    transition: width 0.3s ease;"></div>
                             </div>
                         </div>
-                        ` : `
-                        <!-- Non-Licensed Course -->
-                        <div style="padding: 20px; background: rgba(148, 163, 184, 0.05); border: 1px solid var(--glass-border); border-radius: 16px; text-align: center;">
-                            <div style="display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; background: rgba(148, 163, 184, 0.1); border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-secondary); font-size: 14px;">
-                                <i class="fa-solid fa-circle-xmark"></i>
-                                <span>This course is not using license-based enrollment</span>
-                            </div>
+                        
+                        <!-- Expiry Info -->
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            ${data.iomad.license_expiry > 0 ? `
+                            <div style="padding: 10px 16px; border-radius: 12px; display: flex; align-items: center; gap: 10px; font-size: 13px;
+                                ${data.iomad.is_expired ? 'background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444;' : 
+                                  data.iomad.days_until_expiry <= 30 ? 'background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: #f59e0b;' :
+                                  'background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); color: #3b82f6;'}">
+                                <i class="fa-solid fa-calendar"></i>
+                                ${data.iomad.is_expired ? 
+                                    '<strong>Expired</strong> ' + Math.abs(data.iomad.days_until_expiry) + ' days ago (' + data.iomad.license_expiry_date + ')' :
+                                    '<strong>Expires</strong> in ' + data.iomad.days_until_expiry + ' days (' + data.iomad.license_expiry_date + ')'}
+                            </div>` : ''}
+                            
+                            ${data.iomad.training_window > 0 ? `
+                            <div style="padding: 10px 16px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; display: flex; align-items: center; gap: 10px; color: #6366f1; font-size: 13px;">
+                                <i class="fa-solid fa-hourglass-half"></i>
+                                <strong>${data.iomad.training_window}-day</strong> training window per user
+                            </div>` : ''}
                         </div>
-                        `}
                     </div>
+                    ` : `
+                    <!-- Non-Licensed Course -->
+                    <div style="padding: 20px; background: rgba(148, 163, 184, 0.05); border: 1px solid var(--glass-border); border-radius: 16px; text-align: center;">
+                        <div style="display: inline-flex; align-items: center; gap: 10px; padding: 10px 20px; background: rgba(148, 163, 184, 0.1); border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-secondary); font-size: 14px;">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                            <span>This course is not using license-based enrollment</span>
+                        </div>
+                    </div>
+                    `}
+                </div>
 
-                    <div style="padding-top: 20px; border-top: 1px solid var(--glass-border);">
-                        <a href="<?php echo $CFG->wwwroot; ?>/course/view.php?id=${data.id}" target="_blank" class="export-btn" style="display: block; text-align: center; text-decoration: none; padding: 16px; font-size: 16px; border-radius: 16px;">
-                            Open Course Dashboard <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: 8px;"></i>
-                        </a>
-                    </div>
+                <div style="padding-top: 20px; border-top: 1px solid var(--glass-border);">
+                    <a href="<?php echo $CFG->wwwroot; ?>/course/view.php?id=${data.id}" target="_blank" class="export-btn" style="display: block; text-align: center; text-decoration: none; padding: 16px; font-size: 16px; border-radius: 16px;">
+                        Open Course Dashboard <i class="fa-solid fa-arrow-up-right-from-square" style="margin-left: 8px;"></i>
+                    </a>
                 </div>
-            `;
-        })
-        .catch(err => {
-            console.error('Drawer Error:', err);
-            content.innerHTML = `
-                <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
-                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: var(--accent-danger); margin-bottom: 20px;"></i>
-                    <h3 style="color: var(--text-primary);">Error Loading Details</h3>
-                    <p style="color: var(--text-secondary);">Could not retrieve course information.</p>
-                    <button onclick="closeCourseDrawer()" class="export-btn" style="margin-top: 20px;">Close</button>
-                </div>
-            `;
-        });
+            </div>`;
+            
+            content.innerHTML = html;
+    })
+    .catch(err => {
+        console.error('Drawer Error:', err);
+        content.innerHTML = `
+            <div style="height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 48px; color: var(--accent-danger); margin-bottom: 20px;"></i>
+                <h3 style="color: var(--text-primary);">Error Loading Details</h3>
+                <p style="color: var(--text-secondary);">Could not retrieve course information.</p>
+                <button onclick="closeCourseDrawer()" class="export-btn" style="margin-top: 20px;">Close</button>
+            </div>
+        `;
+    });
 }
 
 function closeCourseDrawer() {

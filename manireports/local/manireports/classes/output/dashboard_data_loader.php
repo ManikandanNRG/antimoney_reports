@@ -819,12 +819,16 @@ class dashboard_data_loader {
             
             // Fetch company-course mappings
             if (in_array('company_course', $tables)) {
-                $iomad_sql = "SELECT cc.courseid, comp.name as company_name
+                $iomad_sql = "SELECT cc.courseid, comp.name as company_name, comp.id as company_id
                               FROM {company_course} cc
                               LEFT JOIN {company} comp ON comp.id = cc.companyid";
                 $iomad_records = $DB->get_records_sql($iomad_sql);
                 foreach ($iomad_records as $rec) {
-                    $iomad_data[$rec->courseid] = $rec;
+                    if (!isset($iomad_data[$rec->courseid])) {
+                        $iomad_data[$rec->courseid] = [];
+                    }
+                    // Add company to array for this course
+                    $iomad_data[$rec->courseid][] = $rec->company_name;
                 }
             }
             
@@ -865,10 +869,30 @@ class dashboard_data_loader {
             }
 
             // Get IOMAD data if available
+            // Get IOMAD data if available
             $company_name = '-';
             if (isset($iomad_data[$course->id])) {
-                $iomad = $iomad_data[$course->id];
-                $company_name = !empty($iomad->company_name) ? $iomad->company_name : '-';
+                // $iomad_data[$course->id] is now an ARRAY of company names due to our previous fix
+                $companies = $iomad_data[$course->id];
+                
+                // Safety check: ensure it's an array (in case previous fix failed or data is weird)
+                if (is_array($companies)) {
+                    $companies = array_unique($companies); // Deduplicate just in case
+                    $count = count($companies);
+                    
+                    if ($count > 1) {
+                        $company_name = implode(', ', array_slice($companies, 0, 2));
+                        if ($count > 2) {
+                            $company_name .= ' +' . ($count - 2);
+                        }
+                    } elseif ($count === 1) {
+                        $company_name = reset($companies);
+                    }
+                } else {
+                    // Fallback for object/string legacy
+                    $val = $companies;
+                    $company_name = !empty($val->company_name) ? $val->company_name : (''.$val);
+                }
             }
             
             // Get license data if available (course is licensed if it exists in companylicense_courses)
@@ -1349,6 +1373,55 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Course Company Distribution.
+     * 
+     * Returns breakdown of enrollments/completions per company for a shared course.
+     */
+    public function get_course_company_distribution($courseid) {
+        global $DB;
+        
+        // 1. Get all companies assigned to this course
+        $sql = "SELECT comp.id, comp.name, comp.shortname
+                  FROM {company} comp
+                  JOIN {company_course} cc ON cc.companyid = comp.id
+                 WHERE cc.courseid = :courseid";
+                 
+        $companies = $DB->get_records_sql($sql, ['courseid' => $courseid]);
+        
+        $result = [];
+        
+        // 2. For each company, calculate metrics
+        // Note: We need to filter users by company.
+        // IOMAD links users to companies via {company_users}.
+        
+        foreach ($companies as $comp) {
+            // Count Enrolled users in this course belonging to this company
+            // Enrolled = User is enrolled in course AND user is in company_users for this company
+            $sql_metrics = "SELECT COUNT(DISTINCT ue.userid) as enrolled,
+                                   COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 THEN cc.userid END) as completed
+                              FROM {user_enrolments} ue
+                              JOIN {enrol} e ON e.id = ue.enrolid
+                              JOIN {company_users} cu ON cu.userid = ue.userid
+                              LEFT JOIN {course_completions} cc ON cc.course = e.courseid AND cc.userid = ue.userid
+                             WHERE e.courseid = :courseid 
+                               AND cu.companyid = :companyid
+                               AND ue.status = 0"; // Only active enrollments
+                               
+            $metrics = $DB->get_record_sql($sql_metrics, ['courseid' => $courseid, 'companyid' => $comp->id]);
+            
+            $result[] = [
+                'company_id' => $comp->id,
+                'name' => $comp->name,
+                'enrolled' => (int)$metrics->enrolled,
+                'completed' => (int)$metrics->completed,
+                'in_progress' => (int)$metrics->enrolled - (int)$metrics->completed
+            ];
+        }
+        
+        return $result;
+    }
+    
+    /**
      * Get Comprehensive User List with Pagination.
      */
     public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {
@@ -1663,6 +1736,59 @@ class dashboard_data_loader {
     ];
 }
 
+
+
+
+    /**
+     * Get Detailed User Report for Company Course (CSV Export).
+     */
+    public function get_company_course_user_report($courseid, $companyid) {
+        global $DB;
+        
+        $sql = "SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended,
+                       ue.timestart as enrol_date,
+                       cc.timecompleted,
+                       gg.finalgrade, gg.rawgrademax
+                  FROM {user_enrolments} ue
+                  JOIN {enrol} e ON e.id = ue.enrolid
+                  JOIN {user} u ON u.id = ue.userid
+                  JOIN {company_users} cu ON cu.userid = ue.userid
+                  LEFT JOIN {course_completions} cc ON cc.course = e.courseid AND cc.userid = ue.userid
+                  LEFT JOIN {grade_items} gi ON gi.courseid = e.courseid AND gi.itemtype = 'course'
+                  LEFT JOIN {grade_grades} gg ON gg.itemid = gi.id AND gg.userid = ue.userid
+                 WHERE e.courseid = :courseid 
+                   AND cu.companyid = :companyid
+                   AND u.deleted = 0";
+                   
+        $records = $DB->get_records_sql($sql, ['courseid' => $courseid, 'companyid' => $companyid]);
+        
+        $rows = [];
+        foreach ($records as $rec) {
+            // Calculate Progress/Status
+            $status = 'Active';
+            if ($rec->suspended) $status = 'Suspended';
+            if ($rec->timecompleted > 0) $status = 'Completed';
+            
+            // Completion % logic (simplified, or use core completion)
+            $progress = ($rec->timecompleted > 0) ? 100 : 0; // Simple logic if complex tracking not enabled
+            
+            // Format Grade
+            $grade = ($rec->finalgrade !== null) ? round($rec->finalgrade, 1) : '-';
+            
+            $rows[] = [
+                'username' => fullname($rec),
+                'email' => $rec->email,
+                'enrol_date' => userdate($rec->enrol_date, '%d-%b-%Y'),
+                'last_access' => $rec->lastaccess > 0 ? userdate($rec->lastaccess, '%d-%b-%Y %H:%M') : 'Never',
+                'time_spent' => '-', // Time spent is complex to calculate accurately without specific logs, placeholder for now
+                'grade' => $grade,
+                'completion' => $progress . '%',
+                'status' => $status
+            ];
+        }
+        
+        return $rows;
+    }
 
     /**
      * Get Reminder Data for Dashboard.
