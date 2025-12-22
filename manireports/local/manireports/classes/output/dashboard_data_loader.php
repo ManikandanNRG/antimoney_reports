@@ -1747,7 +1747,7 @@ class dashboard_data_loader {
         
         $sql = "SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended,
                        ue.timestart as enrol_date,
-                       cc.timecompleted,
+                       cc.timecompleted, cc.timestarted,
                        gg.finalgrade, gg.rawgrademax
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
@@ -1765,12 +1765,18 @@ class dashboard_data_loader {
         $rows = [];
         foreach ($records as $rec) {
             // Calculate Progress/Status
-            $status = 'Active';
-            if ($rec->suspended) $status = 'Suspended';
-            if ($rec->timecompleted > 0) $status = 'Completed';
-            
-            // Completion % logic (simplified, or use core completion)
-            $progress = ($rec->timecompleted > 0) ? 100 : 0; // Simple logic if complex tracking not enabled
+            $status = 'Not Started';
+            if ($rec->suspended) {
+                $status = 'Suspended';
+            } elseif ($rec->timecompleted > 0) {
+                $status = 'Completed';
+            } elseif (isset($rec->timestarted) && $rec->timestarted > 0) {
+                // If course completion record exists and has a start time, it's in progress
+                $status = 'In Progress';
+            } elseif ($rec->lastaccess > 0) {
+                 // Fallback: if last access > 0 but no completion record started, assume In Progress
+                 $status = 'In Progress';
+            }
             
             // Format Grade
             $grade = ($rec->finalgrade !== null) ? round($rec->finalgrade, 1) : '-';

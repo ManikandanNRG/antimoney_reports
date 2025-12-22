@@ -3717,7 +3717,7 @@ function openCourseDrawer(courseId) {
                                         <td style="padding: 12px 20px; color: var(--accent-success); font-size: 13px; text-align: center;">${d.completed}</td>
                                         <td style="padding: 12px 20px; text-align: right;">
                                             <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=export_course_distribution&courseid=${courseId}&companyid=${d.company_id}&sesskey=<?php echo sesskey(); ?>" target="_blank" 
-                                               style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 6px 12px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500; transition: background 0.2s;">
+                                               style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 6px 16px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500; transition: background 0.2s; white-space: nowrap;">
                                                <i class="fa-solid fa-download"></i> Download
                                             </a>
                                         </td>
