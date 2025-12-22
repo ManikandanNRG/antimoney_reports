@@ -26,6 +26,10 @@ $PAGE->set_url(new moodle_url('/local/manireports/ui/dashboard.php'));
 $PAGE->set_heading(get_string('dashboard', 'local_manireports'));
 $PAGE->set_pagelayout('embedded');
 
+// Trigger event for Real-time Active Users tracking
+$event = \core\event\dashboard_viewed::create(['context' => $context]);
+$event->trigger();
+
 // ========================================================================
 // PHASE 1: ROLE DETECTION & CONTEXT GATHERING
 // ========================================================================
