@@ -155,6 +155,55 @@ switch ($action) {
         exit();
         break;
         
+    case 'export_courses_csv':
+        // Export all courses matching current filters to CSV
+        error_reporting(0);
+        while (ob_get_level()) ob_end_clean();
+        
+        // Generate filename with date range if specified
+        $filename_parts = ['Courses_Report'];
+        if ($start_str) $filename_parts[] = 'from_' . $start_str;
+        if ($end_str) $filename_parts[] = 'to_' . $end_str;
+        $filename_parts[] = date('Y-m-d');
+        $filename = implode('_', $filename_parts) . '.csv';
+        
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        
+        $output = fopen('php://output', 'w');
+        
+        // BOM for Excel
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Headers
+        fputcsv($output, [
+            'Course Name', 'Category', 'Company', 'Enrolled', 'Completed', 
+            'In Progress', 'Completion Rate (%)', 'License Status'
+        ]);
+        
+        // Get ALL courses (no pagination for export)
+        $result = $loader->get_courses_page(1, 99999, $search, $category, $start_date, $end_date);
+        
+        foreach ($result['rows'] as $course) {
+            $completion_rate = $course['enrolled'] > 0 ? round(($course['completed'] / $course['enrolled']) * 100, 1) : 0;
+            $license_status = ($course['licensed'] == 1) ? 'Licensed' : 'Non-Licensed';
+            
+            fputcsv($output, [
+                $course['fullname'],
+                $course['category'],
+                $course['company'],
+                $course['enrolled'],
+                $course['completed'],
+                $course['in_progress'],
+                $completion_rate,
+                $license_status
+            ]);
+        }
+        
+        fclose($output);
+        exit();
+        break;
+        
     default:
         echo json_encode(['error' => 'Invalid action']);
 }

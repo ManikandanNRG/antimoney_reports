@@ -1764,7 +1764,7 @@ body {
                 <div class="bento-card card-span-4">
                     <div class="card-header">
                         <div class="card-title">Comprehensive Course List</div>
-                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="triggerExport('course_completion', 'csv')">Export CSV</button>
+                        <button class="export-btn" style="padding: 6px 12px; font-size: 12px;" onclick="exportCoursesCsv()">Export CSV</button>
                     </div>
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead class="sticky-header">
@@ -3024,6 +3024,25 @@ function triggerExport(reportType, format) {
     if (dateEnd) url += `&dateto=${dateEnd}`;
     
     // Trigger download in same tab
+    window.location.href = url;
+}
+
+// Export Courses CSV with current tab filters
+function exportCoursesCsv() {
+    const baseUrl = '<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php';
+    const search = document.getElementById('courseSearchInput') ? document.getElementById('courseSearchInput').value : '';
+    const category = document.getElementById('courseCategorySelect') ? document.getElementById('courseCategorySelect').value : '';
+    const dateStart = document.getElementById('courseDateStart') ? document.getElementById('courseDateStart').value : '';
+    const dateEnd = document.getElementById('courseDateEnd') ? document.getElementById('courseDateEnd').value : '';
+    
+    // Build URL with all current filters
+    let url = `${baseUrl}?action=export_courses_csv&sesskey=<?php echo sesskey(); ?>`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    if (category) url += `&category=${encodeURIComponent(category)}`;
+    if (dateStart) url += `&start_date=${encodeURIComponent(dateStart)}`;
+    if (dateEnd) url += `&end_date=${encodeURIComponent(dateEnd)}`;
+    
+    // Trigger download
     window.location.href = url;
 }
 
