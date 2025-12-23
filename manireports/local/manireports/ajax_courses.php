@@ -142,7 +142,8 @@ switch ($action) {
         // Headers
         fputcsv($output, [
             'Username', 'Email', 'Enrollment Date', 'Last Access', 
-            'Time Spent', 'Grade (%)', 'Completed Activities', 'Completion (%)', 'Completion Date', 'Status'
+            'Time Spent', 'Grade (%)', 'Completed Activities', 'Completion (%)', 'Completion Date', 'Status',
+            'Certificate Issued', 'Certificate Date', 'Certificate Code'
         ]);
         
         // Data

@@ -984,6 +984,17 @@ class dashboard_data_loader {
         $enrolled = $DB->count_records_sql("SELECT COUNT(ue.id) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = ?", [$courseid]);
         // Accurate Completion Count via SQL
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
+        // Certificate Count from customcert_issues
+        $certificates_issued = 0;
+        if ($DB->get_manager()->table_exists('customcert_issues')) {
+            $certificates_issued = $DB->count_records_sql(
+                "SELECT COUNT(ci.id) 
+                 FROM {customcert_issues} ci
+                 JOIN {customcert} c ON c.id = ci.customcertid
+                 WHERE c.course = ?", 
+                [$courseid]
+            );
+        }
         
         // 4. License Details from companylicense tables
     $iomad_info = [
@@ -1152,7 +1163,8 @@ class dashboard_data_loader {
         'stats' => [
             'enrolled' => $enrolled,
             'completed' => $completed,
-            'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0
+            'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0,
+            'certificates' => $certificates_issued
         ]
     ];
 }
@@ -1490,12 +1502,26 @@ class dashboard_data_loader {
                                
             $metrics = $DB->get_record_sql($sql_metrics, ['courseid' => $courseid, 'companyid' => $comp->id]);
             
+            // Get certificate count for this company's users
+            $certs_count = 0;
+            if ($DB->get_manager()->table_exists('customcert_issues')) {
+                $certs_count = $DB->count_records_sql(
+                    "SELECT COUNT(DISTINCT ci.id)
+                     FROM {customcert_issues} ci
+                     JOIN {customcert} c ON c.id = ci.customcertid
+                     JOIN {company_users} cu ON cu.userid = ci.userid
+                     WHERE c.course = :courseid AND cu.companyid = :companyid",
+                    ['courseid' => $courseid, 'companyid' => $comp->id]
+                );
+            }
+            
             $result[] = [
                 'company_id' => $comp->id,
                 'name' => $comp->name,
                 'enrolled' => (int)$metrics->enrolled,
                 'completed' => (int)$metrics->completed,
-                'in_progress' => (int)$metrics->enrolled - (int)$metrics->completed
+                'in_progress' => (int)$metrics->enrolled - (int)$metrics->completed,
+                'certificates' => (int)$certs_count
             ];
         }
         
@@ -1901,6 +1927,24 @@ class dashboard_data_loader {
             $user_scorm_times[$rec->userid] = (int)$rec->total_seconds;
         }
 
+        // 5. Get Certificate issuance data from customcert_issues
+        $user_certificates = [];
+        if ($DB->get_manager()->table_exists('customcert_issues')) {
+            // Get customcert activity for this course
+            $cert_sql = "SELECT ci.userid, ci.timecreated as cert_date, ci.code as cert_code
+                         FROM {customcert_issues} ci
+                         JOIN {customcert} c ON c.id = ci.customcertid
+                         WHERE c.course = :courseid";
+            $cert_records = $DB->get_records_sql($cert_sql, ['courseid' => $courseid]);
+            foreach ($cert_records as $crec) {
+                $user_certificates[$crec->userid] = [
+                    'issued' => true,
+                    'date' => $crec->cert_date,
+                    'code' => $crec->cert_code
+                ];
+            }
+        }
+
         // 5. Get User Records
         $sql = "SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended,
                        ue.timestart as enrol_date,
@@ -1967,6 +2011,11 @@ class dashboard_data_loader {
             $time_seconds = isset($user_scorm_times[$rec->id]) ? $user_scorm_times[$rec->id] : 0;
             $time_spent = $this->format_time_duration($time_seconds);
             
+            // Certificate data
+            $cert_issued = isset($user_certificates[$rec->id]) ? 'Yes' : 'No';
+            $cert_date = isset($user_certificates[$rec->id]) ? userdate($user_certificates[$rec->id]['date'], '%d-%b-%Y %H:%M') : '-';
+            $cert_code = isset($user_certificates[$rec->id]) ? $user_certificates[$rec->id]['code'] : '-';
+            
             $rows[] = [
                 'username' => fullname($rec),
                 'email' => $rec->email,
@@ -1977,7 +2026,10 @@ class dashboard_data_loader {
                 'completed_activities' => $completed_activities,
                 'completion' => $progress . '%',
                 'completion_date' => $completion_date,
-                'status' => $status
+                'status' => $status,
+                'cert_issued' => $cert_issued,
+                'cert_date' => $cert_date,
+                'cert_code' => $cert_code
             ];
         }
         

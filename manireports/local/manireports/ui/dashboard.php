@@ -3698,7 +3698,7 @@ function openCourseDrawer(courseId) {
                 <h2 style="margin: 0 0 16px; font-size: 32px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.5px;">${data.fullname}</h2>
                 <p style="color: var(--text-secondary); line-height: 1.7; font-size: 15px; margin-bottom: 32px;">${data.summary || 'No description available for this course.'}</p>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 40px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
                     <div class="bento-card" style="padding: 20px;">
                         <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-users" style="color: var(--accent-primary);"></i> Enrolled Users</div>
                         <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.enrolled}</div>
@@ -3707,7 +3707,35 @@ function openCourseDrawer(courseId) {
                         <div class="card-title" style="font-size: 13px; margin-bottom: 8px;"><i class="fa-solid fa-check-circle" style="color: var(--accent-success);"></i> Completions</div>
                         <div class="card-value" style="font-size: 28px; margin: 0;">${data.stats.completed} <span style="font-size: 14px; color: var(--text-secondary); font-weight: 500;">(${data.stats.completion_rate}%)</span></div>
                     </div>
-                </div>`;
+                </div>
+                
+                ${(() => {
+                    const certs = data.stats.certificates || 0;
+                    const enrolled = data.stats.enrolled || 0;
+                    const certPercent = enrolled > 0 ? ((certs / enrolled) * 100).toFixed(1) : 0;
+                    const hasCert = certs > 0;
+                    return `
+                    <div style="margin-bottom: 40px; padding: 16px 20px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                            <i class="fa-solid fa-certificate" style="color: var(--accent-warning); font-size: 16px;"></i>
+                            <span style="font-size: 15px; font-weight: 600; color: var(--text-primary);">Certificate Info</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                            <span style="color: ${hasCert ? 'var(--accent-success)' : 'var(--text-secondary)'}; font-size: 13px;">
+                                ${hasCert ? '✅ Certificate Enabled' : '❌ No Certificate Activity'}
+                            </span>
+                        </div>
+                        ${hasCert ? `
+                        <div style="color: var(--text-primary); font-size: 14px; font-weight: 500; margin-bottom: 4px;">
+                            Issued: ${certs} / ${enrolled} enrolled
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 12px;">
+                            (${certPercent}% of enrolled users)
+                        </div>
+                        ` : ''}
+                    </div>
+                    `;
+                })()}`;
 
         // --- 2. Company Distribution Section (NEW) ---
         if (distribution && distribution.length > 0) {
@@ -3720,24 +3748,26 @@ function openCourseDrawer(courseId) {
                         <table style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--glass-border);">
-                                    <th style="text-align: left; padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Company</th>
-                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Enrolled</th>
-                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">In Progress</th>
-                                    <th style="padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Completed</th>
-                                    <th style="text-align: right; padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Action</th>
+                                    <th style="text-align: left; padding: 12px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Company</th>
+                                    <th style="padding: 12px 10px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Enrolled</th>
+                                    <th style="padding: 12px 10px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">In Progress</th>
+                                    <th style="padding: 12px 10px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Completed</th>
+                                    <th style="padding: 12px 10px; font-size: 12px; color: var(--text-secondary); font-weight: 500; text-align: center;">Certs</th>
+                                    <th style="text-align: center; padding: 12px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500;"></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 ${distribution.map(d => `
                                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                        <td style="padding: 12px 20px; color: var(--text-primary); font-size: 13px; font-weight: 500;">${d.name}</td>
-                                        <td style="padding: 12px 20px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.enrolled}</td>
-                                        <td style="padding: 12px 20px; color: var(--accent-warning); font-size: 13px; text-align: center;">${d.in_progress}</td>
-                                        <td style="padding: 12px 20px; color: var(--accent-success); font-size: 13px; text-align: center;">${d.completed}</td>
-                                        <td style="padding: 12px 20px; text-align: right;">
+                                        <td style="padding: 12px 16px; color: var(--text-primary); font-size: 13px; font-weight: 500;">${d.name}</td>
+                                        <td style="padding: 12px 10px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.enrolled}</td>
+                                        <td style="padding: 12px 10px; color: var(--accent-warning); font-size: 13px; text-align: center;">${d.in_progress}</td>
+                                        <td style="padding: 12px 10px; color: var(--accent-success); font-size: 13px; text-align: center;">${d.completed}</td>
+                                        <td style="padding: 12px 10px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.certificates || 0}</td>
+                                        <td style="padding: 12px 16px; text-align: center;">
                                             <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=export_course_distribution&courseid=${courseId}&companyid=${d.company_id}&sesskey=<?php echo sesskey(); ?>" target="_blank" 
-                                               style="display: inline-flex; align-items: center; gap: 6px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; padding: 6px 16px; border-radius: 6px; text-decoration: none; font-size: 12px; font-weight: 500; transition: background 0.2s; white-space: nowrap;">
-                                               <i class="fa-solid fa-download"></i> Download
+                                               style="display: inline-flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 32px; height: 32px; border-radius: 8px; text-decoration: none; transition: background 0.2s;" title="Download Report">
+                                               <i class="fa-solid fa-download" style="font-size: 12px;"></i>
                                             </a>
                                         </td>
                                     </tr>
