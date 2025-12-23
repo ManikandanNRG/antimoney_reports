@@ -3742,7 +3742,56 @@ function openCourseDrawer(courseId) {
                     <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: var(--text-primary);">License Information</h3>
                     
                     ${data.iomad && data.iomad.licensed == 1 ? `
-                    <!-- Licensed Course -->
+                    ${data.iomad.is_shared ? `
+                    <!-- SHARED COURSE: Summary Table for Multiple Companies -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                            <div style="padding: 6px 14px; background: rgba(99, 102, 241, 0.15); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; font-size: 12px; font-weight: 600;">
+                                <i class="fa-solid fa-share-nodes"></i> SHARED COURSE
+                            </div>
+                            <span style="color: var(--text-secondary); font-size: 13px;">${data.iomad.companies.length} companies licensed</span>
+                        </div>
+                        
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid var(--glass-border);">
+                                        <th style="text-align: left; padding: 10px 12px; color: var(--text-secondary); font-weight: 600;">Company</th>
+                                        <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Used</th>
+                                        <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Avail</th>
+                                        <th style="text-align: left; padding: 10px 12px; color: var(--text-secondary); font-weight: 600;">Expires</th>
+                                        <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.iomad.companies.map(c => `
+                                    <tr style="border-bottom: 1px solid rgba(148, 163, 184, 0.1);">
+                                        <td style="padding: 10px 12px; color: var(--text-primary); font-weight: 500;">${c.company_name}</td>
+                                        <td style="text-align: center; padding: 10px 8px; color: var(--text-primary);">${c.license_used}/${c.license_count}</td>
+                                        <td style="text-align: center; padding: 10px 8px; color: ${c.license_remaining <= 0 ? '#ef4444' : c.license_remaining <= 10 ? '#f59e0b' : 'var(--text-primary)'}; font-weight: ${c.license_remaining <= 10 ? '600' : '400'};">${c.license_remaining}</td>
+                                        <td style="padding: 10px 12px; color: ${c.is_expired ? '#ef4444' : c.days_until_expiry <= 30 ? '#f59e0b' : 'var(--text-secondary)'}; font-size: 12px;">${c.license_expiry_date}</td>
+                                        <td style="text-align: center; padding: 10px 8px;">
+                                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+                                                ${c.license_status === 'expired' ? 'background: rgba(239, 68, 68, 0.15); color: #ef4444;' : 
+                                                  c.license_status === 'expiring' ? 'background: rgba(245, 158, 11, 0.15); color: #f59e0b;' :
+                                                  c.license_status === 'exhausted' ? 'background: rgba(168, 85, 247, 0.15); color: #a855f7;' :
+                                                  'background: rgba(16, 185, 129, 0.15); color: #10b981;'}">
+                                                <i class="fa-solid ${c.license_status === 'expired' ? 'fa-xmark' : 
+                                                  c.license_status === 'expiring' ? 'fa-clock' :
+                                                  c.license_status === 'exhausted' ? 'fa-ban' : 'fa-check'}"></i>
+                                                ${c.license_status === 'expired' ? 'Expired' : 
+                                                  c.license_status === 'expiring' ? 'Expiring' :
+                                                  c.license_status === 'exhausted' ? 'Full' : 'Active'}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    ` : `
+                    <!-- SINGLE COMPANY: Original License Card -->
                     <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
                         <!-- Status Row -->
                         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
@@ -3797,6 +3846,7 @@ function openCourseDrawer(courseId) {
                             </div>` : ''}
                         </div>
                     </div>
+                    `}
                     ` : `
                     <!-- Non-Licensed Course -->
                     <div style="padding: 20px; background: rgba(148, 163, 184, 0.05); border: 1px solid var(--glass-border); border-radius: 16px; text-align: center;">

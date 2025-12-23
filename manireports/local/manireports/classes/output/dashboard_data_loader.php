@@ -982,40 +982,51 @@ class dashboard_data_loader {
         // 3. Stats
         // Accurate Enrol Count via SQL
         $enrolled = $DB->count_records_sql("SELECT COUNT(ue.id) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = ?", [$courseid]);
-        
         // Accurate Completion Count via SQL
         $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
         
         // 4. License Details from companylicense tables
-        $iomad_info = [
-            'licensed' => 0,
-            'license_status' => 'none',      // none, active, expiring, expired
-            'license_count' => 0,            // Total licenses in pool
-            'license_used' => 0,             // Licenses allocated
-            'license_remaining' => 0,        // Available licenses
-            'license_expiry' => 0,           // Expiry timestamp
-            'license_expiry_date' => '',     // Formatted expiry date
-            'days_until_expiry' => 0,        // Days until expiry (negative if expired)
-            'is_expired' => false,           // Boolean for expired status
-            'training_window' => 0,          // Days users have to complete after allocation
-            'usage_percent' => 0             // Percentage of licenses used
-        ];
+    $iomad_info = [
+        'licensed' => 0,
+        'is_shared' => false,          // TRUE if multiple companies have licenses for this course
+        'license_status' => 'none',      // none, active, expiring, expired, exhausted
+        'license_count' => 0,            // Total licenses in pool
+        'license_used' => 0,             // Licenses allocated
+        'license_remaining' => 0,        // Available licenses
+        'license_expiry' => 0,           // Expiry timestamp
+        'license_expiry_date' => '',     // Formatted expiry date
+        'days_until_expiry' => 0,        // Days until expiry (negative if expired)
+        'is_expired' => false,           // Boolean for expired status
+        'training_window' => 0,          // Days users have to complete after allocation
+        'usage_percent' => 0,            // Percentage of licenses used
+        'companies' => []                // Array of all company licenses (for shared courses)
+    ];
+    
+    try {
+        $tables = $DB->get_tables();
         
-        try {
-            $tables = $DB->get_tables();
+        if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables) && in_array('company', $tables)) {
+            // Fetch ALL licenses from ALL companies for this course
+            $license_sql = "SELECT cl.id, cl.name as license_name, cl.companyid,
+                                   co.name as company_name, co.shortname as company_shortname,
+                                   cl.allocation as license_count, cl.used as license_used, 
+                                   cl.expirydate as license_expiry, cl.validlength as training_window
+                            FROM {companylicense_courses} lc
+                            JOIN {companylicense} cl ON cl.id = lc.licenseid
+                            JOIN {company} co ON co.id = cl.companyid
+                            WHERE lc.courseid = ?
+                            ORDER BY co.name ASC";
+            $licenses = $DB->get_records_sql($license_sql, [$courseid]);
             
-            if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables)) {
-                $license_sql = "SELECT cl.id, cl.name, cl.allocation as license_count, cl.used as license_used, 
-                                       cl.expirydate as license_expiry, cl.validlength as training_window
-                                FROM {companylicense_courses} lc
-                                JOIN {companylicense} cl ON cl.id = lc.licenseid
-                                WHERE lc.courseid = ?
-                                ORDER BY cl.expirydate DESC
-                                LIMIT 1";
-                $license = $DB->get_record_sql($license_sql, [$courseid]);
+            if ($licenses && count($licenses) > 0) {
+                $now = time();
+                $iomad_info['licensed'] = 1;
+                $iomad_info['is_shared'] = (count($licenses) > 1); // Mark as shared if multiple companies
                 
-                if ($license) {
-                    $now = time();
+                $all_company_licenses = [];
+                $first_license = null;
+                
+                foreach ($licenses as $license) {
                     $expiry = (int)$license->license_expiry;
                     $total = (int)$license->license_count;
                     $used = (int)$license->license_used;
@@ -1029,52 +1040,81 @@ class dashboard_data_loader {
                     $status = 'active';
                     if ($is_expired) {
                         $status = 'expired';
-                    } elseif ($days_until_expiry <= 30 && $days_until_expiry > 0) {
-                        $status = 'expiring'; // Expiring soon (within 30 days)
                     } elseif ($remaining == 0 && $total > 0) {
                         $status = 'exhausted'; // No licenses remaining
+                    } elseif ($days_until_expiry <= 30 && $days_until_expiry > 0) {
+                        $status = 'expiring'; // Expiring soon (within 30 days)
                     }
                     
                     // Calculate usage percentage
                     $usage_percent = ($total > 0) ? round(($used / $total) * 100) : 0;
                     
                     // Format expiry date
-                    $expiry_date_formatted = ($expiry > 0) ? date('M d, Y', $expiry) : '';
+                    $expiry_date_formatted = ($expiry > 0) ? date('M d, Y', $expiry) : 'No Expiry';
                     
-                    $iomad_info['licensed'] = 1;
-                    $iomad_info['license_status'] = $status;
-                    $iomad_info['license_count'] = $total;
-                    $iomad_info['license_used'] = $used;
-                    $iomad_info['license_remaining'] = $remaining;
-                    $iomad_info['license_expiry'] = $expiry;
-                    $iomad_info['license_expiry_date'] = $expiry_date_formatted;
-                    $iomad_info['days_until_expiry'] = $days_until_expiry;
-                    $iomad_info['is_expired'] = $is_expired;
-                    $iomad_info['training_window'] = (int)$license->training_window;
-                    $iomad_info['usage_percent'] = $usage_percent;
+                    $company_license = [
+                        'company_id' => $license->companyid,
+                        'company_name' => $license->company_name,
+                        'company_shortname' => $license->company_shortname,
+                        'license_name' => $license->license_name,
+                        'license_count' => $total,
+                        'license_used' => $used,
+                        'license_remaining' => $remaining,
+                        'license_status' => $status,
+                        'license_expiry' => $expiry,
+                        'license_expiry_date' => $expiry_date_formatted,
+                        'days_until_expiry' => $days_until_expiry,
+                        'is_expired' => $is_expired,
+                        'training_window' => (int)$license->training_window,
+                        'usage_percent' => $usage_percent
+                    ];
+                    
+                    $all_company_licenses[] = $company_license;
+                    
+                    // Keep first license for backward compatibility (single company scenario)
+                    if ($first_license === null) {
+                        $first_license = $company_license;
+                    }
+                }
+                
+                // Store all company licenses
+                $iomad_info['companies'] = $all_company_licenses;
+                
+                // For backward compatibility: populate single license fields from first license
+                if ($first_license) {
+                    $iomad_info['license_status'] = $first_license['license_status'];
+                    $iomad_info['license_count'] = $first_license['license_count'];
+                    $iomad_info['license_used'] = $first_license['license_used'];
+                    $iomad_info['license_remaining'] = $first_license['license_remaining'];
+                    $iomad_info['license_expiry'] = $first_license['license_expiry'];
+                    $iomad_info['license_expiry_date'] = $first_license['license_expiry_date'];
+                    $iomad_info['days_until_expiry'] = $first_license['days_until_expiry'];
+                    $iomad_info['is_expired'] = $first_license['is_expired'];
+                    $iomad_info['training_window'] = $first_license['training_window'];
+                    $iomad_info['usage_percent'] = $first_license['usage_percent'];
                 }
             }
-        } catch (\Exception $e) { 
-            error_log("Manireports: License fetch error - " . $e->getMessage());
         }
-
-        return [
-            'id' => $courseid,
-            'fullname' => $course->fullname,
-            'shortname' => $course->shortname,
-            'category' => $category,
-            'iomad' => $iomad_info, // Inject IOMAD details
-            'summary' => isset($course->summary) ? strip_tags((string)$course->summary) : '',
-            'teachers' => implode(', ', $teacher_list),
-
-            'stats' => [
-                'enrolled' => $enrolled,
-                'completed' => $completed,
-                'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0
-            ]
-        ];
+    } catch (\Exception $e) { 
+        error_log("Manireports: License fetch error - " . $e->getMessage());
     }
 
+    return [
+        'id' => $courseid,
+        'fullname' => $course->fullname,
+        'shortname' => $course->shortname,
+        'category' => $category,
+        'iomad' => $iomad_info, // Inject IOMAD details (now with companies array)
+        'summary' => isset($course->summary) ? strip_tags((string)$course->summary) : '',
+        'teachers' => implode(', ', $teacher_list),
+
+        'stats' => [
+            'enrolled' => $enrolled,
+            'completed' => $completed,
+            'completion_rate' => ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0
+        ]
+    ];
+}
     /**
      * Get Course Categories Helper.
      */
