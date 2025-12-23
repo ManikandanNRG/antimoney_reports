@@ -1005,8 +1005,9 @@ class dashboard_data_loader {
     try {
         $tables = $DB->get_tables();
         
-        if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables) && in_array('company', $tables)) {
-            // Fetch ALL licenses from ALL companies for this course
+        if (in_array('companylicense_courses', $tables) && in_array('companylicense', $tables) && in_array('company', $tables) && in_array('company_course', $tables)) {
+            // Fetch licenses ONLY for companies that are assigned to this course
+            // This matches the Company Distribution table (uses company_course table)
             $license_sql = "SELECT cl.id, cl.name as license_name, cl.companyid,
                                    co.name as company_name, co.shortname as company_shortname,
                                    cl.allocation as license_count, cl.used as license_used, 
@@ -1015,21 +1016,62 @@ class dashboard_data_loader {
                             JOIN {companylicense} cl ON cl.id = lc.licenseid
                             JOIN {company} co ON co.id = cl.companyid
                             WHERE lc.courseid = ?
+                            AND co.id IN (
+                                SELECT cc.companyid 
+                                FROM {company_course} cc 
+                                WHERE cc.courseid = ?
+                            )
                             ORDER BY co.name ASC";
-            $licenses = $DB->get_records_sql($license_sql, [$courseid]);
+            $licenses = $DB->get_records_sql($license_sql, [$courseid, $courseid]);
             
             if ($licenses && count($licenses) > 0) {
                 $now = time();
                 $iomad_info['licensed'] = 1;
-                $iomad_info['is_shared'] = (count($licenses) > 1); // Mark as shared if multiple companies
                 
+                // Group licenses by company (a company can have multiple licenses)
+                $companies_data = [];
+                foreach ($licenses as $license) {
+                    $cid = $license->companyid;
+                    
+                    if (!isset($companies_data[$cid])) {
+                        $companies_data[$cid] = [
+                            'company_id' => $cid,
+                            'company_name' => $license->company_name,
+                            'company_shortname' => $license->company_shortname,
+                            'license_count' => 0,
+                            'license_used' => 0,
+                            'latest_expiry' => 0,
+                            'training_window' => 0
+                        ];
+                    }
+                    
+                    // Sum up licenses for this company
+                    $companies_data[$cid]['license_count'] += (int)$license->license_count;
+                    $companies_data[$cid]['license_used'] += (int)$license->license_used;
+                    
+                    // Keep the latest expiry date
+                    if ((int)$license->license_expiry > $companies_data[$cid]['latest_expiry']) {
+                        $companies_data[$cid]['latest_expiry'] = (int)$license->license_expiry;
+                    }
+                    
+                    // Keep the longest training window
+                    if ((int)$license->training_window > $companies_data[$cid]['training_window']) {
+                        $companies_data[$cid]['training_window'] = (int)$license->training_window;
+                    }
+                }
+                
+                // Now count unique companies
+                $unique_company_count = count($companies_data);
+                $iomad_info['is_shared'] = ($unique_company_count > 1);
+                
+                // Build the final companies array with calculated fields
                 $all_company_licenses = [];
                 $first_license = null;
                 
-                foreach ($licenses as $license) {
-                    $expiry = (int)$license->license_expiry;
-                    $total = (int)$license->license_count;
-                    $used = (int)$license->license_used;
+                foreach ($companies_data as $cid => $comp) {
+                    $expiry = $comp['latest_expiry'];
+                    $total = $comp['license_count'];
+                    $used = $comp['license_used'];
                     $remaining = max(0, $total - $used);
                     
                     // Calculate days until expiry
@@ -1041,9 +1083,9 @@ class dashboard_data_loader {
                     if ($is_expired) {
                         $status = 'expired';
                     } elseif ($remaining == 0 && $total > 0) {
-                        $status = 'exhausted'; // No licenses remaining
+                        $status = 'exhausted';
                     } elseif ($days_until_expiry <= 30 && $days_until_expiry > 0) {
-                        $status = 'expiring'; // Expiring soon (within 30 days)
+                        $status = 'expiring';
                     }
                     
                     // Calculate usage percentage
@@ -1053,10 +1095,9 @@ class dashboard_data_loader {
                     $expiry_date_formatted = ($expiry > 0) ? date('M d, Y', $expiry) : 'No Expiry';
                     
                     $company_license = [
-                        'company_id' => $license->companyid,
-                        'company_name' => $license->company_name,
-                        'company_shortname' => $license->company_shortname,
-                        'license_name' => $license->license_name,
+                        'company_id' => $cid,
+                        'company_name' => $comp['company_name'],
+                        'company_shortname' => $comp['company_shortname'],
                         'license_count' => $total,
                         'license_used' => $used,
                         'license_remaining' => $remaining,
@@ -1065,22 +1106,22 @@ class dashboard_data_loader {
                         'license_expiry_date' => $expiry_date_formatted,
                         'days_until_expiry' => $days_until_expiry,
                         'is_expired' => $is_expired,
-                        'training_window' => (int)$license->training_window,
+                        'training_window' => $comp['training_window'],
                         'usage_percent' => $usage_percent
                     ];
                     
                     $all_company_licenses[] = $company_license;
                     
-                    // Keep first license for backward compatibility (single company scenario)
+                    // Keep first license for backward compatibility
                     if ($first_license === null) {
                         $first_license = $company_license;
                     }
                 }
                 
-                // Store all company licenses
+                // Store all unique company licenses
                 $iomad_info['companies'] = $all_company_licenses;
                 
-                // For backward compatibility: populate single license fields from first license
+                // For backward compatibility: populate single license fields from first company
                 if ($first_license) {
                     $iomad_info['license_status'] = $first_license['license_status'];
                     $iomad_info['license_count'] = $first_license['license_count'];
