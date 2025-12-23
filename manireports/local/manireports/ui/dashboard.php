@@ -3697,8 +3697,8 @@ function openCourseDrawer(courseId) {
                     <div style="padding: 16px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
                         <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">Company Distribution</h3>
                     </div>
-                    <div style="width: 100%; overflow-x: auto;">
-                        <table style="width: 100%; border-collapse: collapse; min-width: 500px;">
+                    <div style="width: 100%;">
+                        <table style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr style="background: rgba(255,255,255,0.02); border-bottom: 1px solid var(--glass-border);">
                                     <th style="text-align: left; padding: 12px 20px; font-size: 12px; color: var(--text-secondary); font-weight: 500;">Company</th>
