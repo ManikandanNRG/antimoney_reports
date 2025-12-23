@@ -62,6 +62,7 @@ if ($filter === 'disabled') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo get_string('templates', 'local_manireports'); ?> - ManiReports</title>
+    <link rel="shortcut icon" href="<?php echo $OUTPUT->favicon(); ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {

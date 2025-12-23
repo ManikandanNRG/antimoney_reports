@@ -386,10 +386,10 @@ class reminder_rule_form extends \moodleform {
             $errors['name'] = get_string('required');
         }
 
-        // Validate reminder count (1-5)
+        // Validate reminder count (1-52)
         if (isset($data['remindercount'])) {
-            if ($data['remindercount'] < 1 || $data['remindercount'] > 5) {
-                $errors['remindercount'] = 'Number of reminders must be between 1 and 5';
+            if ($data['remindercount'] < 1 || $data['remindercount'] > 52) {
+                $errors['remindercount'] = 'Number of reminders must be between 1 and 52';
             }
         }
 
