@@ -8,16 +8,28 @@ admin_externalpage_setup('manireports_reminders'); // Reuse same permission chec
 
 $action = optional_param('action', 'list', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
+$filter = optional_param('filter', 'active', PARAM_ALPHA); // active, disabled, all
 
-$PAGE->set_url(new moodle_url('/local/manireports/ui/templates.php'));
+$PAGE->set_url(new moodle_url('/local/manireports/ui/templates.php', ['filter' => $filter]));
 $PAGE->set_title(get_string('templates', 'local_manireports'));
 $PAGE->set_heading(get_string('templates', 'local_manireports'));
 $PAGE->set_pagelayout('embedded');
 
+// Handle enable/disable actions
+if ($action === 'disable' && $id && confirm_sesskey()) {
+    $DB->set_field('manireports_rem_tmpl', 'enabled', 0, ['id' => $id]);
+    redirect(new moodle_url('/local/manireports/ui/templates.php', ['filter' => $filter]), 'Template disabled successfully', null, \core\output\notification::NOTIFY_SUCCESS);
+}
+
+if ($action === 'enable' && $id && confirm_sesskey()) {
+    $DB->set_field('manireports_rem_tmpl', 'enabled', 1, ['id' => $id]);
+    redirect(new moodle_url('/local/manireports/ui/templates.php', ['filter' => $filter]), 'Template enabled successfully', null, \core\output\notification::NOTIFY_SUCCESS);
+}
+
 $form = new \local_manireports\form\template_form(new moodle_url($PAGE->url, ['action' => 'edit', 'id' => $id]));
 
 if ($form->is_cancelled()) {
-    redirect(new moodle_url('/local/manireports/ui/templates.php'));
+    redirect(new moodle_url('/local/manireports/ui/templates.php', ['filter' => $filter]));
 } else if ($data = $form->get_data()) {
     $data->timemodified = time();
     $data->body_text = html_to_text($data->body_html['text']);
@@ -30,10 +42,18 @@ if ($form->is_cancelled()) {
         $DB->insert_record('manireports_rem_tmpl', $data);
         $msg = get_string('templatecreated', 'local_manireports');
     }
-    redirect(new moodle_url('/local/manireports/ui/templates.php'), $msg, null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect(new moodle_url('/local/manireports/ui/templates.php', ['filter' => $filter]), $msg, null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
-$templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
+// List Templates based on filter
+if ($filter === 'disabled') {
+    $templates = $DB->get_records('manireports_rem_tmpl', ['enabled' => 0], 'name ASC');
+} elseif ($filter === 'all') {
+    $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
+} else {
+    // Default: active
+    $templates = $DB->get_records('manireports_rem_tmpl', ['enabled' => 1], 'name ASC');
+}
 
 ?>
 <!DOCTYPE html>
@@ -414,7 +434,11 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
         <?php else: ?>
             <!-- List View -->
             <div class="action-bar">
-                <div></div>
+                <div>
+                    <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ui/dashboard.php" class="btn btn-secondary">
+                        <i class="fa fa-arrow-left mr-2"></i> Back to Dashboard
+                    </a>
+                </div>
                 <a href="<?php echo new moodle_url($PAGE->url, ['action' => 'add']); ?>" class="btn btn-primary">
                     <i class="fa-solid fa-plus"></i>
                     <?php echo get_string('addtemplate', 'local_manireports'); ?>
@@ -423,7 +447,31 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
 
             <div class="bento-card">
                 <div class="card-header">
-                    <div class="card-title">Email Templates</div>
+                    <div class="card-title">
+                        <?php 
+                        if ($filter === 'disabled') {
+                            echo 'Disabled Email Templates';
+                        } elseif ($filter === 'all') {
+                            echo 'All Email Templates';
+                        } else {
+                            echo 'Active Email Templates';
+                        }
+                        ?>
+                    </div>
+                    <div class="filter-toggle" style="display: flex; gap: 8px;">
+                        <a href="<?php echo new moodle_url('/local/manireports/ui/templates.php', ['filter' => 'active']); ?>" 
+                           class="btn btn-sm <?php echo ($filter === 'active') ? 'btn-primary' : 'btn-secondary'; ?>">
+                            Active
+                        </a>
+                        <a href="<?php echo new moodle_url('/local/manireports/ui/templates.php', ['filter' => 'disabled']); ?>" 
+                           class="btn btn-sm <?php echo ($filter === 'disabled') ? 'btn-primary' : 'btn-secondary'; ?>">
+                            Disabled
+                        </a>
+                        <a href="<?php echo new moodle_url('/local/manireports/ui/templates.php', ['filter' => 'all']); ?>" 
+                           class="btn btn-sm <?php echo ($filter === 'all') ? 'btn-primary' : 'btn-secondary'; ?>">
+                            All
+                        </a>
+                    </div>
                 </div>
 
                 <?php if ($templates): ?>
@@ -440,13 +488,16 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
                             <?php foreach ($templates as $tmpl): ?>
                                 <?php
                                     $editurl = new moodle_url($PAGE->url, ['action' => 'edit', 'id' => $tmpl->id]);
+                                    $disableurl = new moodle_url('/local/manireports/ui/templates.php', ['action' => 'disable', 'id' => $tmpl->id, 'sesskey' => sesskey(), 'filter' => $filter]);
+                                    $enableurl = new moodle_url('/local/manireports/ui/templates.php', ['action' => 'enable', 'id' => $tmpl->id, 'sesskey' => sesskey(), 'filter' => $filter]);
+                                    $is_enabled = !empty($tmpl->enabled);
                                 ?>
                                 <tr class="table-row">
                                     <td class="table-cell" style="font-weight: 600;"><?php echo format_string($tmpl->name); ?></td>
                                     <td class="table-cell"><?php echo format_string($tmpl->subject); ?></td>
                                     <td class="table-cell">
-                                        <span class="status-badge <?php echo $tmpl->enabled ? 'status-active' : 'status-inactive'; ?>">
-                                            <?php echo $tmpl->enabled ? 'Enabled' : 'Disabled'; ?>
+                                        <span class="status-badge <?php echo $is_enabled ? 'status-active' : 'status-inactive'; ?>">
+                                            <?php echo $is_enabled ? 'Enabled' : 'Disabled'; ?>
                                         </span>
                                     </td>
                                     <td class="table-cell">
@@ -454,6 +505,15 @@ $templates = $DB->get_records('manireports_rem_tmpl', null, 'name ASC');
                                             <a href="<?php echo $editurl; ?>" class="btn btn-sm btn-secondary">
                                                 <i class="fa-solid fa-pen"></i> Edit
                                             </a>
+                                            <?php if ($is_enabled): ?>
+                                                <a href="<?php echo $disableurl; ?>" class="btn btn-sm" style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);" onclick="return confirm('Are you sure you want to disable this template?')">
+                                                    <i class="fa-solid fa-ban"></i> Disable
+                                                </a>
+                                            <?php else: ?>
+                                                <a href="<?php echo $enableurl; ?>" class="btn btn-sm" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                                    <i class="fa-solid fa-check"></i> Enable
+                                                </a>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
