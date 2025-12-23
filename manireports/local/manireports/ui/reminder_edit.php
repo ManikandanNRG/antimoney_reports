@@ -142,6 +142,7 @@ if ($form->is_cancelled()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $id ? 'Edit' : 'Create'; ?> Reminder Rule - ManiReports</title>
+    <link rel="shortcut icon" href="<?php echo $OUTPUT->favicon(); ?>">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         // Moodle config for AJAX
