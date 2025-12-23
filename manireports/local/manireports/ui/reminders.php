@@ -7,8 +7,9 @@ admin_externalpage_setup('manireports_reminders');
 
 $action = optional_param('action', '', PARAM_ALPHA);
 $id = optional_param('id', 0, PARAM_INT);
+$filter = optional_param('filter', 'active', PARAM_ALPHA); // active, disabled, all
 
-$PAGE->set_url(new moodle_url('/local/manireports/ui/reminders.php'));
+$PAGE->set_url(new moodle_url('/local/manireports/ui/reminders.php', ['filter' => $filter]));
 $PAGE->set_title(get_string('reminders', 'local_manireports'));
 $PAGE->set_heading(get_string('reminders', 'local_manireports'));
 $PAGE->set_pagelayout('embedded');
@@ -16,18 +17,30 @@ $PAGE->set_pagelayout('embedded');
 // Handle Actions
 if ($action === 'delete' && $id && confirm_sesskey()) {
     $DB->set_field('manireports_rem_rule', 'enabled', 0, ['id' => $id]);
-    redirect($PAGE->url, get_string('ruledeleted', 'local_manireports'), null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect(new moodle_url($PAGE->url, ['filter' => $filter]), get_string('ruledeleted', 'local_manireports'), null, \core\output\notification::NOTIFY_SUCCESS);
+}
+
+if ($action === 'enable' && $id && confirm_sesskey()) {
+    $DB->set_field('manireports_rem_rule', 'enabled', 1, ['id' => $id]);
+    redirect(new moodle_url($PAGE->url, ['filter' => $filter]), 'Rule enabled successfully', null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
 if ($action === 'run' && $id && confirm_sesskey()) {
     // Manually trigger instance creation for this rule
     $manager = new \local_manireports\api\ReminderManager();
     $count = $manager->create_instances($id);
-    redirect($PAGE->url, get_string('instancescreated', 'local_manireports', $count), null, \core\output\notification::NOTIFY_SUCCESS);
+    redirect(new moodle_url($PAGE->url, ['filter' => $filter]), get_string('instancescreated', 'local_manireports', $count), null, \core\output\notification::NOTIFY_SUCCESS);
 }
 
-// List Rules
-$rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
+// List Rules based on filter
+if ($filter === 'disabled') {
+    $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 0]);
+} elseif ($filter === 'all') {
+    $rules = $DB->get_records('manireports_rem_rule');
+} else {
+    // Default: active
+    $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
+}
 
 ?>
 <!DOCTYPE html>
@@ -328,7 +341,31 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
         <!-- Rules List -->
         <div class="bento-card">
             <div class="card-header">
-                <div class="card-title">Active Reminder Rules</div>
+                <div class="card-title">
+                    <?php 
+                    if ($filter === 'disabled') {
+                        echo 'Disabled Reminder Rules';
+                    } elseif ($filter === 'all') {
+                        echo 'All Reminder Rules';
+                    } else {
+                        echo 'Active Reminder Rules';
+                    }
+                    ?>
+                </div>
+                <div class="filter-toggle" style="display: flex; gap: 8px;">
+                    <a href="<?php echo new moodle_url($PAGE->url, ['filter' => 'active']); ?>" 
+                       class="btn btn-sm <?php echo ($filter === 'active') ? 'btn-primary' : 'btn-secondary'; ?>">
+                        Active
+                    </a>
+                    <a href="<?php echo new moodle_url($PAGE->url, ['filter' => 'disabled']); ?>" 
+                       class="btn btn-sm <?php echo ($filter === 'disabled') ? 'btn-primary' : 'btn-secondary'; ?>">
+                        Disabled
+                    </a>
+                    <a href="<?php echo new moodle_url($PAGE->url, ['filter' => 'all']); ?>" 
+                       class="btn btn-sm <?php echo ($filter === 'all') ? 'btn-primary' : 'btn-secondary'; ?>">
+                        All
+                    </a>
+                </div>
             </div>
 
             <?php if ($rules): ?>
@@ -336,6 +373,7 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
                     <thead>
                         <tr>
                             <th class="table-header">Name</th>
+                            <th class="table-header">Status</th>
                             <th class="table-header">Trigger</th>
                             <th class="table-header">Delay</th>
                             <th class="table-header">Count</th>
@@ -346,11 +384,20 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
                         <?php foreach ($rules as $rule): ?>
                             <?php
                                 $editurl = new moodle_url('/local/manireports/ui/reminder_edit.php', ['id' => $rule->id]);
-                                $deleteurl = new moodle_url($PAGE->url, ['action' => 'delete', 'id' => $rule->id, 'sesskey' => sesskey()]);
-                                $runurl = new moodle_url($PAGE->url, ['action' => 'run', 'id' => $rule->id, 'sesskey' => sesskey()]);
+                                $deleteurl = new moodle_url($PAGE->url, ['action' => 'delete', 'id' => $rule->id, 'sesskey' => sesskey(), 'filter' => $filter]);
+                                $enableurl = new moodle_url($PAGE->url, ['action' => 'enable', 'id' => $rule->id, 'sesskey' => sesskey(), 'filter' => $filter]);
+                                $runurl = new moodle_url($PAGE->url, ['action' => 'run', 'id' => $rule->id, 'sesskey' => sesskey(), 'filter' => $filter]);
+                                $is_enabled = !empty($rule->enabled);
                             ?>
                             <tr class="table-row">
                                 <td class="table-cell" style="font-weight: 600;"><?php echo format_string($rule->name); ?></td>
+                                <td class="table-cell">
+                                    <?php if ($is_enabled): ?>
+                                        <span class="status-badge status-active">Active</span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-inactive">Disabled</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td class="table-cell"><?php echo $rule->trigger_type; ?></td>
                                 <td class="table-cell"><?php echo format_time($rule->emaildelay); ?></td>
                                 <td class="table-cell"><?php echo $rule->remindercount; ?></td>
@@ -359,12 +406,18 @@ $rules = $DB->get_records('manireports_rem_rule', ['enabled' => 1]);
                                         <a href="<?php echo $editurl; ?>" class="btn btn-sm btn-secondary">
                                             <i class="fa-solid fa-pen"></i> Edit
                                         </a>
-                                        <a href="<?php echo $runurl; ?>" class="btn btn-sm btn-info">
-                                            <i class="fa-solid fa-play"></i> Run Now
-                                        </a>
-                                        <a href="<?php echo $deleteurl; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this rule?')">
-                                            <i class="fa-solid fa-trash"></i> Delete
-                                        </a>
+                                        <?php if ($is_enabled): ?>
+                                            <a href="<?php echo $runurl; ?>" class="btn btn-sm btn-info">
+                                                <i class="fa-solid fa-play"></i> Run Now
+                                            </a>
+                                            <a href="<?php echo $deleteurl; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to disable this rule?')">
+                                                <i class="fa-solid fa-ban"></i> Disable
+                                            </a>
+                                        <?php else: ?>
+                                            <a href="<?php echo $enableurl; ?>" class="btn btn-sm btn-success" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                                <i class="fa-solid fa-check"></i> Enable
+                                            </a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
