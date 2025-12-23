@@ -1949,8 +1949,19 @@ class dashboard_data_loader {
                 }
             }
             
-            // Format Grade
-            $grade = ($rec->finalgrade !== null) ? round($rec->finalgrade, 1) : '-';
+            // Format Grade as percentage (finalgrade / rawgrademax * 100)
+            $grade_percent = '-';
+            if ($rec->finalgrade !== null && $rec->rawgrademax > 0) {
+                $grade_percent = round(($rec->finalgrade / $rec->rawgrademax) * 100, 1) . '%';
+            } elseif ($rec->finalgrade !== null) {
+                $grade_percent = round($rec->finalgrade, 1) . '%';
+            }
+            
+            // Format Completion Date
+            $completion_date = ($rec->timecompleted > 0) ? userdate($rec->timecompleted, '%d-%b-%Y %H:%M') : '-';
+            
+            // Format Completed Activities (X/Y)
+            $completed_activities = $completed_count . '/' . $total_activities;
             
             // Time Spent from SCORM tracking
             $time_seconds = isset($user_scorm_times[$rec->id]) ? $user_scorm_times[$rec->id] : 0;
@@ -1962,8 +1973,10 @@ class dashboard_data_loader {
                 'enrol_date' => userdate($rec->enrol_date, '%d-%b-%Y'),
                 'last_access' => $rec->lastaccess > 0 ? userdate($rec->lastaccess, '%d-%b-%Y %H:%M') : 'Never',
                 'time_spent' => $time_spent,
-                'grade' => $grade,
+                'grade' => $grade_percent,
+                'completed_activities' => $completed_activities,
                 'completion' => $progress . '%',
+                'completion_date' => $completion_date,
                 'status' => $status
             ];
         }
