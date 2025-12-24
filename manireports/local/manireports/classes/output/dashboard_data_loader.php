@@ -2168,8 +2168,8 @@ class dashboard_data_loader {
                 $completion_date = '-';
             }
             
-            // Format Completed Activities (X/Y)
-            $completed_activities = $completed_count . '/' . $total_activities;
+            // Format Completed Activities (X of Y) - Using "of" instead of "/" to prevent Excel date conversion
+            $completed_activities = $completed_count . ' of ' . $total_activities;
             
             // Time Spent from SCORM tracking
             $time_seconds = isset($user_scorm_times[$rec->id]) ? $user_scorm_times[$rec->id] : 0;
