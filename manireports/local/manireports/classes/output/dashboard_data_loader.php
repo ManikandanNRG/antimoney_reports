@@ -790,11 +790,13 @@ class dashboard_data_loader {
             $query_params['category'] = $category;
         }
 
-        // Main Query - With date-filtered completions
+        // Main Query - With date-filtered completions from course_completions table
+        // Also get total activity count per course for later activity-based completion calculation
         $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, 
                        cat.name as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
-                       COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 $completion_date_join THEN cc.userid END) as completed
+                       COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 $completion_date_join THEN cc.userid END) as completed_course,
+                       (SELECT COUNT(cm.id) FROM {course_modules} cm WHERE cm.course = c.id AND cm.completion > 0 AND cm.visible = 1) as total_activities
                   FROM {course} c
                   JOIN {course_categories} cat ON cat.id = c.category
                   LEFT JOIN {enrol} e ON e.courseid = c.id
@@ -847,12 +849,54 @@ class dashboard_data_loader {
         } catch (\Exception $e) {
             error_log("Manireports IOMAD tables error: " . $e->getMessage());
         }
+        // Get activity-based completion counts per course
+        // This counts users who completed ALL tracked activities (for courses where course_completions isn't set)
+        $activity_completions = [];
+        try {
+            $sql_activity_completions = "SELECT cm.course as courseid, cmc.userid, COUNT(cmc.id) as completed_activities
+                                        FROM {course_modules_completion} cmc
+                                        JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                                        WHERE cm.completion > 0 AND cm.visible = 1 AND cmc.completionstate > 0
+                                        GROUP BY cm.course, cmc.userid";
+            $activity_records = $DB->get_records_sql($sql_activity_completions);
+            
+            // Group by course and count users with 100% completion
+            $course_activity_counts = [];
+            foreach ($activity_records as $rec) {
+                $cid = $rec->courseid;
+                if (!isset($course_activity_counts[$cid])) {
+                    $course_activity_counts[$cid] = [];
+                }
+                $course_activity_counts[$cid][$rec->userid] = (int)$rec->completed_activities;
+            }
+            
+            // Now calculate how many users have completed ALL activities per course
+            foreach ($courses as $course) {
+                $total = isset($course->total_activities) ? (int)$course->total_activities : 0;
+                if ($total > 0 && isset($course_activity_counts[$course->id])) {
+                    $count = 0;
+                    foreach ($course_activity_counts[$course->id] as $userid => $completed) {
+                        if ($completed >= $total) {
+                            $count++;
+                        }
+                    }
+                    $activity_completions[$course->id] = $count;
+                }
+            }
+        } catch (\Exception $e) {
+            error_log("Manireports activity completions error: " . $e->getMessage());
+        }
 
         // Process Rows
         $rows = [];
         foreach ($courses as $course) {
             $enrolled_count = isset($course->enrolled) ? (int)$course->enrolled : 0;
-            $completed_count = isset($course->completed) ? (int)$course->completed : 0;
+            
+            // Get completion count from BOTH sources and use the MAX
+            $completed_from_course = isset($course->completed_course) ? (int)$course->completed_course : 0;
+            $completed_from_activities = isset($activity_completions[$course->id]) ? (int)$activity_completions[$course->id] : 0;
+            $completed_count = max($completed_from_course, $completed_from_activities);
+            
             $in_progress_count = max(0, $enrolled_count - $completed_count);
             
             $progress = ($enrolled_count > 0) ? round(($completed_count / $enrolled_count) * 100) : 0;
@@ -982,8 +1026,30 @@ class dashboard_data_loader {
         // 3. Stats
         // Accurate Enrol Count via SQL
         $enrolled = $DB->count_records_sql("SELECT COUNT(ue.id) FROM {user_enrolments} ue JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = ?", [$courseid]);
-        // Accurate Completion Count via SQL
-        $completed = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
+        
+        // Completion Count: Check BOTH course_completions AND activity completion
+        // A. From course_completions table (when course-level criteria are configured)
+        $completed_from_course = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
+        
+        // B. From activity completion (when course-level criteria NOT configured)
+        // Count users who completed ALL tracked activities
+        $completed_from_activities = 0;
+        $total_activities = $DB->count_records_sql("SELECT COUNT(id) FROM {course_modules} WHERE course = ? AND completion > 0 AND visible = 1", [$courseid]);
+        if ($total_activities > 0) {
+            $sql_activity_completed = "SELECT COUNT(DISTINCT cmc.userid) 
+                                       FROM (
+                                           SELECT cmc.userid, COUNT(cmc.id) as completed_count
+                                           FROM {course_modules_completion} cmc
+                                           JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                                           WHERE cm.course = ? AND cm.completion > 0 AND cm.visible = 1 AND cmc.completionstate > 0
+                                           GROUP BY cmc.userid
+                                           HAVING COUNT(cmc.id) >= ?
+                                       ) cmc";
+            $completed_from_activities = $DB->count_records_sql($sql_activity_completed, [$courseid, $total_activities]);
+        }
+        
+        // Use MAX of both counts
+        $completed = max($completed_from_course, $completed_from_activities);
         // Certificate Count from customcert_issues
         $certificates_issued = 0;
         if ($DB->get_manager()->table_exists('customcert_issues')) {
@@ -1963,27 +2029,27 @@ class dashboard_data_loader {
                    
         $records = $DB->get_records_sql($sql, ['courseid' => $courseid, 'companyid' => $companyid]);
 
+        // Get last activity completion time per user (for completion date fallback)
+        $user_last_activity_completion = [];
+        if ($total_activities > 0) {
+            $sql_last_completion = "SELECT cmc.userid, MAX(cmc.timemodified) as last_completion
+                           FROM {course_modules_completion} cmc
+                           JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                           WHERE cm.course = :courseid 
+                             AND cm.completion > 0
+                             AND cm.visible = 1 
+                             AND cmc.completionstate > 0 
+                           GROUP BY cmc.userid";
+            $user_last_activity_completion = $DB->get_records_sql_menu($sql_last_completion, ['courseid' => $courseid]);
+        }
+
         $rows = [];
         foreach ($records as $rec) {
-            // Calculate Status
-            $status = 'Not Started';
-            if ($rec->suspended) {
-                $status = 'Suspended';
-            } elseif ($rec->timecompleted > 0) {
-                $status = 'Completed';
-            } elseif (isset($rec->timestarted) && $rec->timestarted > 0) {
-                $status = 'In Progress';
-            } elseif ($rec->lastaccess > 0) {
-                $status = 'In Progress';
-            }
-            
-            // Completion % logic (respecting aggregation method)
+            // 1. Calculate Completion % FIRST (needed for status determination)
             $completed_count = isset($user_activity_counts[$rec->id]) ? (int)$user_activity_counts[$rec->id] : 0;
             $progress = 0;
             
-            if ($status === 'Completed') {
-                $progress = 100;
-            } elseif ($total_activities > 0 && $completed_count > 0) {
+            if ($total_activities > 0 && $completed_count > 0) {
                 if ($is_any_aggregation) {
                     // ANY aggregation: 1+ completed = 100%
                     $progress = 100;
@@ -1991,6 +2057,31 @@ class dashboard_data_loader {
                     // ALL aggregation: percentage based
                     $progress = round(($completed_count / $total_activities) * 100);
                 }
+            }
+            
+            // 2. Calculate Status using both course_completions AND activity completion
+            // Priority: Suspended > Completed (from course_completions OR 100% activities) > In Progress > Not Started
+            $status = 'Not Started';
+            $is_completed_by_activities = ($progress == 100 && $total_activities > 0);
+            
+            if ($rec->suspended) {
+                $status = 'Suspended';
+            } elseif ($rec->timecompleted > 0) {
+                // Primary: course_completions.timecompleted is set
+                $status = 'Completed';
+                $progress = 100; // Ensure progress is 100% if marked complete
+            } elseif ($is_completed_by_activities) {
+                // Fallback: All required activities completed (based on aggregation method)
+                $status = 'Completed';
+            } elseif ($completed_count > 0) {
+                // Some activities completed
+                $status = 'In Progress';
+            } elseif (isset($rec->timestarted) && $rec->timestarted > 0) {
+                // Course tracking started
+                $status = 'In Progress';
+            } elseif ($rec->lastaccess > 0) {
+                // User has accessed the course
+                $status = 'In Progress';
             }
             
             // Format Grade as percentage (finalgrade / rawgrademax * 100)
@@ -2001,8 +2092,15 @@ class dashboard_data_loader {
                 $grade_percent = round($rec->finalgrade, 1) . '%';
             }
             
-            // Format Completion Date
-            $completion_date = ($rec->timecompleted > 0) ? userdate($rec->timecompleted, '%d-%b-%Y %H:%M') : '-';
+            // Format Completion Date (use course_completions OR last activity completion)
+            if ($rec->timecompleted > 0) {
+                $completion_date = userdate($rec->timecompleted, '%d-%b-%Y %H:%M');
+            } elseif ($is_completed_by_activities && isset($user_last_activity_completion[$rec->id])) {
+                // Use last activity completion time as completion date
+                $completion_date = userdate($user_last_activity_completion[$rec->id], '%d-%b-%Y %H:%M');
+            } else {
+                $completion_date = '-';
+            }
             
             // Format Completed Activities (X/Y)
             $completed_activities = $completed_count . '/' . $total_activities;
