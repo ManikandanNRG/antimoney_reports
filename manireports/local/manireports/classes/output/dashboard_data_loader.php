@@ -576,18 +576,23 @@ class dashboard_data_loader {
         
         $avg_completion = ($total_enrollments > 0) ? round(($total_completions / $total_enrollments) * 100, 1) : 0;
 
-        // 4. Certificates (Mock if table doesn't exist, or use simple count)
+        // 4. Certificates (from customcert_issues - the modern certificate plugin)
         $certificates = 0;
-        if ($DB->get_manager()->table_exists('certificate_issues')) {
+        if ($DB->get_manager()->table_exists('customcert_issues')) {
+             $sql_cert = "SELECT COUNT(ci.id) 
+                          FROM {customcert_issues} ci
+                          JOIN {customcert} cert ON cert.id = ci.customcertid
+                          JOIN {course} c ON c.id = cert.course
+                          WHERE $sql_where";
+             $certificates = $DB->count_records_sql($sql_cert, $params);
+        } elseif ($DB->get_manager()->table_exists('certificate_issues')) {
+             // Fallback to old certificate plugin
              $sql_cert = "SELECT COUNT(ci.id) 
                           FROM {certificate_issues} ci
                           JOIN {certificate} cert ON cert.id = ci.certificateid
                           JOIN {course} c ON c.id = cert.course
                           WHERE $sql_where";
              $certificates = $DB->count_records_sql($sql_cert, $params);
-        } else {
-            // Fallback to completions as proxy
-            $certificates = $total_completions; 
         }
 
         return [
