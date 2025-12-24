@@ -791,12 +791,15 @@ class dashboard_data_loader {
         }
 
         // Main Query - With date-filtered completions from course_completions table
-        // Also get total activity count per course for later activity-based completion calculation
+        // Also get total activity count per course (excluding customcert and reengagement)
         $sql = "SELECT c.id, c.fullname, c.shortname, c.startdate, c.visible, 
                        cat.name as category_name,
                        COUNT(DISTINCT ue.userid) as enrolled,
                        COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 $completion_date_join THEN cc.userid END) as completed_course,
-                       (SELECT COUNT(cm.id) FROM {course_modules} cm WHERE cm.course = c.id AND cm.completion > 0 AND cm.visible = 1) as total_activities
+                       (SELECT COUNT(cm.id) FROM {course_modules} cm 
+                        JOIN {modules} m ON m.id = cm.module 
+                        WHERE cm.course = c.id AND cm.completion > 0 AND cm.visible = 1 
+                        AND m.name NOT IN ('customcert', 'reengagement')) as total_activities
                   FROM {course} c
                   JOIN {course_categories} cat ON cat.id = c.category
                   LEFT JOIN {enrol} e ON e.courseid = c.id
@@ -850,41 +853,39 @@ class dashboard_data_loader {
             error_log("Manireports IOMAD tables error: " . $e->getMessage());
         }
         // Get activity-based completion counts per course
-        // This counts users who completed ALL tracked activities (for courses where course_completions isn't set)
+        // Only counts ENROLLED users who completed ALL tracked activities
+        // Excludes customcert and reengagement modules (not counted for completion)
         $activity_completions = [];
-        try {
-            $sql_activity_completions = "SELECT cm.course as courseid, cmc.userid, COUNT(cmc.id) as completed_activities
-                                        FROM {course_modules_completion} cmc
-                                        JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
-                                        WHERE cm.completion > 0 AND cm.visible = 1 AND cmc.completionstate > 0
-                                        GROUP BY cm.course, cmc.userid";
-            $activity_records = $DB->get_records_sql($sql_activity_completions);
-            
-            // Group by course and count users with 100% completion
-            $course_activity_counts = [];
-            foreach ($activity_records as $rec) {
-                $cid = $rec->courseid;
-                if (!isset($course_activity_counts[$cid])) {
-                    $course_activity_counts[$cid] = [];
-                }
-                $course_activity_counts[$cid][$rec->userid] = (int)$rec->completed_activities;
-            }
-            
-            // Now calculate how many users have completed ALL activities per course
+        if (!empty($courses)) {
             foreach ($courses as $course) {
                 $total = isset($course->total_activities) ? (int)$course->total_activities : 0;
-                if ($total > 0 && isset($course_activity_counts[$course->id])) {
-                    $count = 0;
-                    foreach ($course_activity_counts[$course->id] as $userid => $completed) {
-                        if ($completed >= $total) {
-                            $count++;
-                        }
+                if ($total > 0) {
+                    try {
+                        // Count ENROLLED users who completed ALL tracked activities
+                        // Excludes customcert and reengagement modules
+                        $sql_activity_completed = "SELECT COUNT(*) 
+                                                   FROM (
+                                                       SELECT cmc.userid
+                                                       FROM {course_modules_completion} cmc
+                                                       JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                                                       JOIN {modules} m ON m.id = cm.module
+                                                       JOIN {enrol} e ON e.courseid = cm.course
+                                                       JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cmc.userid
+                                                       WHERE cm.course = :courseid 
+                                                         AND cm.completion > 0 
+                                                         AND cm.visible = 1 
+                                                         AND cmc.completionstate > 0
+                                                         AND m.name NOT IN ('customcert', 'reengagement')
+                                                       GROUP BY cmc.userid
+                                                       HAVING COUNT(DISTINCT cmc.coursemoduleid) >= :total
+                                                   ) completed_users";
+                        $count = $DB->count_records_sql($sql_activity_completed, ['courseid' => $course->id, 'total' => $total]);
+                        $activity_completions[$course->id] = (int)$count;
+                    } catch (\Exception $e) {
+                        error_log("Manireports: Activity completion count error for course {$course->id}: " . $e->getMessage());
                     }
-                    $activity_completions[$course->id] = $count;
                 }
             }
-        } catch (\Exception $e) {
-            error_log("Manireports activity completions error: " . $e->getMessage());
         }
 
         // Process Rows
@@ -1032,19 +1033,32 @@ class dashboard_data_loader {
         $completed_from_course = $DB->count_records_sql("SELECT COUNT(id) FROM {course_completions} WHERE course = ? AND timecompleted > 0", [$courseid]);
         
         // B. From activity completion (when course-level criteria NOT configured)
-        // Count users who completed ALL tracked activities
+        // Count ENROLLED users who completed ALL tracked activities
+        // Excludes customcert and reengagement modules
         $completed_from_activities = 0;
-        $total_activities = $DB->count_records_sql("SELECT COUNT(id) FROM {course_modules} WHERE course = ? AND completion > 0 AND visible = 1", [$courseid]);
+        $total_activities = $DB->count_records_sql(
+            "SELECT COUNT(cm.id) FROM {course_modules} cm 
+             JOIN {modules} m ON m.id = cm.module 
+             WHERE cm.course = ? AND cm.completion > 0 AND cm.visible = 1 
+             AND m.name NOT IN ('customcert', 'reengagement')", 
+            [$courseid]
+        );
         if ($total_activities > 0) {
-            $sql_activity_completed = "SELECT COUNT(DISTINCT cmc.userid) 
+            $sql_activity_completed = "SELECT COUNT(*) 
                                        FROM (
-                                           SELECT cmc.userid, COUNT(cmc.id) as completed_count
+                                           SELECT cmc.userid
                                            FROM {course_modules_completion} cmc
                                            JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
-                                           WHERE cm.course = ? AND cm.completion > 0 AND cm.visible = 1 AND cmc.completionstate > 0
+                                           JOIN {modules} m ON m.id = cm.module
+                                           JOIN {enrol} e ON e.courseid = cm.course
+                                           JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cmc.userid
+                                           WHERE cm.course = ? 
+                                             AND cm.completion > 0 AND cm.visible = 1 
+                                             AND cmc.completionstate > 0
+                                             AND m.name NOT IN ('customcert', 'reengagement')
                                            GROUP BY cmc.userid
-                                           HAVING COUNT(cmc.id) >= ?
-                                       ) cmc";
+                                           HAVING COUNT(DISTINCT cmc.coursemoduleid) >= ?
+                                       ) completed_users";
             $completed_from_activities = $DB->count_records_sql($sql_activity_completed, [$courseid, $total_activities]);
         }
         
@@ -1555,18 +1569,62 @@ class dashboard_data_loader {
         
         foreach ($companies as $comp) {
             // Count Enrolled users in this course belonging to this company
-            // Enrolled = User is enrolled in course AND user is in company_users for this company
-            $sql_metrics = "SELECT COUNT(DISTINCT ue.userid) as enrolled,
-                                   COUNT(DISTINCT CASE WHEN cc.timecompleted > 0 THEN cc.userid END) as completed
+            $sql_enrolled = "SELECT COUNT(DISTINCT ue.userid) as enrolled
                               FROM {user_enrolments} ue
                               JOIN {enrol} e ON e.id = ue.enrolid
                               JOIN {company_users} cu ON cu.userid = ue.userid
-                              LEFT JOIN {course_completions} cc ON cc.course = e.courseid AND cc.userid = ue.userid
                              WHERE e.courseid = :courseid 
                                AND cu.companyid = :companyid
-                               AND ue.status = 0"; // Only active enrollments
-                               
-            $metrics = $DB->get_record_sql($sql_metrics, ['courseid' => $courseid, 'companyid' => $comp->id]);
+                               AND ue.status = 0";
+            $enrolled = $DB->count_records_sql($sql_enrolled, ['courseid' => $courseid, 'companyid' => $comp->id]);
+            
+            // A. Completed from course_completions (when course criteria configured)
+            $sql_completed_course = "SELECT COUNT(DISTINCT cc.userid)
+                              FROM {course_completions} cc
+                              JOIN {company_users} cu ON cu.userid = cc.userid
+                              JOIN {enrol} e ON e.courseid = cc.course
+                              JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cc.userid
+                             WHERE cc.course = :courseid 
+                               AND cu.companyid = :companyid
+                               AND cc.timecompleted > 0
+                               AND ue.status = 0";
+            $completed_from_course = $DB->count_records_sql($sql_completed_course, ['courseid' => $courseid, 'companyid' => $comp->id]);
+            
+            // B. Completed from activity completion (when course criteria NOT configured)
+            $total_activities = $DB->count_records_sql(
+                "SELECT COUNT(cm.id) FROM {course_modules} cm 
+                 JOIN {modules} m ON m.id = cm.module 
+                 WHERE cm.course = ? AND cm.completion > 0 AND cm.visible = 1 
+                 AND m.name NOT IN ('customcert', 'reengagement')", 
+                [$courseid]
+            );
+            
+            $completed_from_activities = 0;
+            if ($total_activities > 0) {
+                $sql_activity_completed = "SELECT COUNT(*) 
+                                           FROM (
+                                               SELECT cmc.userid
+                                               FROM {course_modules_completion} cmc
+                                               JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                                               JOIN {modules} m ON m.id = cm.module
+                                               JOIN {company_users} cu ON cu.userid = cmc.userid
+                                               JOIN {enrol} e ON e.courseid = cm.course
+                                               JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cmc.userid
+                                               WHERE cm.course = :courseid 
+                                                 AND cu.companyid = :companyid
+                                                 AND cm.completion > 0 AND cm.visible = 1 
+                                                 AND cmc.completionstate > 0
+                                                 AND m.name NOT IN ('customcert', 'reengagement')
+                                                 AND ue.status = 0
+                                               GROUP BY cmc.userid
+                                               HAVING COUNT(DISTINCT cmc.coursemoduleid) >= :total
+                                           ) completed_users";
+                $completed_from_activities = $DB->count_records_sql($sql_activity_completed, 
+                    ['courseid' => $courseid, 'companyid' => $comp->id, 'total' => $total_activities]);
+            }
+            
+            // Use MAX of both counts
+            $completed = max($completed_from_course, $completed_from_activities);
             
             // Get certificate count for this company's users
             $certs_count = 0;
@@ -1584,9 +1642,9 @@ class dashboard_data_loader {
             $result[] = [
                 'company_id' => $comp->id,
                 'name' => $comp->name,
-                'enrolled' => (int)$metrics->enrolled,
-                'completed' => (int)$metrics->completed,
-                'in_progress' => (int)$metrics->enrolled - (int)$metrics->completed,
+                'enrolled' => (int)$enrolled,
+                'completed' => (int)$completed,
+                'in_progress' => max(0, (int)$enrolled - (int)$completed),
                 'certificates' => (int)$certs_count
             ];
         }
@@ -1918,9 +1976,12 @@ class dashboard_data_loader {
     public function get_company_course_user_report($courseid, $companyid) {
         global $DB;
         
-        // 1. Get total completion-enabled activities
-        $total_activities = $DB->count_records_select('course_modules', 
-            "course = ? AND completion > 0 AND visible = 1", 
+        // 1. Get total completion-enabled activities (excluding customcert and reengagement)
+        $total_activities = $DB->count_records_sql(
+            "SELECT COUNT(cm.id) FROM {course_modules} cm 
+             JOIN {modules} m ON m.id = cm.module 
+             WHERE cm.course = ? AND cm.completion > 0 AND cm.visible = 1 
+             AND m.name NOT IN ('customcert', 'reengagement')", 
             [$courseid]
         );
 
@@ -1930,16 +1991,18 @@ class dashboard_data_loader {
             ['course' => $courseid, 'criteriatype' => 4]);
         $is_any_aggregation = ($aggr_method == 2);
 
-        // 3. Get completed activity counts per user
+        // 3. Get completed activity counts per user (excluding customcert and reengagement)
         $user_activity_counts = [];
         if ($total_activities > 0) {
-            $sql_counts = "SELECT cmc.userid, COUNT(cmc.id) as numcompleted
+            $sql_counts = "SELECT cmc.userid, COUNT(DISTINCT cmc.coursemoduleid) as numcompleted
                            FROM {course_modules_completion} cmc
                            JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                           JOIN {modules} m ON m.id = cm.module
                            WHERE cm.course = :courseid 
                              AND cm.completion > 0
                              AND cm.visible = 1 
-                             AND cmc.completionstate > 0 
+                             AND cmc.completionstate > 0
+                             AND m.name NOT IN ('customcert', 'reengagement')
                            GROUP BY cmc.userid";
             $user_activity_counts = $DB->get_records_sql_menu($sql_counts, ['courseid' => $courseid]);
         }
@@ -2030,15 +2093,18 @@ class dashboard_data_loader {
         $records = $DB->get_records_sql($sql, ['courseid' => $courseid, 'companyid' => $companyid]);
 
         // Get last activity completion time per user (for completion date fallback)
+        // Excludes customcert and reengagement
         $user_last_activity_completion = [];
         if ($total_activities > 0) {
             $sql_last_completion = "SELECT cmc.userid, MAX(cmc.timemodified) as last_completion
                            FROM {course_modules_completion} cmc
                            JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                           JOIN {modules} m ON m.id = cm.module
                            WHERE cm.course = :courseid 
                              AND cm.completion > 0
                              AND cm.visible = 1 
-                             AND cmc.completionstate > 0 
+                             AND cmc.completionstate > 0
+                             AND m.name NOT IN ('customcert', 'reengagement')
                            GROUP BY cmc.userid";
             $user_last_activity_completion = $DB->get_records_sql_menu($sql_last_completion, ['courseid' => $courseid]);
         }
