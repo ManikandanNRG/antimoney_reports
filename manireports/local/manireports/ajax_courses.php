@@ -106,9 +106,11 @@ switch ($action) {
         echo json_encode($details);
         break;
 
+
     case 'get_course_distribution':
         $courseid = required_param('courseid', PARAM_INT);
-        $distribution = $loader->get_course_company_distribution($courseid);
+        $filter = optional_param('filter', 'current', PARAM_ALPHA); // 'current' or 'all'
+        $distribution = $loader->get_course_company_distribution($courseid, $filter);
         echo json_encode($distribution);
         break;
 

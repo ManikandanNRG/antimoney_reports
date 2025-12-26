@@ -1137,13 +1137,19 @@ class dashboard_data_loader {
                             'license_count' => 0,
                             'license_used' => 0,
                             'latest_expiry' => 0,
-                            'training_window' => 0
+                            'training_window' => 0,
+                            'license_names' => []
                         ];
                     }
                     
                     // Sum up licenses for this company
                     $companies_data[$cid]['license_count'] += (int)$license->license_count;
                     $companies_data[$cid]['license_used'] += (int)$license->license_used;
+                    
+                    // Collect license names
+                    if (!empty($license->license_name)) {
+                        $companies_data[$cid]['license_names'][] = $license->license_name;
+                    }
                     
                     // Keep the latest expiry date
                     if ((int)$license->license_expiry > $companies_data[$cid]['latest_expiry']) {
@@ -1190,10 +1196,14 @@ class dashboard_data_loader {
                     // Format expiry date
                     $expiry_date_formatted = ($expiry > 0) ? date('M d, Y', $expiry) : 'No Expiry';
                     
+                    // Format license names (join if multiple)
+                    $license_name = !empty($comp['license_names']) ? implode(', ', array_unique($comp['license_names'])) : '';
+                    
                     $company_license = [
                         'company_id' => $cid,
                         'company_name' => $comp['company_name'],
                         'company_shortname' => $comp['company_shortname'],
+                        'license_name' => $license_name,
                         'license_count' => $total,
                         'license_used' => $used,
                         'license_remaining' => $remaining,
@@ -1554,8 +1564,10 @@ class dashboard_data_loader {
      * Get Course Company Distribution.
      * 
      * Returns breakdown of enrollments/completions per company for a shared course.
+     * @param int $courseid Course ID
+     * @param string $filter 'current' (active enrollments) or 'all' (all licensed users)
      */
-    public function get_course_company_distribution($courseid) {
+    public function get_course_company_distribution($courseid, $filter = 'current') {
         global $DB;
         
         // 1. Get all companies assigned to this course
@@ -1573,14 +1585,25 @@ class dashboard_data_loader {
         // IOMAD links users to companies via {company_users}.
         
         foreach ($companies as $comp) {
-            // Count Enrolled users in this course belonging to this company
-            $sql_enrolled = "SELECT COUNT(DISTINCT ue.userid) as enrolled
-                              FROM {user_enrolments} ue
-                              JOIN {enrol} e ON e.id = ue.enrolid
-                              JOIN {company_users} cu ON cu.userid = ue.userid
-                             WHERE e.courseid = :courseid 
-                               AND cu.companyid = :companyid
-                               AND ue.status = 0";
+            // Count Users based on filter type
+            if ($filter === 'all') {
+                // ALL: Count users with licenses for this course (all-time)
+                $sql_enrolled = "SELECT COUNT(DISTINCT clu.userid) as enrolled
+                                  FROM {companylicense_users} clu
+                                  JOIN {companylicense} cl ON cl.id = clu.licenseid
+                                  JOIN {companylicense_courses} clc ON clc.licenseid = cl.id
+                                 WHERE clc.courseid = :courseid 
+                                   AND cl.companyid = :companyid";
+            } else {
+                // CURRENT: Count currently enrolled users
+                $sql_enrolled = "SELECT COUNT(DISTINCT ue.userid) as enrolled
+                                  FROM {user_enrolments} ue
+                                  JOIN {enrol} e ON e.id = ue.enrolid
+                                  JOIN {company_users} cu ON cu.userid = ue.userid
+                                 WHERE e.courseid = :courseid 
+                                   AND cu.companyid = :companyid
+                                   AND ue.status = 0";
+            }
             $enrolled = $DB->count_records_sql($sql_enrolled, ['courseid' => $courseid, 'companyid' => $comp->id]);
             
             // A. Completed from course_completions (when course criteria configured)

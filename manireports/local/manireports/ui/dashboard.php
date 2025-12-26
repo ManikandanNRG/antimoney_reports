@@ -3740,9 +3740,19 @@ function openCourseDrawer(courseId) {
         // --- 2. Company Distribution Section (NEW) ---
         if (distribution && distribution.length > 0) {
             html += `
-                <div style="margin-bottom: 40px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden;">
+                <div id="companyDistributionSection" style="margin-bottom: 40px; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; overflow: hidden;">
                     <div style="padding: 16px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
                         <h3 style="margin: 0; font-size: 16px; font-weight: 600; color: var(--text-primary);">Company Distribution</h3>
+                        <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 3px;">
+                            <button id="distToggleCurrent" onclick="toggleDistributionView('current', ${courseId})" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--accent-primary); color: white;">
+                                Current
+                            </button>
+                            <button id="distToggleAll" onclick="toggleDistributionView('all', ${courseId})" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-secondary);">
+                                All Time
+                            </button>
+                        </div>
                     </div>
                     <div style="width: 100%;">
                         <table style="width: 100%; border-collapse: collapse;">
@@ -3756,7 +3766,7 @@ function openCourseDrawer(courseId) {
                                     <th style="text-align: center; padding: 12px 16px; font-size: 12px; color: var(--text-secondary); font-weight: 500;"></th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody id="companyDistributionBody">
                                 ${distribution.map(d => `
                                     <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                                         <td style="padding: 12px 16px; color: var(--text-primary); font-size: 13px; font-weight: 500;">${d.name}</td>
@@ -3794,11 +3804,23 @@ function openCourseDrawer(courseId) {
                     ${data.iomad.is_shared ? `
                     <!-- SHARED COURSE: Summary Table for Multiple Companies -->
                     <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                            <div style="padding: 6px 14px; background: rgba(99, 102, 241, 0.15); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; font-size: 12px; font-weight: 600;">
-                                <i class="fa-solid fa-share-nodes"></i> SHARED COURSE
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="padding: 6px 14px; background: rgba(99, 102, 241, 0.15); color: #6366f1; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px; font-size: 12px; font-weight: 600;">
+                                    <i class="fa-solid fa-share-nodes"></i> SHARED COURSE
+                                </div>
+                                <span style="color: var(--text-secondary); font-size: 13px;">${data.iomad.companies.length} companies licensed</span>
                             </div>
-                            <span style="color: var(--text-secondary); font-size: 13px;">${data.iomad.companies.length} companies licensed</span>
+                            <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 3px;">
+                                <button id="licToggleCurrent" onclick="toggleLicenseView('current')" 
+                                    style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--accent-primary); color: white;">
+                                    Current
+                                </button>
+                                <button id="licToggleExpired" onclick="toggleLicenseView('expired')" 
+                                    style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-secondary);">
+                                    All
+                                </button>
+                            </div>
                         </div>
                         
                         <div style="overflow-x: auto;">
@@ -3806,18 +3828,18 @@ function openCourseDrawer(courseId) {
                                 <thead>
                                     <tr style="border-bottom: 1px solid var(--glass-border);">
                                         <th style="text-align: left; padding: 10px 12px; color: var(--text-secondary); font-weight: 600;">Company</th>
+                                        <th style="text-align: left; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">License Name</th>
                                         <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Used</th>
-                                        <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Avail</th>
                                         <th style="text-align: left; padding: 10px 12px; color: var(--text-secondary); font-weight: 600;">Expires</th>
                                         <th style="text-align: center; padding: 10px 8px; color: var(--text-secondary); font-weight: 600;">Status</th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="licenseTableBody">
                                     ${data.iomad.companies.map(c => `
-                                    <tr style="border-bottom: 1px solid rgba(148, 163, 184, 0.1);">
+                                    <tr class="license-row" data-expired="${c.is_expired ? 'true' : 'false'}" style="border-bottom: 1px solid rgba(148, 163, 184, 0.1);">
                                         <td style="padding: 10px 12px; color: var(--text-primary); font-weight: 500;">${c.company_name}</td>
+                                        <td style="padding: 10px 8px; color: var(--text-secondary); font-size: 12px;">${c.license_name || '-'}</td>
                                         <td style="text-align: center; padding: 10px 8px; color: var(--text-primary);">${c.license_used}/${c.license_count}</td>
-                                        <td style="text-align: center; padding: 10px 8px; color: ${c.license_remaining <= 0 ? '#ef4444' : c.license_remaining <= 10 ? '#f59e0b' : 'var(--text-primary)'}; font-weight: ${c.license_remaining <= 10 ? '600' : '400'};">${c.license_remaining}</td>
                                         <td style="padding: 10px 12px; color: ${c.is_expired ? '#ef4444' : c.days_until_expiry <= 30 ? '#f59e0b' : 'var(--text-secondary)'}; font-size: 12px;">${c.license_expiry_date}</td>
                                         <td style="text-align: center; padding: 10px 8px;">
                                             <span style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
@@ -3932,6 +3954,101 @@ function openCourseDrawer(courseId) {
 function closeCourseDrawer() {
     document.getElementById('courseDrawerBackdrop').classList.remove('open');
     document.getElementById('courseDrawer').classList.remove('open');
+}
+
+// Toggle License View (Client-side filtering)
+function toggleLicenseView(view) {
+    const currentBtn = document.getElementById('licToggleCurrent');
+    const expiredBtn = document.getElementById('licToggleExpired');
+    const tbody = document.getElementById('licenseTableBody');
+    
+    if (!tbody) return;
+    
+    // Update button styles
+    if (view === 'current') {
+        currentBtn.style.background = 'var(--accent-primary)';
+        currentBtn.style.color = 'white';
+        expiredBtn.style.background = 'transparent';
+        expiredBtn.style.color = 'var(--text-secondary)';
+    } else {
+        currentBtn.style.background = 'transparent';
+        currentBtn.style.color = 'var(--text-secondary)';
+        expiredBtn.style.background = 'var(--accent-primary)';
+        expiredBtn.style.color = 'white';
+    }
+    
+    // Filter rows
+    const rows = tbody.querySelectorAll('.license-row');
+    rows.forEach(row => {
+        const isExpired = row.getAttribute('data-expired') === 'true';
+        if (view === 'current') {
+            row.style.display = isExpired ? 'none' : '';
+        } else {
+            row.style.display = ''; // Show all
+        }
+    });
+}
+
+// Toggle Company Distribution View (AJAX reload)
+let currentDistFilter = 'current';
+function toggleDistributionView(view, courseId) {
+    const currentBtn = document.getElementById('distToggleCurrent');
+    const allBtn = document.getElementById('distToggleAll');
+    const tbody = document.getElementById('companyDistributionBody');
+    
+    if (!tbody) return;
+    
+    currentDistFilter = view;
+    
+    // Update button styles
+    if (view === 'current') {
+        currentBtn.style.background = 'var(--accent-primary)';
+        currentBtn.style.color = 'white';
+        allBtn.style.background = 'transparent';
+        allBtn.style.color = 'var(--text-secondary)';
+    } else {
+        currentBtn.style.background = 'transparent';
+        currentBtn.style.color = 'var(--text-secondary)';
+        allBtn.style.background = 'var(--accent-primary)';
+        allBtn.style.color = 'white';
+    }
+    
+    // Show loading
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-secondary);"><div class="manireports-loading-spinner" style="display: inline-block;"></div></td></tr>';
+    
+    // Fetch filtered data
+    fetch('<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=get_course_distribution&courseid=' + courseId + '&filter=' + view + '&sesskey=<?php echo sesskey(); ?>')
+        .then(r => r.json())
+        .then(distribution => {
+            if (distribution && distribution.length > 0) {
+                const enrollLabel = view === 'all' ? 'Licensed' : 'Enrolled';
+                // Update header if needed
+                const header = tbody.closest('table').querySelector('thead th:nth-child(2)');
+                if (header) header.textContent = enrollLabel;
+                
+                tbody.innerHTML = distribution.map(d => `
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <td style="padding: 12px 16px; color: var(--text-primary); font-size: 13px; font-weight: 500;">${d.name}</td>
+                        <td style="padding: 12px 10px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.enrolled}</td>
+                        <td style="padding: 12px 10px; color: var(--accent-warning); font-size: 13px; text-align: center;">${d.in_progress}</td>
+                        <td style="padding: 12px 10px; color: var(--accent-success); font-size: 13px; text-align: center;">${d.completed}</td>
+                        <td style="padding: 12px 10px; color: var(--text-primary); font-size: 13px; text-align: center;">${d.certificates || 0}</td>
+                        <td style="padding: 12px 16px; text-align: center;">
+                            <a href="<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_courses.php?action=export_course_distribution&courseid=${courseId}&companyid=${d.company_id}&sesskey=<?php echo sesskey(); ?>" target="_blank" 
+                               style="display: inline-flex; align-items: center; justify-content: center; background: rgba(59, 130, 246, 0.1); color: #3b82f6; width: 32px; height: 32px; border-radius: 8px; text-decoration: none; transition: background 0.2s;" title="Download Report">
+                               <i class="fa-solid fa-download" style="font-size: 12px;"></i>
+                            </a>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-secondary);">No data available</td></tr>';
+            }
+        })
+        .catch(err => {
+            console.error('Distribution fetch error:', err);
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--accent-danger);">Error loading data</td></tr>';
+        });
 }
 </script>
 <style>
