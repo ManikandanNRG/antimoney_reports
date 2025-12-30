@@ -121,22 +121,71 @@ class dashboard_data_loader {
             $totalcompanies = $DB->count_records('company'); // Keep all-time for companies for now unless requested
         }
 
-        // Overall Completion Rate (Filtered by date if possible)
-        // Completions within the date range
-        $completion_where = 'timecompleted > 0';
-        $completion_params = [];
+        // Efficient Completion Rate Calculation
+        // Strategy: Count course_completions + count activity-based completions for courses without course_completions
         
+        // Date filter for course_completions
+        $date_filter = '';
+        $completion_params = [];
         if ($this->startdate > 0) {
-            $completion_where .= " AND timecompleted >= :startdate AND timecompleted <= :enddate";
+            $date_filter = " AND cc.timecompleted >= :startdate AND cc.timecompleted <= :enddate";
             $completion_params['startdate'] = $this->startdate;
             $completion_params['enddate'] = $this->enddate;
         }
-
-        $total_completions = $DB->count_records_select('course_completions', $completion_where, $completion_params);
         
-        // For rate, we need enrollments. This is hard to filter by date (enrolled when?).
-        // Let's use total active enrollments as denominator for now.
-        $total_enrollments = $DB->count_records('user_enrolments', array('status' => 0));
+        // A. Count completions from course_completions table (fast single query)
+        $completions_from_table = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT CONCAT(cc.userid, '-', cc.course))
+             FROM {course_completions} cc
+             JOIN {enrol} e ON e.courseid = cc.course
+             JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cc.userid
+             WHERE cc.timecompleted > 0 AND ue.status = 0 AND cc.course > 1 $date_filter",
+            $completion_params
+        );
+        
+        // B. Count activity-based completions for courses with NO course_completions
+        // Find courses that have activities with completion but no course_completions records
+        $activity_completions = $DB->count_records_sql(
+            "SELECT COUNT(*)
+             FROM (
+                 SELECT cmc.userid, cm.course
+                 FROM {course_modules_completion} cmc
+                 JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                 JOIN {modules} m ON m.id = cm.module
+                 JOIN {enrol} e ON e.courseid = cm.course
+                 JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cmc.userid
+                 WHERE cm.completion > 0 
+                   AND cm.visible = 1 
+                   AND cmc.completionstate > 0
+                   AND m.name NOT IN ('customcert', 'reengagement')
+                   AND ue.status = 0
+                   AND cm.course > 1
+                   AND NOT EXISTS (
+                       SELECT 1 FROM {course_completions} cc2 
+                       WHERE cc2.course = cm.course AND cc2.timecompleted > 0
+                   )
+                 GROUP BY cmc.userid, cm.course
+                 HAVING COUNT(DISTINCT cmc.coursemoduleid) = (
+                     SELECT COUNT(cm2.id) 
+                     FROM {course_modules} cm2 
+                     JOIN {modules} m2 ON m2.id = cm2.module
+                     WHERE cm2.course = cm.course 
+                       AND cm2.completion > 0 
+                       AND cm2.visible = 1
+                       AND m2.name NOT IN ('customcert', 'reengagement')
+                 )
+             ) activity_completers"
+        );
+        
+        $total_completions = $completions_from_table + $activity_completions;
+        
+        // Total active enrollments as denominator
+        $total_enrollments = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT CONCAT(ue.userid, '-', e.courseid))
+             FROM {user_enrolments} ue
+             JOIN {enrol} e ON e.id = ue.enrolid
+             WHERE ue.status = 0 AND e.courseid > 1"
+        );
         
         $completion_rate = 0;
         if ($total_enrollments > 0) {
@@ -668,19 +717,54 @@ class dashboard_data_loader {
                       WHERE $sql_where AND ue.status = 0";
         $total_enrollments = $DB->count_records_sql($sql_enrol, $params);
 
-        // 3. Avg Completion Rate
-        $sql_avg = "SELECT AVG(c.completion)
-                    FROM {course_completions} cc
-                    JOIN {course} c ON c.id = cc.course
-                    WHERE $sql_where AND cc.timecompleted > 0";
-        // Note: This is a simplified avg. Real avg requires (completed / enrolled) per course.
-        // Let's do a smarter query:
-        // Sum of all completions / Sum of all enrollments
-        $total_completions = $DB->count_records_sql("SELECT COUNT(cc.id) 
-                                                     FROM {course_completions} cc 
-                                                     JOIN {course} c ON c.id = cc.course 
-                                                     WHERE $sql_where AND cc.timecompleted > 0", $params);
+        // 3. Avg Completion Rate (Efficient calculation with activity fallback)
+        // A. Count from course_completions
+        $completions_from_table = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT CONCAT(cc.userid, '-', cc.course))
+             FROM {course_completions} cc
+             JOIN {course} c ON c.id = cc.course
+             JOIN {enrol} e ON e.courseid = cc.course
+             JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cc.userid
+             WHERE $sql_where AND cc.timecompleted > 0 AND ue.status = 0",
+            $params
+        );
         
+        // B. Count activity-based completions for courses without course_completions
+        $activity_completions = $DB->count_records_sql(
+            "SELECT COUNT(*)
+             FROM (
+                 SELECT cmc.userid, cm.course
+                 FROM {course_modules_completion} cmc
+                 JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                 JOIN {modules} m ON m.id = cm.module
+                 JOIN {course} c ON c.id = cm.course
+                 JOIN {enrol} e ON e.courseid = cm.course
+                 JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = cmc.userid
+                 WHERE $sql_where 
+                   AND cm.completion > 0 
+                   AND cm.visible = 1 
+                   AND cmc.completionstate > 0
+                   AND m.name NOT IN ('customcert', 'reengagement')
+                   AND ue.status = 0
+                   AND NOT EXISTS (
+                       SELECT 1 FROM {course_completions} cc2 
+                       WHERE cc2.course = cm.course AND cc2.timecompleted > 0
+                   )
+                 GROUP BY cmc.userid, cm.course
+                 HAVING COUNT(DISTINCT cmc.coursemoduleid) = (
+                     SELECT COUNT(cm2.id) 
+                     FROM {course_modules} cm2 
+                     JOIN {modules} m2 ON m2.id = cm2.module
+                     WHERE cm2.course = cm.course 
+                       AND cm2.completion > 0 
+                       AND cm2.visible = 1
+                       AND m2.name NOT IN ('customcert', 'reengagement')
+                 )
+             ) activity_completers",
+            $params
+        );
+        
+        $total_completions = $completions_from_table + $activity_completions;
         $avg_completion = ($total_enrollments > 0) ? round(($total_completions / $total_enrollments) * 100, 1) : 0;
 
         // 4. Certificates (from customcert_issues - the modern certificate plugin)
