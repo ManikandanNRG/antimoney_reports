@@ -1692,17 +1692,36 @@ class dashboard_data_loader {
         // IOMAD links users to companies via {company_users}.
         
         foreach ($companies as $comp) {
+            // Check if this company has licenses for this course
+            $has_licenses = $DB->record_exists_sql(
+                "SELECT 1 FROM {companylicense} cl 
+                 JOIN {companylicense_courses} clc ON clc.licenseid = cl.id 
+                 WHERE clc.courseid = :courseid AND cl.companyid = :companyid",
+                ['courseid' => $courseid, 'companyid' => $comp->id]
+            );
+            
             // Count Users based on filter type
             if ($filter === 'all') {
-                // ALL: Count users with licenses for this course (all-time)
-                $sql_enrolled = "SELECT COUNT(DISTINCT clu.userid) as enrolled
-                                  FROM {companylicense_users} clu
-                                  JOIN {companylicense} cl ON cl.id = clu.licenseid
-                                  JOIN {companylicense_courses} clc ON clc.licenseid = cl.id
-                                 WHERE clc.courseid = :courseid 
-                                   AND cl.companyid = :companyid";
+                if ($has_licenses) {
+                    // LICENSED COURSE - ALL: Count users with licenses for this course (all-time)
+                    $sql_enrolled = "SELECT COUNT(DISTINCT clu.userid) as enrolled
+                                      FROM {companylicense_users} clu
+                                      JOIN {companylicense} cl ON cl.id = clu.licenseid
+                                      JOIN {companylicense_courses} clc ON clc.licenseid = cl.id
+                                     WHERE clc.courseid = :courseid 
+                                       AND cl.companyid = :companyid";
+                } else {
+                    // NON-LICENSED COURSE - ALL: Count ALL enrolled users (active + inactive + unenrolled)
+                    $sql_enrolled = "SELECT COUNT(DISTINCT ue.userid) as enrolled
+                                      FROM {user_enrolments} ue
+                                      JOIN {enrol} e ON e.id = ue.enrolid
+                                      JOIN {company_users} cu ON cu.userid = ue.userid
+                                     WHERE e.courseid = :courseid 
+                                       AND cu.companyid = :companyid";
+                    // No status filter - includes status 0 (active), 1 (suspended), etc.
+                }
             } else {
-                // CURRENT: Count currently enrolled users
+                // CURRENT: Count currently enrolled users (active only)
                 $sql_enrolled = "SELECT COUNT(DISTINCT ue.userid) as enrolled
                                   FROM {user_enrolments} ue
                                   JOIN {enrol} e ON e.id = ue.enrolid
