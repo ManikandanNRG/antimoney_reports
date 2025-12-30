@@ -2044,26 +2044,42 @@ class dashboard_data_loader {
         $peak_today = 0;
         $active_courses_count = 0;
         
+        // Exclude admin-triggered events (actions performed ON users, not BY users)
+        // Only count events where the user actually interacted with the LMS
+        $excluded_events = "
+            '\\\\block_iomad_company_admin\\\\event\\\\user_license_assigned',
+            '\\\\block_iomad_company_admin\\\\event\\\\user_license_used',
+            '\\\\block_iomad_company_admin\\\\event\\\\user_license_unassigned',
+            '\\\\core\\\\event\\\\user_enrolment_created',
+            '\\\\core\\\\event\\\\user_enrolment_deleted',
+            '\\\\core\\\\event\\\\user_created',
+            '\\\\core\\\\event\\\\user_updated',
+            '\\\\core\\\\event\\\\role_assigned'
+        ";
+        
         // Use Logstore Standard for Accuracy if available
         if ($DB->get_manager()->table_exists('logstore_standard_log')) {
-            // 1. Active Users (Real-time from logs)
+            // 1. Active Users (Real-time from logs) - Only actual user interactions
             $active_users = $DB->count_records_sql(
                 "SELECT COUNT(DISTINCT userid) FROM {logstore_standard_log} 
-                  WHERE timecreated > ? AND userid > 0", 
+                  WHERE timecreated > ? AND userid > 0
+                  AND eventname NOT IN ($excluded_events)", 
                 [$window]
             );
 
-            // 2. Users Active Today (Unique Visitors)
+            // 2. Users Active Today (Unique Visitors) - Only actual user interactions
             $peak_today = $DB->count_records_sql(
                 "SELECT COUNT(DISTINCT userid) FROM {logstore_standard_log} 
-                  WHERE timecreated > ? AND userid > 0", 
+                  WHERE timecreated > ? AND userid > 0
+                  AND eventname NOT IN ($excluded_events)", 
                 [$today_start]
             );
 
-            // 3. Active Courses (Courses with activity in last 5 min)
+            // 3. Active Courses (Courses with activity in last 5 min) - Only actual interactions
             $active_courses_count = $DB->count_records_sql(
                 "SELECT COUNT(DISTINCT courseid) FROM {logstore_standard_log} 
-                  WHERE timecreated > ? AND courseid > 1", 
+                  WHERE timecreated > ? AND courseid > 1
+                  AND eventname NOT IN ($excluded_events)", 
                 [$window]
             );
         } else {
@@ -2123,9 +2139,11 @@ class dashboard_data_loader {
         $since_timestamp = time() - (24 * 3600);
         
         // Fetch raw timestamps instead of grouping in SQL (to handle timezone in PHP)
-        $sql_timeline = "SELECT id, timecreated, userid
+        // Exclude admin-triggered events for accurate user activity tracking
+        $sql_timeline = "SELECT id, timecreated, userid, eventname
                          FROM {logstore_standard_log}
                          WHERE timecreated > :since
+                           AND eventname NOT IN ($excluded_events)
                          ORDER BY timecreated ASC";
         
         try {
