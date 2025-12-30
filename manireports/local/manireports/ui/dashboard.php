@@ -3836,7 +3836,7 @@ function openCourseDrawer(courseId) {
                                 </thead>
                                 <tbody id="licenseTableBody">
                                     ${data.iomad.companies.map(c => `
-                                    <tr class="license-row" data-expired="${c.is_expired ? 'true' : 'false'}" style="border-bottom: 1px solid rgba(148, 163, 184, 0.1);">
+                                    <tr class="license-row" data-expired="${c.is_expired ? 'true' : 'false'}" style="border-bottom: 1px solid rgba(148, 163, 184, 0.1); ${c.is_expired ? 'display: none;' : ''}">
                                         <td style="padding: 10px 12px; color: var(--text-primary); font-weight: 500;">${c.company_name}</td>
                                         <td style="padding: 10px 8px; color: var(--text-secondary); font-size: 12px;">${c.license_name || '-'}</td>
                                         <td style="text-align: center; padding: 10px 8px; color: var(--text-primary);">${c.license_used}/${c.license_count}</td>
@@ -3857,13 +3857,36 @@ function openCourseDrawer(courseId) {
                                         </td>
                                     </tr>
                                     `).join('')}
+                                    <tr id="noActiveLicenseRow" style="${data.iomad.companies.some(c => !c.is_expired) ? 'display: none;' : ''}">
+                                        <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-secondary);">
+                                            <i class="fa-solid fa-info-circle" style="margin-right: 8px;"></i>
+                                            No active licenses. Click "All" to view expired licenses.
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     ` : `
-                    <!-- SINGLE COMPANY: Original License Card -->
+                    <!-- SINGLE COMPANY: License Card with Toggle -->
                     <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: 16px; padding: 20px;">
+                        <!-- Toggle Buttons for Single Company -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                            <span style="color: var(--text-secondary); font-size: 13px;">License Details</span>
+                            <div style="display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 3px;">
+                                <button id="singleLicToggleCurrent" onclick="toggleSingleLicenseView('current')" 
+                                    style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--accent-primary); color: white;">
+                                    Current
+                                </button>
+                                <button id="singleLicToggleAll" onclick="toggleSingleLicenseView('all')" 
+                                    style="padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text-secondary);">
+                                    All
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- License content wrapper -->
+                        <div id="singleLicenseContent" style="${data.iomad.is_expired ? 'display: none;' : ''}">
                         <!-- Status Row -->
                         <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px;">
                             <!-- Status Badge -->
@@ -3916,6 +3939,13 @@ function openCourseDrawer(courseId) {
                                 <strong>${data.iomad.training_window}-day</strong> training window per user
                             </div>` : ''}
                         </div>
+                        </div>
+                        
+                        <!-- Empty state when license is expired (Current view) -->
+                        <div id="singleLicenseEmpty" style="${data.iomad.is_expired ? '' : 'display: none;'} padding: 20px; text-align: center; color: var(--text-secondary);">
+                            <i class="fa-solid fa-info-circle" style="margin-right: 8px;"></i>
+                            No active license. Click "All" to view expired license details.
+                        </div>
                     </div>
                     `}
                     ` : `
@@ -3956,11 +3986,12 @@ function closeCourseDrawer() {
     document.getElementById('courseDrawer').classList.remove('open');
 }
 
-// Toggle License View (Client-side filtering)
+// Toggle License View for Shared Courses (Client-side filtering)
 function toggleLicenseView(view) {
     const currentBtn = document.getElementById('licToggleCurrent');
     const expiredBtn = document.getElementById('licToggleExpired');
     const tbody = document.getElementById('licenseTableBody');
+    const noActiveRow = document.getElementById('noActiveLicenseRow');
     
     if (!tbody) return;
     
@@ -3979,14 +4010,66 @@ function toggleLicenseView(view) {
     
     // Filter rows
     const rows = tbody.querySelectorAll('.license-row');
+    let visibleCount = 0;
     rows.forEach(row => {
         const isExpired = row.getAttribute('data-expired') === 'true';
         if (view === 'current') {
             row.style.display = isExpired ? 'none' : '';
+            if (!isExpired) visibleCount++;
         } else {
             row.style.display = ''; // Show all
+            visibleCount++;
         }
     });
+    
+    // Show/hide empty state row
+    if (noActiveRow) {
+        noActiveRow.style.display = (view === 'current' && visibleCount === 0) ? '' : 'none';
+    }
+}
+
+// Toggle Single Company License View (Client-side visibility)
+function toggleSingleLicenseView(view) {
+    const currentBtn = document.getElementById('singleLicToggleCurrent');
+    const allBtn = document.getElementById('singleLicToggleAll');
+    const licenseContent = document.getElementById('singleLicenseContent');
+    const emptyState = document.getElementById('singleLicenseEmpty');
+    
+    if (!currentBtn || !allBtn) return;
+    
+    // Update button styles
+    if (view === 'current') {
+        currentBtn.style.background = 'var(--accent-primary)';
+        currentBtn.style.color = 'white';
+        allBtn.style.background = 'transparent';
+        allBtn.style.color = 'var(--text-secondary)';
+    } else {
+        currentBtn.style.background = 'transparent';
+        currentBtn.style.color = 'var(--text-secondary)';
+        allBtn.style.background = 'var(--accent-primary)';
+        allBtn.style.color = 'white';
+    }
+    
+    // Toggle visibility based on view
+    if (view === 'all') {
+        // Show license details regardless of expiry
+        if (licenseContent) licenseContent.style.display = '';
+        if (emptyState) emptyState.style.display = 'none';
+    } else {
+        // Check if license is expired by looking at the empty state initial visibility
+        const wasExpired = emptyState && !emptyState.style.display.includes('none');
+        // If was showing empty (expired), keep showing empty in current view
+        // This logic is based on initial state - if emptyState was visible, license was expired
+        if (licenseContent) {
+            // Check for expired status badge
+            const statusBadge = licenseContent.querySelector('div');
+            const isExpired = statusBadge && statusBadge.textContent.includes('EXPIRED');
+            if (isExpired) {
+                licenseContent.style.display = 'none';
+                if (emptyState) emptyState.style.display = '';
+            }
+        }
+    }
 }
 
 // Toggle Company Distribution View (AJAX reload)
