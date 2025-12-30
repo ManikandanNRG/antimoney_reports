@@ -403,6 +403,208 @@ class dashboard_data_loader {
     }
 
     /**
+     * Get Company Cards for Profile Grid (Paginated).
+     * 
+     * @param int $page Page number (1-indexed)
+     * @param int $limit Cards per page
+     * @param string $search Search term
+     * @param string $license_filter License filter (all, active, expiring, expired)
+     * @return array Company cards data with pagination info
+     */
+    public function get_company_cards($page = 1, $limit = 6, $search = '', $license_filter = 'all') {
+        global $DB, $CFG;
+        
+        if (!$DB->get_manager()->table_exists('company')) {
+            return ['cards' => [], 'pagination' => ['total' => 0, 'pages' => 0, 'current' => 1]];
+        }
+        
+        $offset = ($page - 1) * $limit;
+        $params = [];
+        $where_clauses = ['1=1'];
+        
+        // Search filter
+        if (!empty($search)) {
+            $where_clauses[] = "c.name LIKE :search";
+            $params['search'] = '%' . $search . '%';
+        }
+        
+        $where = implode(' AND ', $where_clauses);
+        
+        // Get total count for pagination
+        $total_count = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT c.id) FROM {company} c WHERE $where",
+            $params
+        );
+        
+        // Get companies with basic info
+        $sql = "SELECT c.id, c.name, c.shortname, c.city, c.country
+                FROM {company} c
+                WHERE $where
+                ORDER BY c.name ASC";
+        
+        $companies = $DB->get_records_sql($sql, $params, $offset, $limit);
+        
+        $cards = [];
+        foreach ($companies as $company) {
+            // Get manager info
+            $manager = $this->get_company_manager($company->id);
+            
+            // Get user stats
+            $user_count = $DB->count_records('company_users', ['companyid' => $company->id]);
+            
+            // Get course count
+            $course_count = $DB->count_records('company_course', ['companyid' => $company->id]);
+            
+            // Get completion rate
+            $enrolled = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT ue.id)
+                 FROM {company_users} cu
+                 JOIN {user_enrolments} ue ON ue.userid = cu.userid
+                 WHERE cu.companyid = :companyid AND ue.status = 0",
+                ['companyid' => $company->id]
+            );
+            
+            $completed = $DB->count_records_sql(
+                "SELECT COUNT(DISTINCT cc.id)
+                 FROM {company_users} cu
+                 JOIN {course_completions} cc ON cc.userid = cu.userid
+                 WHERE cu.companyid = :companyid AND cc.timecompleted > 0",
+                ['companyid' => $company->id]
+            );
+            
+            $completion_rate = ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0;
+            
+            // Get license info
+            $license = $this->get_company_license_summary($company->id);
+            
+            // Get reminder count (check if table exists first)
+            $reminder_count = 0;
+            if ($DB->get_manager()->table_exists('manireports_reminders')) {
+                $reminder_count = $DB->count_records_sql(
+                    "SELECT COUNT(*) FROM {manireports_reminders}
+                     WHERE companyid = :companyid AND enabled = 1",
+                    ['companyid' => $company->id]
+                );
+            }
+            
+            // Build domain URL
+            $domain = !empty($company->shortname) 
+                ? strtolower($company->shortname) . '.aktrea.com' 
+                : '';
+            
+            $cards[] = [
+                'id' => $company->id,
+                'name' => $company->name,
+                'shortname' => $company->shortname,
+                'domain' => $domain,
+                'manager' => $manager,
+                'stats' => [
+                    'users' => $user_count,
+                    'courses' => $course_count,
+                    'completion_rate' => $completion_rate
+                ],
+                'license' => $license,
+                'reminders' => [
+                    'count' => $reminder_count
+                ]
+            ];
+        }
+        
+        return [
+            'cards' => $cards,
+            'pagination' => [
+                'total' => $total_count,
+                'pages' => ceil($total_count / $limit),
+                'current' => $page,
+                'limit' => $limit
+            ]
+        ];
+    }
+    
+    /**
+     * Get Company Manager Info.
+     * 
+     * @param int $companyid Company ID
+     * @return array|null Manager details or null
+     */
+    private function get_company_manager($companyid) {
+        global $DB;
+        
+        // Get company manager (managertype = 1 is Company Manager in IOMAD)
+        $managers = $DB->get_records_sql(
+            "SELECT u.id, u.firstname, u.lastname, u.email
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             WHERE cu.companyid = :companyid AND cu.managertype = 1",
+            ['companyid' => $companyid],
+            0, 1
+        );
+        $manager = !empty($managers) ? reset($managers) : null;
+        
+        if ($manager) {
+            return [
+                'id' => $manager->id,
+                'name' => trim($manager->firstname . ' ' . $manager->lastname),
+                'email' => $manager->email
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get Company License Summary.
+     * 
+     * @param int $companyid Company ID
+     * @return array License summary
+     */
+    private function get_company_license_summary($companyid) {
+        global $DB;
+        
+        if (!$DB->get_manager()->table_exists('companylicense')) {
+            return ['used' => 0, 'total' => 0, 'percent' => 0, 'status' => 'none', 'expires' => null];
+        }
+        
+        // Get active license with most allocation
+        $licenses = $DB->get_records_sql(
+            "SELECT cl.id, cl.name, cl.allocation, cl.used, cl.expirydate
+             FROM {companylicense} cl
+             WHERE cl.companyid = :companyid
+             ORDER BY cl.allocation DESC",
+            ['companyid' => $companyid],
+            0, 1
+        );
+        $license = !empty($licenses) ? reset($licenses) : null;
+        
+        if (!$license) {
+            return ['used' => 0, 'total' => 0, 'percent' => 0, 'status' => 'none', 'expires' => null];
+        }
+        
+        $percent = ($license->allocation > 0) ? round(($license->used / $license->allocation) * 100) : 0;
+        
+        // Determine status
+        $now = time();
+        $expires_in_30_days = $now + (30 * 24 * 60 * 60);
+        
+        $status = 'active';
+        if ($license->expirydate > 0) {
+            if ($license->expirydate < $now) {
+                $status = 'expired';
+            } else if ($license->expirydate < $expires_in_30_days) {
+                $status = 'expiring';
+            }
+        }
+        
+        return [
+            'used' => $license->used,
+            'total' => $license->allocation,
+            'percent' => $percent,
+            'status' => $status,
+            'expires' => $license->expirydate > 0 ? date('M d, Y', $license->expirydate) : null
+        ];
+    }
+
+    /**
      * Get Company Distribution Chart (Top 5 by Users).
      */
     public function get_company_distribution_chart() {

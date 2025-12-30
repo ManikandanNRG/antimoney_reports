@@ -2224,58 +2224,166 @@ body {
             </div>
         </div>
 
-        <!-- Company Performance Matrix Table -->
-        <div class="bento-grid">
-            <div class="bento-card card-span-4">
-                <div class="card-header">
-                    <div class="card-title"><i class="fa-solid fa-table"></i> Company Performance Matrix</div>
-                    <button class="export-btn" onclick="triggerExport('course_completion', 'csv')">
-                        <i class="fa-solid fa-download"></i> Export CSV
+        <!-- Company Profile Cards Section -->
+        <div class="bento-card card-span-4" style="margin-top: 24px;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div class="card-title"><i class="fa-solid fa-building"></i> Company Profiles</div>
+                
+                <!-- Filter Controls -->
+                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                    <div style="position: relative;">
+                        <i class="fa-solid fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                        <input type="text" id="companyCardSearch" placeholder="Search companies..." 
+                               style="padding: 8px 12px 8px 36px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 13px; width: 200px; outline: none;"
+                               onkeyup="debounceCompanyCards()">
+                    </div>
+                    <select id="companyLicenseFilter" onchange="loadCompanyCards(1)" 
+                            style="padding: 8px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer;">
+                        <option value="all">All Licenses</option>
+                        <option value="active">Active</option>
+                        <option value="expiring">Expiring Soon</option>
+                        <option value="expired">Expired</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Cards Grid Container -->
+            <div id="companyCardsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px 0;">
+                <!-- Cards loaded via AJAX -->
+                <div style="grid-column: 1 / -1; text-align: center; padding: 60px;">
+                    <div class="manireports-loading-spinner"></div>
+                    <p style="color: var(--text-secondary); margin-top: 16px;">Loading company profiles...</p>
+                </div>
+            </div>
+            
+            <!-- Pagination Controls -->
+            <div id="companyCardsPagination" style="display: none; padding: 16px 0; border-top: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+                <div id="companyCardsInfo" style="color: var(--text-secondary); font-size: 13px;"></div>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btnPrevCompany" class="export-btn" onclick="changeCompanyPage(-1)" style="padding: 8px 16px; font-size: 13px;">
+                        <i class="fa-solid fa-chevron-left"></i> Previous
+                    </button>
+                    <span id="companyPageInfo" style="display: flex; align-items: center; padding: 0 12px; color: var(--text-primary); font-size: 13px;"></span>
+                    <button id="btnNextCompany" class="export-btn" onclick="changeCompanyPage(1)" style="padding: 8px 16px; font-size: 13px;">
+                        Next <i class="fa-solid fa-chevron-right"></i>
                     </button>
                 </div>
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                <th class="table-header">Company Name</th>
-                                <th class="table-header">Users</th>
-                                <th class="table-header">Courses</th>
-                                <th class="table-header">Enrollments</th>
-                                <th class="table-header">Completions</th>
-                                <th class="table-header">Progress</th>
-                                <th class="table-header" style="text-align: right;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($company_list)): ?>
-                                <?php foreach ($company_list as $company): ?>
-                                <tr class="table-row">
-                                    <td class="table-cell" style="font-weight: 600;"><?php echo $company['name']; ?></td>
-                                    <td class="table-cell"><?php echo $company['users']; ?></td>
-                                    <td class="table-cell"><?php echo $company['courses']; ?></td>
-                                    <td class="table-cell"><?php echo $company['enrolled']; ?></td>
-                                    <td class="table-cell"><?php echo $company['completed']; ?></td>
-                                    <td class="table-cell">
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <div class="progress-bar-slim" style="flex: 1;">
-                                                <div class="progress-fill" style="width: <?php echo $company['completion_rate']; ?>%; background: var(--accent-success);"></div>
-                                            </div>
-                                            <span style="font-size: 12px; color: var(--text-secondary); min-width: 40px;"><?php echo $company['completion_rate']; ?>%</span>
-                                        </div>
-                                    </td>
-                                    <td class="table-cell" style="text-align: right;">
-                                        <a href="#" class="action-link">View Report</a>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr><td colspan="7" class="table-cell" style="text-align: center;">No companies found.</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
             </div>
         </div>
+
     </div>
+
+    <script>
+    // Company Cards AJAX Logic
+    let currentCompanyPage = 1;
+    let companyDebounceTimer;
+    
+    function loadCompanyCards(page) {
+        if (page) currentCompanyPage = page;
+        
+        const grid = document.getElementById('companyCardsGrid');
+        const search = document.getElementById('companyCardSearch').value;
+        const licenseFilter = document.getElementById('companyLicenseFilter').value;
+        const paginationEl = document.getElementById('companyCardsPagination');
+        
+        // Show loading
+        grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px;"><div class="manireports-loading-spinner"></div><p style="color: var(--text-secondary); margin-top: 16px;">Loading...</p></div>';
+        
+        const url = '<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_companies.php?action=get_company_cards' +
+                    '&sesskey=<?php echo sesskey(); ?>' +
+                    '&page=' + currentCompanyPage +
+                    '&limit=6' +
+                    '&search=' + encodeURIComponent(search) +
+                    '&license_filter=' + licenseFilter;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                // Check if data has html property
+                if (data && data.html) {
+                    grid.innerHTML = data.html;
+                } else if (data && data.error) {
+                    grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--accent-danger);"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>Error: ' + data.error + '</p></div>';
+                } else {
+                    grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);"><i class="fa-solid fa-building" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i><p>No companies found.</p></div>';
+                }
+                
+                if (data && data.pagination && data.pagination.pages > 1) {
+                    paginationEl.style.display = 'flex';
+                    updateCompanyPagination(data.pagination);
+                } else {
+                    paginationEl.style.display = 'none';
+                }
+            })
+            .catch(err => {
+                console.error('Error loading company cards:', err);
+                grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--accent-danger);"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>Error loading companies. Check console for details.</p></div>';
+            });
+    }
+    
+    function updateCompanyPagination(pagination) {
+        const info = document.getElementById('companyCardsInfo');
+        const pageInfo = document.getElementById('companyPageInfo');
+        const prevBtn = document.getElementById('btnPrevCompany');
+        const nextBtn = document.getElementById('btnNextCompany');
+        
+        const start = (pagination.current - 1) * pagination.limit + 1;
+        const end = Math.min(pagination.current * pagination.limit, pagination.total);
+        
+        info.innerHTML = 'Showing ' + start + '-' + end + ' of ' + pagination.total + ' companies';
+        pageInfo.innerHTML = 'Page ' + pagination.current + ' of ' + pagination.pages;
+        
+        prevBtn.disabled = pagination.current <= 1;
+        nextBtn.disabled = pagination.current >= pagination.pages;
+        
+        prevBtn.style.opacity = prevBtn.disabled ? '0.5' : '1';
+        nextBtn.style.opacity = nextBtn.disabled ? '0.5' : '1';
+    }
+    
+    function changeCompanyPage(delta) {
+        const newPage = currentCompanyPage + delta;
+        if (newPage >= 1) {
+            loadCompanyCards(newPage);
+        }
+    }
+    
+    function debounceCompanyCards() {
+        clearTimeout(companyDebounceTimer);
+        companyDebounceTimer = setTimeout(() => {
+            loadCompanyCards(1);
+        }, 300);
+    }
+    
+    function openCompanyProfile(companyId) {
+        // For now, open in drawer (can be enhanced later)
+        alert('Company Profile for ID: ' + companyId + '\n\nFull profile view coming soon!');
+    }
+    
+    // Initialize on tab switch or page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load company cards when Companies tab is visible
+        const companiesTab = document.getElementById('tab-companies');
+        if (companiesTab) {
+            // Check if already active or use MutationObserver for dynamic tab switching
+            setTimeout(() => {
+                if (companiesTab.classList.contains('active') || companiesTab.style.display !== 'none') {
+                    loadCompanyCards(1);
+                }
+            }, 100);
+        }
+    });
+    
+    // Also load when tab is clicked
+    const origSwitchTab = window.switchTab;
+    window.switchTab = function(tab) {
+        if (typeof origSwitchTab === 'function') {
+            origSwitchTab(tab);
+        }
+        if (tab === 'companies') {
+            setTimeout(() => loadCompanyCards(1), 100);
+        }
+    };
+    </script>
 
 
     </div>
