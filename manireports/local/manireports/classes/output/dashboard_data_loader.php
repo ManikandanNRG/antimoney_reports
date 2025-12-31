@@ -449,6 +449,9 @@ class dashboard_data_loader {
             // Get manager info
             $manager = $this->get_company_manager($company->id);
             
+            // Get coach/educator info
+            $coach = $this->get_company_coach($company->id);
+            
             // Get user stats
             $user_count = $DB->count_records('company_users', ['companyid' => $company->id]);
             
@@ -507,6 +510,7 @@ class dashboard_data_loader {
                 'domain' => $domain,
                 'logo_url' => $logo_url,
                 'manager' => $manager,
+                'coach' => $coach,
                 'stats' => [
                     'users' => $user_count,
                     'courses' => $course_count,
@@ -533,18 +537,26 @@ class dashboard_data_loader {
     /**
      * Get Company Manager Info.
      * 
+     * Manager = User with "Tenant Manager" role assigned in the company
+     * We look for users in the company who have a role containing "tenant" AND "manager" in the name
+     * 
      * @param int $companyid Company ID
      * @return array|null Manager details or null
      */
     private function get_company_manager($companyid) {
         global $DB;
         
-        // Get company manager (managertype = 1 is Company Manager in IOMAD)
+        // Get company user with Tenant Manager role
+        // We join company_users with role_assignments and role to find users with "Tenant Manager" role
         $managers = $DB->get_records_sql(
-            "SELECT u.id, u.firstname, u.lastname, u.email
+            "SELECT DISTINCT u.id, u.firstname, u.lastname, u.email
              FROM {company_users} cu
              JOIN {user} u ON u.id = cu.userid
-             WHERE cu.companyid = :companyid AND cu.managertype = 1",
+             JOIN {role_assignments} ra ON ra.userid = u.id
+             JOIN {role} r ON r.id = ra.roleid
+             WHERE cu.companyid = :companyid 
+               AND (LOWER(r.name) LIKE '%tenant%' AND LOWER(r.name) LIKE '%manager%')
+             ORDER BY u.lastname, u.firstname",
             ['companyid' => $companyid],
             0, 1
         );
@@ -555,6 +567,44 @@ class dashboard_data_loader {
                 'id' => $manager->id,
                 'name' => trim($manager->firstname . ' ' . $manager->lastname),
                 'email' => $manager->email
+            ];
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Get Company Coach Info (Non-editing teacher).
+     * 
+     * Coach = User with "Non-editing teacher" role (archetype = 'teacher')
+     * In Moodle, non-editing teacher has archetype 'teacher', while editing teacher has 'editingteacher'
+     * 
+     * @param int $companyid Company ID
+     * @return array|null Coach details or null
+     */
+    private function get_company_coach($companyid) {
+        global $DB;
+        
+        // Get company user with Non-editing teacher role (archetype = 'teacher')
+        $coaches = $DB->get_records_sql(
+            "SELECT DISTINCT u.id, u.firstname, u.lastname, u.email
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             JOIN {role_assignments} ra ON ra.userid = u.id
+             JOIN {role} r ON r.id = ra.roleid
+             WHERE cu.companyid = :companyid 
+               AND r.archetype = 'teacher'
+             ORDER BY u.lastname, u.firstname",
+            ['companyid' => $companyid],
+            0, 1
+        );
+        $coach = !empty($coaches) ? reset($coaches) : null;
+        
+        if ($coach) {
+            return [
+                'id' => $coach->id,
+                'name' => trim($coach->firstname . ' ' . $coach->lastname),
+                'email' => $coach->email
             ];
         }
         

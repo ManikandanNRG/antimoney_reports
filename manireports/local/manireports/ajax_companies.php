@@ -83,6 +83,8 @@ function render_company_card($card) {
     
     $manager_name = $card['manager'] ? htmlspecialchars($card['manager']['name']) : 'No Manager';
     $manager_email = $card['manager'] ? htmlspecialchars($card['manager']['email']) : '-';
+    $coach_name = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['name']) : null;
+    $coach_email = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['email']) : null;
     $domain = htmlspecialchars($card['domain']) ?: 'No domain';
     
     // License status styling
@@ -116,6 +118,21 @@ function render_company_card($card) {
         $logo_html = '<div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px;">' . strtoupper(substr($card['name'], 0, 2)) . '</div>';
     }
     
+    // Build coach HTML if coach exists
+    $coach_html = '';
+    if ($coach_name) {
+        $coach_html = '
+        <!-- Coach Info -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+            <i class="fa-solid fa-chalkboard-teacher" style="color: #10b981; font-size: 12px;"></i>
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">' . $coach_name . '</div>
+                <div style="font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $coach_email . '</div>
+            </div>
+            <span style="font-size: 9px; padding: 2px 6px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 4px; text-transform: uppercase; font-weight: 600;">Coach</span>
+        </div>';
+    }
+    
     $html = '
     <div class="company-card" data-companyid="' . $card['id'] . '" style="
         background: var(--glass-bg);
@@ -142,12 +159,14 @@ function render_company_card($card) {
         
         <!-- Manager Info -->
         <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
-            <i class="fa-solid fa-user" style="color: var(--accent-primary); font-size: 12px;"></i>
+            <i class="fa-solid fa-user-tie" style="color: var(--accent-primary); font-size: 12px;"></i>
             <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">' . $manager_name . '</div>
                 <div style="font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $manager_email . '</div>
             </div>
+            <span style="font-size: 9px; padding: 2px 6px; background: rgba(99, 102, 241, 0.2); color: var(--accent-primary); border-radius: 4px; text-transform: uppercase; font-weight: 600;">Manager</span>
         </div>
+        ' . $coach_html . '
         
         <!-- Stats Row -->
         <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
