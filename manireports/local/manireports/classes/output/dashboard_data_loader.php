@@ -614,33 +614,45 @@ class dashboard_data_loader {
     }
     
     /**
-     * Get Company Logo URL.
+     * Get Company Logo as data URL (base64).
+     * 
+     * IOMAD stores logos in core_admin/logocompact{id} or core_admin/logo{id}.
+     * Since pluginfile.php doesn't serve these custom fileareas, we return
+     * the image as a base64 data URL for direct embedding.
      * 
      * @param int $companyid Company ID
-     * @return string|null Logo URL or null for default
+     * @return string|null Data URL or null for default
      */
     private function get_company_logo_url($companyid) {
         global $CFG;
         
-        // IOMAD stores the logo path in config table
-        $logopath = get_config('core_admin', 'logocompact' . $companyid);
+        $systemcontext = \context_system::instance();
+        $fs = get_file_storage();
+        $file = null;
         
-        if (!empty($logopath)) {
-            // Construct the pluginfile URL
-            // Format: /pluginfile.php/1/core_admin/logocompact{id}/0{filepath}
-            $url = $CFG->wwwroot . '/pluginfile.php/1/core_admin/logocompact' . $companyid . '/0' . $logopath;
-            return $url;
+        // Try logocompact first (compact logo)
+        $files = $fs->get_area_files($systemcontext->id, 'core_admin', 'logocompact' . $companyid, false, 'id', false);
+        if (!empty($files)) {
+            $file = reset($files);
         }
         
-        // Try the regular logo if compact not available
-        $logopath = get_config('core_admin', 'logo' . $companyid);
-        
-        if (!empty($logopath)) {
-            $url = $CFG->wwwroot . '/pluginfile.php/1/core_admin/logo' . $companyid . '/0' . $logopath;
-            return $url;
+        // Fallback to regular logo
+        if (!$file) {
+            $files = $fs->get_area_files($systemcontext->id, 'core_admin', 'logo' . $companyid, false, 'id', false);
+            if (!empty($files)) {
+                $file = reset($files);
+            }
         }
         
-        // Return null if no logo found - frontend will show default
+        // If we found a file, convert to base64 data URL
+        if ($file) {
+            $mimetype = $file->get_mimetype();
+            $content = $file->get_content();
+            $base64 = base64_encode($content);
+            return 'data:' . $mimetype . ';base64,' . $base64;
+        }
+        
+        // Return null if no logo found - frontend will show default initials
         return null;
     }
 
