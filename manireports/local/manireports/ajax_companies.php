@@ -79,6 +79,8 @@ switch ($action) {
  * @return string HTML
  */
 function render_company_card($card) {
+    global $CFG;
+    
     $manager_name = $card['manager'] ? htmlspecialchars($card['manager']['name']) : 'No Manager';
     $manager_email = $card['manager'] ? htmlspecialchars($card['manager']['email']) : '-';
     $domain = htmlspecialchars($card['domain']) ?: 'No domain';
@@ -105,6 +107,15 @@ function render_company_card($card) {
     
     $reminder_count = $card['reminders']['count'];
     
+    // Logo HTML - use actual logo if available, otherwise show initials
+    $logo_url = $card['logo_url'] ?? null;
+    if ($logo_url) {
+        $logo_html = '<img src="' . htmlspecialchars($logo_url) . '" alt="' . htmlspecialchars($card['name']) . '" style="width: 48px; height: 48px; border-radius: 12px; object-fit: contain; background: #fff;">';
+    } else {
+        // Default initials avatar
+        $logo_html = '<div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px;">' . strtoupper(substr($card['name'], 0, 2)) . '</div>';
+    }
+    
     $html = '
     <div class="company-card" data-companyid="' . $card['id'] . '" style="
         background: var(--glass-bg);
@@ -120,9 +131,7 @@ function render_company_card($card) {
         
         <!-- Header: Logo + Name + Domain -->
         <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px;">
-                ' . strtoupper(substr($card['name'], 0, 2)) . '
-            </div>
+            ' . $logo_html . '
             <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . htmlspecialchars($card['name']) . '</div>
                 <div style="font-size: 12px; color: var(--accent-primary); display: flex; align-items: center; gap: 4px;">

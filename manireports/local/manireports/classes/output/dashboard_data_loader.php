@@ -436,8 +436,8 @@ class dashboard_data_loader {
             $params
         );
         
-        // Get companies with basic info
-        $sql = "SELECT c.id, c.name, c.shortname, c.city, c.country
+        // Get companies with basic info including hostname
+        $sql = "SELECT c.id, c.name, c.shortname, c.city, c.country, c.hostname
                 FROM {company} c
                 WHERE $where
                 ORDER BY c.name ASC";
@@ -487,16 +487,25 @@ class dashboard_data_loader {
                 );
             }
             
-            // Build domain URL
-            $domain = !empty($company->shortname) 
-                ? strtolower($company->shortname) . '.aktrea.com' 
-                : '';
+            // Build domain URL from hostname field
+            $domain = '';
+            if (!empty($company->hostname)) {
+                $domain = $company->hostname;
+            } else {
+                // Fallback to main site domain
+                $parsed_url = parse_url($CFG->wwwroot);
+                $domain = $parsed_url['host'] ?? '';
+            }
+            
+            // Get company logo URL
+            $logo_url = $this->get_company_logo_url($company->id);
             
             $cards[] = [
                 'id' => $company->id,
                 'name' => $company->name,
                 'shortname' => $company->shortname,
                 'domain' => $domain,
+                'logo_url' => $logo_url,
                 'manager' => $manager,
                 'stats' => [
                     'users' => $user_count,
@@ -602,6 +611,37 @@ class dashboard_data_loader {
             'status' => $status,
             'expires' => $license->expirydate > 0 ? date('M d, Y', $license->expirydate) : null
         ];
+    }
+    
+    /**
+     * Get Company Logo URL.
+     * 
+     * @param int $companyid Company ID
+     * @return string|null Logo URL or null for default
+     */
+    private function get_company_logo_url($companyid) {
+        global $CFG;
+        
+        // IOMAD stores the logo path in config table
+        $logopath = get_config('core_admin', 'logocompact' . $companyid);
+        
+        if (!empty($logopath)) {
+            // Construct the pluginfile URL
+            // Format: /pluginfile.php/1/core_admin/logocompact{id}/0{filepath}
+            $url = $CFG->wwwroot . '/pluginfile.php/1/core_admin/logocompact' . $companyid . '/0' . $logopath;
+            return $url;
+        }
+        
+        // Try the regular logo if compact not available
+        $logopath = get_config('core_admin', 'logo' . $companyid);
+        
+        if (!empty($logopath)) {
+            $url = $CFG->wwwroot . '/pluginfile.php/1/core_admin/logo' . $companyid . '/0' . $logopath;
+            return $url;
+        }
+        
+        // Return null if no logo found - frontend will show default
+        return null;
     }
 
     /**
