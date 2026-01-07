@@ -582,6 +582,12 @@ class dashboard_data_loader {
         // Get license summary
         $license = $this->get_company_license_summary($companyid);
         
+        // Get detailed license list
+        $licenses = $this->get_company_licenses_detailed($companyid);
+        
+        // Get courses list with completion stats
+        $courses = $this->get_company_courses_detailed($companyid);
+        
         // Get reminder count
         $reminder_count = 0;
         if ($DB->get_manager()->table_exists('manireports_reminders')) {
@@ -618,10 +624,107 @@ class dashboard_data_loader {
                 'completion_rate' => $completion_rate
             ],
             'license' => $license,
+            'licenses' => $licenses,
+            'courses' => $courses,
             'reminders' => [
                 'count' => $reminder_count
             ]
         ];
+    }
+    
+    /**
+     * Get detailed license list for a company.
+     * 
+     * @param int $companyid Company ID
+     * @return array List of licenses with details
+     */
+    private function get_company_licenses_detailed($companyid) {
+        global $DB;
+        
+        $licenses = [];
+        
+        $records = $DB->get_records_sql(
+            "SELECT cl.id, cl.name, cl.allocation, cl.used, cl.expirydate, cl.validlength
+             FROM {companylicense} cl
+             WHERE cl.companyid = :companyid
+             ORDER BY cl.expirydate DESC",
+            ['companyid' => $companyid]
+        );
+        
+        foreach ($records as $lic) {
+            $expiry = $lic->expirydate ? date('M d, Y', $lic->expirydate) : 'No expiry';
+            $today = time();
+            $status = 'active';
+            
+            if ($lic->expirydate && $lic->expirydate < $today) {
+                $status = 'expired';
+            } else if ($lic->expirydate && $lic->expirydate < ($today + 30 * 24 * 60 * 60)) {
+                $status = 'expiring';
+            }
+            
+            $percent = ($lic->allocation > 0) ? round(($lic->used / $lic->allocation) * 100, 0) : 0;
+            
+            $licenses[] = [
+                'id' => $lic->id,
+                'name' => $lic->name,
+                'allocated' => $lic->allocation,
+                'used' => $lic->used,
+                'available' => $lic->allocation - $lic->used,
+                'percent' => $percent,
+                'expiry' => $expiry,
+                'status' => $status
+            ];
+        }
+        
+        return $licenses;
+    }
+    
+    /**
+     * Get detailed courses list for a company.
+     * 
+     * @param int $companyid Company ID
+     * @return array List of courses with completion stats
+     */
+    private function get_company_courses_detailed($companyid) {
+        global $DB;
+        
+        $courses = [];
+        
+        $records = $DB->get_records_sql(
+            "SELECT c.id, c.fullname, c.shortname,
+                    (SELECT COUNT(DISTINCT cu2.userid) 
+                     FROM {company_users} cu2 
+                     JOIN {user_enrolments} ue ON ue.userid = cu2.userid
+                     JOIN {enrol} e ON e.id = ue.enrolid
+                     WHERE cu2.companyid = :companyid2 AND e.courseid = c.id AND ue.status = 0) as enrolled,
+                    (SELECT COUNT(DISTINCT cc.userid) 
+                     FROM {company_users} cu3 
+                     JOIN {course_completions} cc ON cc.userid = cu3.userid
+                     WHERE cu3.companyid = :companyid3 AND cc.course = c.id AND cc.timecompleted IS NOT NULL) as completed
+             FROM {company_course} cco
+             JOIN {course} c ON c.id = cco.courseid
+             WHERE cco.companyid = :companyid
+             ORDER BY c.fullname",
+            ['companyid' => $companyid, 'companyid2' => $companyid, 'companyid3' => $companyid],
+            0, 20  // Limit to first 20 courses
+        );
+        
+        foreach ($records as $course) {
+            $completion_rate = ($course->enrolled > 0) 
+                ? round(($course->completed / $course->enrolled) * 100, 0) 
+                : 0;
+            
+            $courses[] = [
+                'id' => $course->id,
+                'name' => $course->fullname,
+                'shortname' => $course->shortname,
+                'enrolled' => (int)$course->enrolled,
+                'completed' => (int)$course->completed,
+                'completion_rate' => $completion_rate
+            ];
+        }
+        
+        return $courses;
     }
     
     /**

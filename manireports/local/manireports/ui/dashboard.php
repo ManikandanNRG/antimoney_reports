@@ -2531,6 +2531,60 @@ body {
                 </div>
             </div>
             
+            <!-- Licenses Section -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-id-card"></i> Licenses (${data.licenses?.length || 0})
+                </h3>
+                <div style="background: rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden;">
+                    ${data.licenses && data.licenses.length > 0 ? data.licenses.map(lic => {
+                        let statusColor = '#10b981';
+                        if (lic.status === 'expiring') statusColor = '#f59e0b';
+                        else if (lic.status === 'expired') statusColor = '#ef4444';
+                        return `
+                            <div style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 16px;">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px;">${lic.name}</div>
+                                    <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+                                        <span>Used: <strong>${lic.used}/${lic.allocated}</strong></span>
+                                        <span>Available: <strong style="color: #10b981;">${lic.available}</strong></span>
+                                        <span style="color: ${statusColor};">Expires: ${lic.expiry}</span>
+                                    </div>
+                                    <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px; overflow: hidden;">
+                                        <div style="height: 100%; width: ${lic.percent}%; background: ${statusColor}; border-radius: 2px;"></div>
+                                    </div>
+                                </div>
+                                <span style="font-size: 10px; padding: 2px 8px; background: rgba(${lic.status === 'active' ? '16, 185, 129' : lic.status === 'expiring' ? '245, 158, 11' : '239, 68, 68'}, 0.2); color: ${statusColor}; border-radius: 4px; text-transform: uppercase; font-weight: 600;">${lic.status}</span>
+                            </div>
+                        `;
+                    }).join('') : '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No licenses assigned</div>'}
+                </div>
+            </div>
+            
+            <!-- Courses Section -->
+            <div style="margin-bottom: 24px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-book"></i> Courses (${data.courses?.length || 0})
+                </h3>
+                <div style="background: rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden; max-height: 250px; overflow-y: auto;">
+                    ${data.courses && data.courses.length > 0 ? data.courses.map(course => `
+                        <div style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 16px;">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 500; color: var(--text-primary); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${course.name}</div>
+                                <div style="display: flex; gap: 16px; font-size: 12px; color: var(--text-secondary);">
+                                    <span>Enrolled: <strong>${course.enrolled}</strong></span>
+                                    <span>Completed: <strong style="color: #10b981;">${course.completed}</strong></span>
+                                </div>
+                            </div>
+                            <div style="text-align: center; min-width: 60px;">
+                                <div style="font-size: 16px; font-weight: 700; color: ${course.completion_rate >= 50 ? '#10b981' : course.completion_rate >= 25 ? '#f59e0b' : 'var(--text-secondary)'};">${course.completion_rate}%</div>
+                                <div style="font-size: 10px; color: var(--text-secondary);">Complete</div>
+                            </div>
+                        </div>
+                    `).join('') : '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No courses assigned</div>'}
+                </div>
+            </div>
+            
             <!-- Quick Actions -->
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
                 <button onclick="alert('Email Manager feature coming soon!')" style="padding: 10px 20px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
