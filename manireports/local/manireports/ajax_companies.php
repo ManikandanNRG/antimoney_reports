@@ -205,7 +205,7 @@ function render_company_card($card) {
         </div>
         
         <!-- Action Button -->
-        <button style="
+        <button onclick="event.stopPropagation(); openCompanyProfile(' . $card['id'] . ');" style="
             margin-top: auto;
             padding: 10px 16px;
             background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
@@ -216,6 +216,8 @@ function render_company_card($card) {
             font-size: 13px;
             cursor: pointer;
             transition: all 0.2s;
+            position: relative;
+            z-index: 10;
         " onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">
             View Profile
         </button>

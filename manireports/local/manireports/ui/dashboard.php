@@ -2354,9 +2354,196 @@ body {
         }, 300);
     }
     
+    // Bottom Sheet Functions
     function openCompanyProfile(companyId) {
-        // For now, open in drawer (can be enhanced later)
-        alert('Company Profile for ID: ' + companyId + '\n\nFull profile view coming soon!');
+        console.log('openCompanyProfile called with ID:', companyId);
+        
+        const bottomSheet = document.getElementById('companyProfileSheet2');
+        const backdrop = document.getElementById('companyProfileBackdrop2');
+        const content = document.getElementById('companyProfileContent2');
+        
+        console.log('Elements found:', {bottomSheet: !!bottomSheet, backdrop: !!backdrop, content: !!content});
+        
+        if (!bottomSheet || !backdrop || !content) {
+            console.error('Company profile elements not found');
+            alert('Error: Could not open company profile. Please refresh the page.');
+            return;
+        }
+        
+        // Show loading state
+        content.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 200px;"><div class="manireports-loading-spinner"></div></div>';
+        
+        // Show bottom sheet with direct style manipulation
+        backdrop.style.opacity = '1';
+        backdrop.style.visibility = 'visible';
+        bottomSheet.style.transform = 'translateX(-50%) translateY(0)';
+        document.body.style.overflow = 'hidden';
+        
+        console.log('Bottom sheet should now be visible');
+        
+        // Fetch company profile data
+        const url = '<?php echo $CFG->wwwroot; ?>/local/manireports/ajax_companies.php?action=get_company_profile' +
+                    '&sesskey=<?php echo sesskey(); ?>' +
+                    '&companyid=' + companyId;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data && !data.error) {
+                    renderCompanyProfile(data);
+                } else {
+                    content.innerHTML = '<div style="text-align: center; color: var(--accent-danger); padding: 40px;"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>' + (data.error || 'Failed to load profile') + '</p></div>';
+                }
+            })
+            .catch(err => {
+                console.error('Error loading company profile:', err);
+                content.innerHTML = '<div style="text-align: center; color: var(--accent-danger); padding: 40px;"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>Error loading profile</p></div>';
+            });
+    }
+    
+    function closeCompanyProfile() {
+        const bottomSheet = document.getElementById('companyProfileSheet2');
+        const backdrop = document.getElementById('companyProfileBackdrop2');
+        
+        if (bottomSheet) bottomSheet.style.transform = 'translateX(-50%) translateY(100%)';
+        if (backdrop) {
+            backdrop.style.opacity = '0';
+            backdrop.style.visibility = 'hidden';
+        }
+        document.body.style.overflow = '';
+    }
+    
+    function renderCompanyProfile(data) {
+        const content = document.getElementById('companyProfileContent2');
+        if (!content) return;
+        // Manager HTML
+        let managerHtml = '<div style="color: var(--text-secondary);">No Manager assigned</div>';
+        if (data.manager) {
+            managerHtml = `
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(99, 102, 241, 0.1); border-radius: 10px;">
+                    <i class="fa-solid fa-user-tie" style="color: var(--accent-primary); font-size: 18px;"></i>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${data.manager.name}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">${data.manager.email}</div>
+                    </div>
+                </div>`;
+        }
+        
+        // Coach HTML
+        let coachHtml = '<div style="color: var(--text-secondary);">No Coach assigned</div>';
+        if (data.coach) {
+            coachHtml = `
+                <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px;">
+                    <i class="fa-solid fa-chalkboard-teacher" style="color: #10b981; font-size: 18px;"></i>
+                    <div>
+                        <div style="font-weight: 600; color: var(--text-primary);">${data.coach.name}</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">${data.coach.email}</div>
+                    </div>
+                </div>`;
+        }
+        
+        // License status color
+        let licenseColor = '#10b981';
+        if (data.license.status === 'expiring') licenseColor = '#f59e0b';
+        else if (data.license.status === 'expired') licenseColor = '#ef4444';
+        else if (data.license.status === 'none') licenseColor = '#64748b';
+        
+        // Logo HTML
+        let logoHtml = data.logo_url 
+            ? `<img src="${data.logo_url}" alt="${data.name}" style="width: 64px; height: 64px; border-radius: 14px; object-fit: contain; background: #fff;">`
+            : `<div style="width: 64px; height: 64px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 14px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 24px;">${data.name.substring(0, 2).toUpperCase()}</div>`;
+        
+        content.innerHTML = `
+            <!-- Profile Header -->
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+                ${logoHtml}
+                <div style="flex: 1;">
+                    <h2 style="margin: 0 0 4px 0; color: var(--text-primary); font-size: 22px;">${data.name}</h2>
+                    <div style="display: flex; align-items: center; gap: 8px; color: var(--accent-primary); font-size: 14px;">
+                        <i class="fa-solid fa-globe"></i> ${data.domain || 'No domain'}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Two Column Layout -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                <!-- Left: Team -->
+                <div>
+                    <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-users"></i> Team
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">Manager (Tenant Manager)</div>
+                            ${managerHtml}
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase;">Coach (Non-editing Teacher)</div>
+                            ${coachHtml}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right: License -->
+                <div>
+                    <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-id-card"></i> License
+                    </h3>
+                    <div style="padding: 16px; background: rgba(0,0,0,0.15); border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <span style="color: var(--text-secondary);">Usage</span>
+                            <span style="font-weight: 600; color: ${licenseColor};">${data.license.used}/${data.license.total}</span>
+                        </div>
+                        <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
+                            <div style="height: 100%; width: ${data.license.percent}%; background: ${licenseColor}; border-radius: 4px;"></div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
+                            <span>Status: <span style="color: ${licenseColor}; font-weight: 500;">${data.license.status.charAt(0).toUpperCase() + data.license.status.slice(1)}</span></span>
+                            <span>Expires: ${data.license.expires || 'No expiry'}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Reminders -->
+                    <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-secondary);">
+                        <i class="fa-solid fa-bell" style="color: var(--accent-warning);"></i>
+                        <span>Active Reminders: <strong style="color: var(--text-primary);">${data.reminders?.count || 0}</strong></span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Stats Row -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                <div style="text-align: center; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--text-primary);">${data.stats.users.toLocaleString()}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Users</div>
+                </div>
+                <div style="text-align: center; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--text-primary);">${data.stats.courses}</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Courses</div>
+                </div>
+                <div style="text-align: center; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--accent-success);">${data.stats.completion_rate}%</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">Completion</div>
+                </div>
+                <div style="text-align: center; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px;">
+                    <div style="font-size: 28px; font-weight: 700; color: var(--accent-primary);">${data.license.percent}%</div>
+                    <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase;">License Used</div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <button onclick="alert('Email Manager feature coming soon!')" style="padding: 10px 20px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border: none; border-radius: 8px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-envelope"></i> Email Manager
+                </button>
+                <button onclick="alert('Export Report feature coming soon!')" style="padding: 10px 20px; background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 8px; color: #10b981; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-file-export"></i> Export Report
+                </button>
+                <button onclick="navigator.clipboard.writeText('${data.domain || ''}'); alert('Domain URL copied!')" style="padding: 10px 20px; background: rgba(99, 102, 241, 0.2); border: 1px solid var(--accent-primary); border-radius: 8px; color: var(--accent-primary); font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-copy"></i> Copy Domain URL
+                </button>
+            </div>
+        `;
     }
     
     // Initialize on tab switch or page load
@@ -2385,8 +2572,66 @@ body {
     };
     </script>
 
+    <!-- Company Profile Bottom Sheet -->
+    <div id="companyProfileBackdrop" onclick="closeCompanyProfile()" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9998;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    "></div>
+    
+    <div id="companyProfileSheet" style="
+        position: fixed;
+        left: 50%;
+        bottom: 0;
+        transform: translateX(-50%) translateY(100%);
+        width: 90%;
+        max-width: 900px;
+        height: 80vh;
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px 24px 0 0;
+        z-index: 9999;
+        transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    ">
+        <!-- Header with drag handle -->
+        <div style="padding: 16px 24px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center;">
+            <div style="width: 40px; height: 5px; background: var(--glass-border); border-radius: 3px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);"></div>
+            <h2 style="margin: 0; font-size: 18px; color: var(--text-primary);"><i class="fa-solid fa-building" style="margin-right: 8px;"></i> Company Profile</h2>
+            <button onclick="closeCompanyProfile()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 20px; padding: 8px;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        
+        <!-- Scrollable Content -->
+        <div id="companyProfileContent" style="flex: 1; overflow-y: auto; padding: 24px;">
+            <!-- Content loaded via AJAX -->
+        </div>
+    </div>
+    
+    <style>
+    #companyProfileBackdrop.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    #companyProfileSheet.active {
+        transform: translateX(-50%) translateY(0);
+    }
+    </style>
+
 
     </div>
+
 
             <!-- USERS TAB -->
             <div id="tab-users" class="tab-content">
@@ -4338,4 +4583,62 @@ echo $OUTPUT->footer();
     </div>
 </div>
 
+<!-- Company Profile Bottom Sheet (outside all tabs for proper z-index) -->
+<div id="companyProfileBackdrop2" onclick="closeCompanyProfile()" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+"></div>
+
+<div id="companyProfileSheet2" style="
+    position: fixed;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%) translateY(100%);
+    width: 90%;
+    max-width: 900px;
+    height: 80vh;
+    background: var(--glass-bg, #1a1a2e);
+    border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+    border-radius: 24px 24px 0 0;
+    z-index: 9999;
+    transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+">
+    <!-- Header with drag handle -->
+    <div style="padding: 16px 24px; border-bottom: 1px solid var(--glass-border, rgba(255,255,255,0.1)); display: flex; justify-content: space-between; align-items: center; position: relative;">
+        <div style="width: 40px; height: 5px; background: var(--glass-border, rgba(255,255,255,0.2)); border-radius: 3px; position: absolute; top: 8px; left: 50%; transform: translateX(-50%);"></div>
+        <h2 style="margin: 0; font-size: 18px; color: var(--text-primary, #fff);"><i class="fa-solid fa-building" style="margin-right: 8px;"></i> Company Profile</h2>
+        <button onclick="closeCompanyProfile()" style="background: none; border: none; color: var(--text-secondary, #888); cursor: pointer; font-size: 20px; padding: 8px;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    
+    <!-- Scrollable Content -->
+    <div id="companyProfileContent2" style="flex: 1; overflow-y: auto; padding: 24px;">
+        <!-- Content loaded via AJAX -->
+    </div>
+</div>
+
+<style>
+#companyProfileBackdrop2.active {
+    opacity: 1;
+    visibility: visible;
+}
+#companyProfileSheet2.active {
+    transform: translateX(-50%) translateY(0);
+}
+</style>
+
 <?php echo $OUTPUT->footer(); ?>
+

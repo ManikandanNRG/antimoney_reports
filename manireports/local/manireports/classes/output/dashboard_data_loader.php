@@ -535,10 +535,99 @@ class dashboard_data_loader {
     }
     
     /**
+     * Get Full Company Profile for Bottom Sheet View.
+     * 
+     * @param int $companyid Company ID
+     * @return array Full company profile data
+     */
+    public function get_company_profile($companyid) {
+        global $DB, $CFG;
+        
+        $company = $DB->get_record('company', ['id' => $companyid]);
+        if (!$company) {
+            return ['error' => 'Company not found'];
+        }
+        
+        // Get manager info
+        $manager = $this->get_company_manager($companyid);
+        
+        // Get coach info
+        $coach = $this->get_company_coach($companyid);
+        
+        // Get user stats
+        $user_count = $DB->count_records('company_users', ['companyid' => $companyid]);
+        
+        // Get course count
+        $course_count = $DB->count_records('company_course', ['companyid' => $companyid]);
+        
+        // Get completion rate
+        $enrolled = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT ue.id)
+             FROM {company_users} cu
+             JOIN {user_enrolments} ue ON ue.userid = cu.userid
+             WHERE cu.companyid = :companyid AND ue.status = 0",
+            ['companyid' => $companyid]
+        );
+        
+        $completed = $DB->count_records_sql(
+            "SELECT COUNT(DISTINCT cc.id)
+             FROM {company_users} cu
+             JOIN {course_completions} cc ON cc.userid = cu.userid
+             WHERE cu.companyid = :companyid AND cc.timecompleted IS NOT NULL",
+            ['companyid' => $companyid]
+        );
+        
+        $completion_rate = ($enrolled > 0) ? round(($completed / $enrolled) * 100, 0) : 0;
+        
+        // Get license summary
+        $license = $this->get_company_license_summary($companyid);
+        
+        // Get reminder count
+        $reminder_count = 0;
+        if ($DB->get_manager()->table_exists('manireports_reminders')) {
+            $reminder_count = $DB->count_records_sql(
+                "SELECT COUNT(*) FROM {manireports_reminders} 
+                 WHERE companyid = :companyid AND enabled = 1",
+                ['companyid' => $companyid]
+            );
+        }
+        
+        // Build domain URL from hostname field
+        $domain = '';
+        if (!empty($company->hostname)) {
+            $domain = $company->hostname;
+        } else {
+            $parsed_url = parse_url($CFG->wwwroot);
+            $domain = $parsed_url['host'] ?? '';
+        }
+        
+        // Get company logo URL
+        $logo_url = $this->get_company_logo_url($companyid);
+        
+        return [
+            'id' => $company->id,
+            'name' => $company->name,
+            'shortname' => $company->shortname,
+            'domain' => $domain,
+            'logo_url' => $logo_url,
+            'manager' => $manager,
+            'coach' => $coach,
+            'stats' => [
+                'users' => $user_count,
+                'courses' => $course_count,
+                'completion_rate' => $completion_rate
+            ],
+            'license' => $license,
+            'reminders' => [
+                'count' => $reminder_count
+            ]
+        ];
+    }
+    
+    /**
      * Get Company Manager Info.
      * 
-     * Manager = User with "Tenant Manager" role assigned in the company
-     * We look for users in the company who have a role containing "tenant" AND "manager" in the name
+     * Manager = User with "Tenant Manager" role (shortname = 'companydepartmentmanager')
      * 
      * @param int $companyid Company ID
      * @return array|null Manager details or null
@@ -546,8 +635,7 @@ class dashboard_data_loader {
     private function get_company_manager($companyid) {
         global $DB;
         
-        // Get company user with Tenant Manager role
-        // We join company_users with role_assignments and role to find users with "Tenant Manager" role
+        // Get company user with Tenant Manager role (shortname = 'companydepartmentmanager')
         $managers = $DB->get_records_sql(
             "SELECT DISTINCT u.id, u.firstname, u.lastname, u.email
              FROM {company_users} cu
@@ -555,7 +643,7 @@ class dashboard_data_loader {
              JOIN {role_assignments} ra ON ra.userid = u.id
              JOIN {role} r ON r.id = ra.roleid
              WHERE cu.companyid = :companyid 
-               AND (LOWER(r.name) LIKE '%tenant%' AND LOWER(r.name) LIKE '%manager%')
+               AND r.shortname = 'companydepartmentmanager'
              ORDER BY u.lastname, u.firstname",
             ['companyid' => $companyid],
             0, 1
@@ -576,8 +664,7 @@ class dashboard_data_loader {
     /**
      * Get Company Coach Info (Non-editing teacher).
      * 
-     * Coach = User with "Non-editing teacher" role (archetype = 'teacher')
-     * In Moodle, non-editing teacher has archetype 'teacher', while editing teacher has 'editingteacher'
+     * Coach = User with "Non-editing teacher" role (shortname = 'teacher')
      * 
      * @param int $companyid Company ID
      * @return array|null Coach details or null
@@ -585,7 +672,7 @@ class dashboard_data_loader {
     private function get_company_coach($companyid) {
         global $DB;
         
-        // Get company user with Non-editing teacher role (archetype = 'teacher')
+        // Get company user with Non-editing teacher role (shortname = 'teacher')
         $coaches = $DB->get_records_sql(
             "SELECT DISTINCT u.id, u.firstname, u.lastname, u.email
              FROM {company_users} cu
@@ -593,7 +680,7 @@ class dashboard_data_loader {
              JOIN {role_assignments} ra ON ra.userid = u.id
              JOIN {role} r ON r.id = ra.roleid
              WHERE cu.companyid = :companyid 
-               AND r.archetype = 'teacher'
+               AND r.shortname = 'teacher'
              ORDER BY u.lastname, u.firstname",
             ['companyid' => $companyid],
             0, 1
