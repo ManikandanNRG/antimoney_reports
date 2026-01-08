@@ -4657,9 +4657,9 @@ echo $OUTPUT->footer();
     left: 50%;
     bottom: 0;
     transform: translateX(-50%) translateY(100%);
-    width: 90%;
-    max-width: 900px;
-    height: 80vh;
+    width: 95%;
+    max-width: 1100px;
+    height: 90vh;
     background: var(--glass-bg, #1a1a2e);
     border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
     border-radius: 24px 24px 0 0;
@@ -4691,6 +4691,39 @@ echo $OUTPUT->footer();
 }
 #companyProfileSheet2.active {
     transform: translateX(-50%) translateY(0);
+}
+
+/* Glassmorphic Scrollbar Styles */
+#companyProfileContent2::-webkit-scrollbar {
+    width: 8px;
+}
+#companyProfileContent2::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+#companyProfileContent2::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.6));
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+#companyProfileContent2::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.8), rgba(139, 92, 246, 0.8));
+}
+
+/* Also style the courses list scrollbar */
+#companyProfileContent2 div::-webkit-scrollbar {
+    width: 6px;
+}
+#companyProfileContent2 div::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
+}
+#companyProfileContent2 div::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 3px;
+}
+#companyProfileContent2 div::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.6);
 }
 </style>
 
