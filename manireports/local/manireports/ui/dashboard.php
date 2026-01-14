@@ -2484,29 +2484,26 @@ body {
                     </div>
                 </div>
                 
-                <!-- Right: License -->
+                <!-- Right: Reminders & Quick Info -->
                 <div>
                     <h3 style="margin: 0 0 12px 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
-                        <i class="fa-solid fa-id-card"></i> License
+                        <i class="fa-solid fa-bell"></i> Reminders & Info
                     </h3>
                     <div style="padding: 16px; background: rgba(0,0,0,0.15); border-radius: 12px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <span style="color: var(--text-secondary);">Usage</span>
-                            <span style="font-weight: 600; color: ${licenseColor};">${data.license.used}/${data.license.total}</span>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <i class="fa-solid fa-bell" style="color: var(--accent-warning); font-size: 20px;"></i>
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${data.reminders?.count || 0} Active Reminders</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">Scheduled notifications</div>
+                            </div>
                         </div>
-                        <div style="height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 10px;">
-                            <div style="height: 100%; width: ${data.license.percent}%; background: ${licenseColor}; border-radius: 4px;"></div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <i class="fa-solid fa-id-card" style="color: var(--accent-primary); font-size: 20px;"></i>
+                            <div>
+                                <div style="font-weight: 600; color: var(--text-primary);">${data.licenses?.length || 0} License(s)</div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">See details below</div>
+                            </div>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-secondary);">
-                            <span>Status: <span style="color: ${licenseColor}; font-weight: 500;">${data.license.status.charAt(0).toUpperCase() + data.license.status.slice(1)}</span></span>
-                            <span>Expires: ${data.license.expires || 'No expiry'}</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Reminders -->
-                    <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px; color: var(--text-secondary);">
-                        <i class="fa-solid fa-bell" style="color: var(--accent-warning);"></i>
-                        <span>Active Reminders: <strong style="color: var(--text-primary);">${data.reminders?.count || 0}</strong></span>
                     </div>
                 </div>
             </div>
@@ -2582,6 +2579,33 @@ body {
                             </div>
                         </div>
                     `).join('') : '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No courses assigned</div>'}
+                </div>
+            </div>
+            
+            <!-- Users Section (Recent Activity) -->
+            <div style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <h3 style="margin: 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
+                        <i class="fa-solid fa-users"></i> Users (${data.stats.users} total)
+                    </h3>
+                    <button onclick="closeCompanyProfile(); switchTab('users'); setTimeout(() => { if(document.getElementById('userCompanyFilter')) { document.getElementById('userCompanyFilter').value = '${data.id}'; loadUsers && loadUsers(1); } }, 200);" 
+                            style="background: none; border: none; color: var(--accent-primary); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px;">
+                        See All <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+                <div style="background: rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden;">
+                    ${data.recent_users && data.recent_users.length > 0 ? data.recent_users.map(user => `
+                        <div style="padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 12px;">
+                            <div style="width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 12px;">${user.initials}</div>
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${user.name}</div>
+                                <div style="font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${user.email}</div>
+                            </div>
+                            <div style="text-align: right; min-width: 80px;">
+                                <div style="font-size: 12px; font-weight: 500; color: ${user.is_active ? '#10b981' : 'var(--text-secondary)'};">${user.last_activity}</div>
+                            </div>
+                        </div>
+                    `).join('') : '<div style="padding: 20px; text-align: center; color: var(--text-secondary);">No users found</div>'}
                 </div>
             </div>
             

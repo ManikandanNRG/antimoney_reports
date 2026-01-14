@@ -626,6 +626,7 @@ class dashboard_data_loader {
             'license' => $license,
             'licenses' => $licenses,
             'courses' => $courses,
+            'recent_users' => $this->get_company_recent_users($companyid, 7),
             'reminders' => [
                 'count' => $reminder_count
             ]
@@ -725,6 +726,70 @@ class dashboard_data_loader {
         }
         
         return $courses;
+    }
+    
+    /**
+     * Get recent activity users for a company.
+     * 
+     * Returns users sorted by last access time (most recent first).
+     * 
+     * @param int $companyid Company ID
+     * @param int $limit Number of users to return (default 7)
+     * @return array List of users with recent activity
+     */
+    private function get_company_recent_users($companyid, $limit = 7) {
+        global $DB;
+        
+        $users = [];
+        
+        $records = $DB->get_records_sql(
+            "SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess
+             FROM {company_users} cu
+             JOIN {user} u ON u.id = cu.userid
+             WHERE cu.companyid = :companyid
+               AND u.deleted = 0
+               AND u.suspended = 0
+             ORDER BY u.lastaccess DESC",
+            ['companyid' => $companyid],
+            0, $limit
+        );
+        
+        $now = time();
+        foreach ($records as $user) {
+            // Format last activity
+            $lastActivity = 'Never';
+            if ($user->lastaccess > 0) {
+                $diff = $now - $user->lastaccess;
+                if ($diff < 60) {
+                    $lastActivity = 'Active now';
+                } else if ($diff < 3600) {
+                    $mins = floor($diff / 60);
+                    $lastActivity = $mins . 'm ago';
+                } else if ($diff < 86400) {
+                    $hours = floor($diff / 3600);
+                    $lastActivity = $hours . 'h ago';
+                } else if ($diff < 604800) {
+                    $days = floor($diff / 86400);
+                    $lastActivity = $days . 'd ago';
+                } else if ($diff < 2592000) {
+                    $weeks = floor($diff / 604800);
+                    $lastActivity = $weeks . 'w ago';
+                } else {
+                    $lastActivity = date('M d, Y', $user->lastaccess);
+                }
+            }
+            
+            $users[] = [
+                'id' => $user->id,
+                'name' => $user->firstname . ' ' . $user->lastname,
+                'initials' => strtoupper(substr($user->firstname, 0, 1) . substr($user->lastname, 0, 1)),
+                'email' => $user->email,
+                'last_activity' => $lastActivity,
+                'is_active' => ($user->lastaccess > 0 && ($now - $user->lastaccess) < 86400)
+            ];
+        }
+        
+        return $users;
     }
     
     /**
