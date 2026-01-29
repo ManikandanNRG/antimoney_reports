@@ -81,10 +81,10 @@ switch ($action) {
 function render_company_card($card) {
     global $CFG;
     
-    $manager_name = $card['manager'] ? htmlspecialchars($card['manager']['name']) : 'No Manager';
-    $manager_email = $card['manager'] ? htmlspecialchars($card['manager']['email']) : '-';
-    $coach_name = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['name']) : null;
-    $coach_email = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['email']) : null;
+    $manager_name = $card['manager'] ? htmlspecialchars($card['manager']['name']) : '';
+    $manager_email = $card['manager'] ? htmlspecialchars($card['manager']['email']) : '';
+    $coach_name = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['name']) : '';
+    $coach_email = isset($card['coach']) && $card['coach'] ? htmlspecialchars($card['coach']['email']) : '';
     $domain = htmlspecialchars($card['domain']) ?: 'No domain';
     
     // License status styling
@@ -118,20 +118,19 @@ function render_company_card($card) {
         $logo_html = '<div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 18px;">' . strtoupper(substr($card['name'], 0, 2)) . '</div>';
     }
     
-    // Build coach HTML if coach exists
-    $coach_html = '';
-    if ($coach_name) {
-        $coach_html = '
-        <!-- Coach Info -->
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
-            <i class="fa-solid fa-chalkboard-teacher" style="color: #10b981; font-size: 12px;"></i>
-            <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">' . $coach_name . '</div>
-                <div style="font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $coach_email . '</div>
-            </div>
-            <span style="font-size: 9px; padding: 2px 6px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 4px; text-transform: uppercase; font-weight: 600;">Coach</span>
-        </div>';
-    }
+    
+    // SVG Circular Completion Graph
+    $completion_rate = $card['stats']['completion_rate'];
+    $circumference = 2 * 3.14159 * 22; // radius = 22
+    $stroke_dashoffset = $circumference * (1 - $completion_rate / 100);
+    
+    $svg_circle = '<svg width="64" height="64" style="transform: rotate(-90deg);">' .
+        '<circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="4"/>' .
+        '<circle cx="32" cy="32" r="22" fill="none" stroke="#6366f1" stroke-width="4" stroke-dasharray="' . $circumference . '" stroke-dashoffset="' . $stroke_dashoffset . '" stroke-linecap="round"/>' .
+        '<text x="32" y="37" text-anchor="middle" fill="#fff" font-size="16" font-weight="600" transform="rotate(90 32 32)">' . $completion_rate . '%</text>' .
+        '</svg>';
+    
+    
     
     $html = '
     <div class="company-card" data-companyid="' . $card['id'] . '" style="
@@ -141,13 +140,15 @@ function render_company_card($card) {
         padding: 20px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 16px;
         transition: all 0.3s ease;
         cursor: pointer;
+        height: 100%;
+        min-height: 420px;
     " onmouseover="this.style.transform=\'translateY(-4px)\'; this.style.boxShadow=\'0 10px 30px rgba(0,0,0,0.3)\';" onmouseout="this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\';" onclick="openCompanyProfile(' . $card['id'] . ')">
         
-        <!-- Header: Logo + Name + Domain -->
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <!-- Header: Logo + Name + Domain (40px) -->
+        <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
             ' . $logo_html . '
             <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . htmlspecialchars($card['name']) . '</div>
@@ -157,51 +158,94 @@ function render_company_card($card) {
             </div>
         </div>
         
-        <!-- Manager Info -->
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(99, 102, 241, 0.1); border-radius: 8px;">
-            <i class="fa-solid fa-user-tie" style="color: var(--accent-primary); font-size: 12px;"></i>
-            <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 13px; font-weight: 500; color: var(--text-primary);">' . $manager_name . '</div>
-                <div style="font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $manager_email . '</div>
+        <!-- TEAM Section (Fixed 110px height) -->
+        <div style="display: flex; flex-direction: column; gap: 8px; min-height: 110px;">
+            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; margin-bottom: 4px;">
+                <i class="fa-solid fa-users"></i> Team
             </div>
-            <span style="font-size: 9px; padding: 2px 6px; background: rgba(99, 102, 241, 0.2); color: var(--accent-primary); border-radius: 4px; text-transform: uppercase; font-weight: 600;">Manager</span>
+            
+            <!-- Manager Row (Fixed 46px) -->
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; min-height: 46px;">';
+    
+    if ($manager_name) {
+        $html .= '
+                <i class="fa-solid fa-user-tie" style="color: #6366f1; font-size: 12px;"></i>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $manager_name . '</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $manager_email . '</div>
+                </div>
+                <span style="font-size: 9px; padding: 2px 6px; background: rgba(99, 102, 241, 0.2); color: #6366f1; border-radius: 4px; text-transform: uppercase; font-weight: 600;">Manager</span>';
+    } else {
+        $html .= '
+                <i class="fa-solid fa-user-tie" style="color: rgba(99, 102, 241, 0.3); font-size: 12px;"></i>
+                <div style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.2);">No Manager Assigned</div>';
+    }
+    
+    $html .= '
+            </div>
+            
+            <!-- Coach Row (Fixed 46px) -->
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.2); border-radius: 8px; min-height: 46px;">';
+    
+    if ($coach_name) {
+        $html .= '
+                <i class="fa-solid fa-chalkboard-teacher" style="color: #22c55e; font-size: 12px;"></i>
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $coach_name . '</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . $coach_email . '</div>
+                </div>
+                <span style="font-size: 9px; padding: 2px 6px; background: rgba(34, 197, 94, 0.2); color: #22c55e; border-radius: 4px; text-transform: uppercase; font-weight: 600;">Coach</span>';
+    } else {
+        $html .= '
+                <i class="fa-solid fa-chalkboard-teacher" style="color: rgba(34, 197, 94, 0.3); font-size: 12px;"></i>
+                <div style="flex: 1; font-size: 12px; color: rgba(255,255,255,0.2);">No Coach Assigned</div>';
+    }
+    
+    $html .= '
+            </div>
         </div>
-        ' . $coach_html . '
         
-        <!-- Stats Row -->
-        <div style="display: flex; justify-content: space-between; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 10px;">
-            <div style="text-align: center; flex: 1;">
-                <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">' . number_format($card['stats']['users']) . '</div>
-                <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Users</div>
+        <!-- METRICS Section (3 columns with SVG) -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                <i class="fa-solid fa-chart-bar"></i> Metrics
             </div>
-            <div style="text-align: center; flex: 1; border-left: 1px solid var(--glass-border); border-right: 1px solid var(--glass-border);">
-                <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">' . $card['stats']['courses'] . '</div>
-                <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Courses</div>
-            </div>
-            <div style="text-align: center; flex: 1;">
-                <div style="font-size: 18px; font-weight: 700; color: var(--accent-success);">' . $card['stats']['completion_rate'] . '%</div>
-                <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase;">Complete</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 10px;">
+                <!-- Users Column -->
+                <div style="text-align: center;">
+                    <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);">' . number_format($card['stats']['users']) . '</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Users</div>
+                </div>
+                <!-- Courses Column -->
+                <div style="text-align: center; border-left: 1px solid var(--glass-border); border-right: 1px solid var(--glass-border);">
+                    <div style="font-size: 24px; font-weight: 700; color: var(--text-primary);">' . $card['stats']['courses'] . '</div>
+                    <div style="font-size: 10px; color: var(--text-secondary); text-transform: uppercase; margin-top: 4px;">Courses</div>
+                </div>
+                <!-- Completion Column with SVG Circle -->
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    ' . $svg_circle . '
+                </div>
             </div>
         </div>
         
-        <!-- License Progress -->
-        <div style="padding: 10px 12px; background: rgba(0,0,0,0.15); border-radius: 10px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span style="font-size: 12px; color: var(--text-secondary);">📜 LICENSE</span>
-                <span style="font-size: 12px; font-weight: 600; color: ' . $license_color . ';">' . $license_used . '/' . $license_total . '</span>
+        <!-- LICENSE Section -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">
+                <i class="fa-solid fa-id-card"></i> License
             </div>
-            <div style="height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-                <div style="height: 100%; width: ' . $license_percent . '%; background: ' . $license_color . '; border-radius: 3px;"></div>
+            <div style="padding: 10px 12px; background: rgba(0,0,0,0.15); border-radius: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">Active</span>
+                    <span style="font-size: 12px; font-weight: 600; color: ' . $license_color . ';">' . $license_used . '/' . $license_total . '</span>
+                </div>
+                <div style="height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+                    <div style="height: 100%; width: ' . $license_percent . '%; background: ' . $license_color . '; border-radius: 3px;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                    <span style="color: var(--text-secondary);">' . $license_icon . ' ' . $license_expires . '</span>
+                    <span style="color: var(--accent-warning);"><i class="fa-solid fa-bell"></i> ' . $reminder_count . ' Reminders</span>
+                </div>
             </div>
-            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 6px;">
-                ' . $license_icon . ' Expires: ' . $license_expires . '
-            </div>
-        </div>
-        
-        <!-- Reminders -->
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-secondary);">
-            <i class="fa-solid fa-bell" style="color: var(--accent-warning);"></i>
-            <span>Reminders: <strong style="color: var(--text-primary);">' . $reminder_count . ' Active</strong></span>
         </div>
         
         <!-- Action Button -->
@@ -216,10 +260,8 @@ function render_company_card($card) {
             font-size: 13px;
             cursor: pointer;
             transition: all 0.2s;
-            position: relative;
-            z-index: 10;
         " onmouseover="this.style.opacity=\'0.9\'" onmouseout="this.style.opacity=\'1\'">
-            View Profile
+            View Profile →
         </button>
     </div>';
     

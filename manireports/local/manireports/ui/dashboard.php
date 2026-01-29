@@ -1995,7 +1995,6 @@ body {
             if (document.getElementById('tab-courses')) {
                 loadCourses(1);
             }
-            loadNotifications();
         });
 
         // Auto-switch to Users tab and scroll when company filter is active
