@@ -2815,7 +2815,7 @@ body {
                         </select>
                     </div>
                     <button class="export-btn" onclick="applyUserFilters()">Apply</button>
-                    <button class="export-btn" onclick="clearAllUserFilters()" style="background: transparent; border: 1px solid var(--glass-border); color: var(--text-secondary);">Clear</button>
+                    <button class="export-btn" onclick="clearAllUserFilters()" style="background: rgba(220, 38, 38, 0.15); border: 1px solid rgba(220, 38, 38, 0.3); color: #ef4444;">Clear</button>
                     
                     <?php if ($filter_company > 0 && !empty($filter_company_name)): ?>
                     <!-- Company Filter Active Badge (Inline with filters) -->
