@@ -348,6 +348,15 @@ $user_status = optional_param('user_status', '', PARAM_TEXT);
 $filter_company = optional_param('user_company', 0, PARAM_INT); // Company filter
 $user_per_page = 10;
 
+// Get company name if filtering by company
+$filter_company_name = '';
+if ($filter_company > 0) {
+    $company_record = $DB->get_record('company', ['id' => $filter_company], 'name');
+    if ($company_record) {
+        $filter_company_name = $company_record->name;
+    }
+}
+
 try {
     $users_metrics = $loader->get_users_tab_metrics();
 } catch (\Exception $e) {
@@ -1986,7 +1995,41 @@ body {
             if (document.getElementById('tab-courses')) {
                 loadCourses(1);
             }
+            loadNotifications();
         });
+
+        // Auto-switch to Users tab and scroll when company filter is active
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const companyFilter = urlParams.get('user_company');
+            
+            if (companyFilter && companyFilter !== '' && companyFilter !== '0') {
+                // Force Users tab to be active
+                localStorage.setItem('activeTab', 'users');
+                
+                // Small delay to ensure DOM is ready
+                setTimeout(function() {
+                    // Switch to Users tab
+                    if (typeof switchTab === 'function') {
+                        switchTab('users');
+                    }
+                    
+                    // Auto-scroll to users table after tab switch
+                    setTimeout(function() {
+                        const filterBadge = document.getElementById('companyFilterBadge');
+                        if (filterBadge) {
+                            filterBadge.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        } else {
+                            const usersSection = document.querySelector('#users-tab-content');
+                            if (usersSection) {
+                                usersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }
+                        }
+                    }, 400);
+                }, 200);
+            }
+        });
+
         </script>
 
         <!-- EMAIL OFFLOAD TAB -->
@@ -2772,6 +2815,19 @@ body {
                         </select>
                     </div>
                     <button class="export-btn" onclick="applyUserFilters()">Apply</button>
+                    <button class="export-btn" onclick="clearAllUserFilters()" style="background: transparent; border: 1px solid var(--glass-border); color: var(--text-secondary);">Clear</button>
+                    
+                    <?php if ($filter_company > 0 && !empty($filter_company_name)): ?>
+                    <!-- Company Filter Active Badge (Inline with filters) -->
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 8px;">
+                        <i class="fa-solid fa-filter" style="color: #6366f1; font-size: 12px;"></i>
+                        <span style="color: #a5b4fc; font-size: 13px; font-weight: 500;">Company: <?php echo s($filter_company_name); ?></span>
+                        <button onclick="clearCompanyFilter()" style="background: none; border: none; color: #6366f1; cursor: pointer; padding: 2px 6px; font-size: 16px; line-height: 1; margin-left: 4px;" title="Clear company filter">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <?php endif; ?>
+                    
                     <input type="hidden" id="userCompanyFilter" value="<?php echo $filter_company; ?>">
                 </div>
 
@@ -4105,6 +4161,26 @@ document.addEventListener('DOMContentLoaded', function() {
         if (currentCompany) {
             url.searchParams.set('user_company', currentCompany);
         }
+        window.location.href = url.toString();
+    };
+
+    // Clear Company Filter
+    window.clearCompanyFilter = function() {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('user_company');
+        url.searchParams.set('user_page', 1); // Reset to page 1
+        window.location.href = url.toString();
+    };
+
+    // Clear All User Filters
+    window.clearAllUserFilters = function() {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('user_search');
+        url.searchParams.delete('user_role');
+        url.searchParams.delete('user_status');
+        url.searchParams.delete('user_company');
+        url.searchParams.set('user_page', 1); // Reset to page 1
+        localStorage.setItem('activeTab', 'users');
         window.location.href = url.toString();
     };
 
