@@ -2452,7 +2452,7 @@ class dashboard_data_loader {
     /**
      * Get Comprehensive User List with Pagination.
      */
-    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {
+    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '', $company_filter = 0) {
         global $DB, $CFG;
 
         $offset = ($page - 1) * $per_page;
@@ -2485,12 +2485,21 @@ class dashboard_data_loader {
             $params['role'] = $role_filter;
         }
 
+        // Company Filter
+        $company_join = "";
+        if (!empty($company_filter)) {
+            $company_join = "JOIN {company_users} cu_filter ON cu_filter.userid = u.id";
+            $where_clauses[] = "cu_filter.companyid = :companyid";
+            $params['companyid'] = $company_filter;
+        }
+
         $where_sql = implode(" AND ", $where_clauses);
 
         // Count Total for Pagination
         $count_sql = "SELECT COUNT(DISTINCT u.id) 
                       FROM {user} u 
                       $role_join 
+                      $company_join
                       WHERE $where_sql";
         $total_records = $DB->count_records_sql($count_sql, $params);
         $total_pages = ceil($total_records / $per_page);
@@ -2506,6 +2515,7 @@ class dashboard_data_loader {
                         WHERE gg.userid = u.id AND gi.itemtype = 'course') as avg_grade
                   FROM {user} u
                   $role_join
+                  $company_join
                  WHERE $where_sql
                  ORDER BY u.lastaccess DESC";
         

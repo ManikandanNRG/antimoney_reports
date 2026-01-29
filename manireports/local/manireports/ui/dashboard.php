@@ -179,6 +179,7 @@ require_once(__DIR__ . '/../classes/output/teacher_data_loader.php');
 require_once(__DIR__ . '/../classes/output/student_data_loader.php');
 
 // Instantiate appropriate data loader based on user role
+
 switch ($user_role) {
     case 'admin':
         // Admin uses base loader (no filtering)
@@ -344,6 +345,7 @@ $user_page = optional_param('user_page', 1, PARAM_INT);
 $user_search = optional_param('user_search', '', PARAM_TEXT);
 $filter_role = optional_param('user_role', '', PARAM_TEXT); // Renamed from $user_role to avoid conflict
 $user_status = optional_param('user_status', '', PARAM_TEXT);
+$filter_company = optional_param('user_company', 0, PARAM_INT); // Company filter
 $user_per_page = 10;
 
 try {
@@ -353,11 +355,10 @@ try {
 }
 
 try {
-    $users_list_data = $loader->get_comprehensive_user_list($user_page, $user_per_page, $user_search, $filter_role, $user_status);
+    $users_list_data = $loader->get_comprehensive_user_list($user_page, $user_per_page, $user_search, $filter_role, $user_status, $filter_company);
     $users_list = $users_list_data['data'];
     $users_pagination = $users_list_data['pagination'];
 } catch (\Exception $e) {
-    $users_list = [];
     $users_list = [];
     $users_pagination = ['total_records' => 0, 'total_pages' => 0, 'current_page' => 1, 'per_page' => 10];
 }
@@ -2588,7 +2589,7 @@ body {
                     <h3 style="margin: 0; font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">
                         <i class="fa-solid fa-users"></i> Users (${data.stats.users} total)
                     </h3>
-                    <button onclick="closeCompanyProfile(); switchTab('users'); setTimeout(() => { if(document.getElementById('userCompanyFilter')) { document.getElementById('userCompanyFilter').value = '${data.id}'; loadUsers && loadUsers(1); } }, 200);" 
+                    <button onclick="closeCompanyProfile(); switchTab('users'); setTimeout(() => { const companyFilter = document.getElementById('userCompanyFilter'); if (companyFilter) { companyFilter.value = '${data.id}'; applyUserFilters(); } }, 300);" 
                             style="background: none; border: none; color: var(--accent-primary); cursor: pointer; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 4px;">
                         See All <i class="fa-solid fa-arrow-right"></i>
                     </button>
@@ -2771,6 +2772,7 @@ body {
                         </select>
                     </div>
                     <button class="export-btn" onclick="applyUserFilters()">Apply</button>
+                    <input type="hidden" id="userCompanyFilter" value="<?php echo $filter_company; ?>">
                 </div>
 
                 <!-- Users Table -->
@@ -4076,11 +4078,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const search = document.getElementById('userSearchInput').value;
         const role = document.getElementById('userRoleSelect').value;
         const status = document.getElementById('userStatusSelect').value;
+        const company = document.getElementById('userCompanyFilter')?.value || '';
         
         const url = new URL(window.location.href);
         url.searchParams.set('user_search', search);
         url.searchParams.set('user_role', role);
         url.searchParams.set('user_status', status);
+        if (company) {
+            url.searchParams.set('user_company', company);
+        } else {
+            url.searchParams.delete('user_company');
+        }
         url.searchParams.set('user_page', 1); // Reset to page 1 on filter change
         
         localStorage.setItem('activeTab', 'users');
@@ -4091,8 +4099,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.changeUserPage = function(page) {
         const url = new URL(window.location.href);
+        const currentCompany = url.searchParams.get('user_company');
+        
         url.searchParams.set('user_page', page);
-        localStorage.setItem('activeTab', 'users');
+        if (currentCompany) {
+            url.searchParams.set('user_company', currentCompany);
+        }
         window.location.href = url.toString();
     };
 

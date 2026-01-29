@@ -719,7 +719,7 @@ class manager_data_loader extends dashboard_data_loader {
     /**
      * Get Comprehensive User List with Pagination - Scoped for Manager.
      */
-    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '') {
+    public function get_comprehensive_user_list($page = 1, $per_page = 10, $search = '', $role_filter = '', $status_filter = '', $company_filter = 0) {
         global $DB, $CFG;
 
         if (!$this->companyid) {
