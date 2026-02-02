@@ -411,7 +411,7 @@ class dashboard_data_loader {
      * @param string $license_filter License filter (all, active, expiring, expired)
      * @return array Company cards data with pagination info
      */
-    public function get_company_cards($page = 1, $limit = 6, $search = '', $license_filter = 'all') {
+    public function get_company_cards($page = 1, $limit = 6, $search = '', $license_filter = 'all', $status_filter = 'all', $sort_by = 'name_asc') {
         global $DB, $CFG;
         
         if (!$DB->get_manager()->table_exists('company')) {
@@ -428,7 +428,30 @@ class dashboard_data_loader {
             $params['search'] = '%' . $search . '%';
         }
         
+        // Status filter - commented out temporarily for debugging
+        // if ($status_filter === 'active') {
+        //     $where_clauses[] = "c.suspended = 0";
+        // } else if ($status_filter === 'suspended') {
+        //     $where_clauses[] = "c.suspended = 1";
+        // }
+        // 'all' shows both active and suspended
+        
         $where = implode(' AND ', $where_clauses);
+        
+        // Dynamic ORDER BY based on sort selection
+        $order_by = "c.name ASC"; // default
+        switch ($sort_by) {
+            case 'name_asc':
+                $order_by = "c.name ASC";
+                break;
+            case 'name_desc':
+                $order_by = "c.name DESC";
+                break;
+            // For user/course/completion sorting, we'll need to add those fields to SELECT
+            // and use subqueries or do post-processing
+            default:
+                $order_by = "c.name ASC";
+        }
         
         // Get total count for pagination
         $total_count = $DB->count_records_sql(
@@ -437,10 +460,11 @@ class dashboard_data_loader {
         );
         
         // Get companies with basic info including hostname
+        // Removed suspended field temporarily for debugging
         $sql = "SELECT c.id, c.name, c.shortname, c.city, c.country, c.hostname
                 FROM {company} c
                 WHERE $where
-                ORDER BY c.name ASC";
+                ORDER BY $order_by";
         
         $companies = $DB->get_records_sql($sql, $params, $offset, $limit);
         
@@ -509,6 +533,8 @@ class dashboard_data_loader {
                 'shortname' => $company->shortname,
                 'domain' => $domain,
                 'logo_url' => $logo_url,
+                // 'suspended' => $company->suspended ?? 0, // Temporarily disabled
+                'suspended' => 0, // Default to active for now
                 'manager' => $manager,
                 'coach' => $coach,
                 'stats' => [

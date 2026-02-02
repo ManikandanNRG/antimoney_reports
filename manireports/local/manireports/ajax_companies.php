@@ -17,6 +17,8 @@ $page = optional_param('page', 1, PARAM_INT);
 $limit = optional_param('limit', 6, PARAM_INT);
 $search = optional_param('search', '', PARAM_TEXT);
 $license_filter = optional_param('license_filter', 'all', PARAM_ALPHA);
+$status_filter = optional_param('status_filter', 'all', PARAM_ALPHA);
+$sort_by = optional_param('sort_by', 'name_asc', PARAM_TEXT);
 $companyid = optional_param('companyid', 0, PARAM_INT);
 
 // Admin only
@@ -30,7 +32,7 @@ $loader = new \local_manireports\output\dashboard_data_loader($USER->id);
 switch ($action) {
     case 'get_company_cards':
         try {
-            $result = $loader->get_company_cards($page, $limit, $search, $license_filter);
+            $result = $loader->get_company_cards($page, $limit, $search, $license_filter, $status_filter, $sort_by);
             
             // Build HTML for cards
             $html = '';
@@ -130,7 +132,11 @@ function render_company_card($card) {
         '<text x="32" y="37" text-anchor="middle" fill="#fff" font-size="16" font-weight="600" transform="rotate(90 32 32)">' . $completion_rate . '%</text>' .
         '</svg>';
     
-    
+    // Status badge
+    $suspended = $card['suspended'] ?? 0;
+    $status_badge_color = $suspended ? '#ef4444' : '#10b981'; // red for suspended, green for active
+    $status_badge_text = $suspended ? 'SUSPENDED' : 'ACTIVE';
+    $status_badge_icon = $suspended ? '🔴' : '🟢';
     
     $html = '
     <div class="company-card" data-companyid="' . $card['id'] . '" style="
@@ -145,10 +151,16 @@ function render_company_card($card) {
         cursor: pointer;
         height: 100%;
         min-height: 420px;
+        position: relative;
     " onmouseover="this.style.transform=\'translateY(-4px)\'; this.style.boxShadow=\'0 10px 30px rgba(0,0,0,0.3)\';" onmouseout="this.style.transform=\'translateY(0)\'; this.style.boxShadow=\'none\';" onclick="openCompanyProfile(' . $card['id'] . ')">
         
+        <!-- Status Badge (Top Right) -->
+        <div style="position: absolute; top: 12px; right: 12px; padding: 4px 10px; background: ' . $status_badge_color . '; border-radius: 6px; font-size: 9px; font-weight: 700; color: white; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+            ' . $status_badge_icon . ' ' . $status_badge_text . '
+        </div>
+        
         <!-- Header: Logo + Name + Domain (40px) -->
-        <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--glass-border);">
+        <div style="display: flex; align-items: center; gap: 12px; padding-bottom: 12px; padding-right: 90px; border-bottom: 1px solid var(--glass-border);">
             ' . $logo_html . '
             <div style="flex: 1; min-width: 0;">
                 <div style="font-weight: 600; font-size: 15px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' . htmlspecialchars($card['name']) . '</div>

@@ -2287,6 +2287,27 @@ body {
                         <option value="expiring">Expiring Soon</option>
                         <option value="expired">Expired</option>
                     </select>
+                    <select id="companyStatusFilter" onchange="loadCompanyCards(1)" 
+                            style="padding: 8px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer;">
+                        <option value="all">All Companies</option>
+                        <option value="active">Active Only</option>
+                        <option value="suspended">Suspended Only</option>
+                    </select>
+                    <select id="companySortBy" onchange="loadCompanyCards(1)" 
+                            style="padding: 8px 12px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; cursor: pointer;">
+                        <option value="name_asc">Name (A → Z)</option>
+                        <option value="name_desc">Name (Z → A)</option>
+                        <option value="users_desc">Users (Most First)</option>
+                        <option value="users_asc">Users (Least First)</option>
+                        <option value="courses_desc">Courses (Most First)</option>
+                        <option value="courses_asc">Courses (Least First)</option>
+                        <option value="completion_desc">Completion (High → Low)</option>
+                        <option value="completion_asc">Completion (Low → High)</option>
+                        <option value="license_asc">License (Expiring Soon)</option>
+                    </select>
+                    <button onclick="clearCompanyFilters()" class="clear-btn" style="padding: 8px 16px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(239, 68, 68, 0.25)';" onmouseout="this.style.background='rgba(239, 68, 68, 0.15)';">
+                        <i class="fa-solid fa-times"></i> Clear
+                    </button>
                 </div>
             </div>
             
@@ -2295,7 +2316,7 @@ body {
                 <!-- Cards loaded via AJAX -->
                 <div style="grid-column: 1 / -1; text-align: center; padding: 60px;">
                     <div class="manireports-loading-spinner"></div>
-                    <p style="color: var(--text-secondary); margin-top: 16px;">Loading company profiles...</p>
+                    <p style="color: var(--text-secondary); margin-top: 16px;">Loading...</p>
                 </div>
             </div>
             
@@ -2327,6 +2348,8 @@ body {
         const grid = document.getElementById('companyCardsGrid');
         const search = document.getElementById('companyCardSearch').value;
         const licenseFilter = document.getElementById('companyLicenseFilter').value;
+        const statusFilter = document.getElementById('companyStatusFilter').value;
+        const sortBy = document.getElementById('companySortBy').value;
         const paginationEl = document.getElementById('companyCardsPagination');
         
         // Show loading
@@ -2337,10 +2360,25 @@ body {
                     '&page=' + currentCompanyPage +
                     '&limit=6' +
                     '&search=' + encodeURIComponent(search) +
-                    '&license_filter=' + licenseFilter;
+                    '&license_filter=' + licenseFilter +
+                    '&status_filter=' + statusFilter +
+                    '&sort_by=' + sortBy;
         
         fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(text => {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    console.error('JSON Parse Error:', e, 'Response text:', text);
+                    throw new Error('Invalid JSON response from server');
+                }
+            })
             .then(data => {
                 // Check if data has html property
                 if (data && data.html) {
@@ -2360,7 +2398,7 @@ body {
             })
             .catch(err => {
                 console.error('Error loading company cards:', err);
-                grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--accent-danger);"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>Error loading companies. Check console for details.</p></div>';
+                grid.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--accent-danger);"><i class="fa-solid fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i><p>Error loading companies: ' + err.message + '</p></div>';
             });
     }
     
@@ -2394,7 +2432,15 @@ body {
         clearTimeout(companyDebounceTimer);
         companyDebounceTimer = setTimeout(() => {
             loadCompanyCards(1);
-        }, 300);
+        }, 500);
+    }
+    
+    function clearCompanyFilters() {
+        document.getElementById('companyCardSearch').value = '';
+        document.getElementById('companyLicenseFilter').value = 'all';
+        document.getElementById('companyStatusFilter').value = 'all';
+        document.getElementById('companySortBy').value = 'name_asc';
+        loadCompanyCards(1);
     }
     
     // Bottom Sheet Functions
@@ -3197,19 +3243,47 @@ function toggleTheme() {
 
 // Switch Tabs (Robust Version)
 function switchTab(tabName) {
-    // Remove active class from all tabs
-    document.querySelectorAll('.tab-item').forEach(tab => tab.classList.remove('active'));
-    
-    // Add active class to clicked tab
-    const tabBtn = document.querySelector(`.tab-item[onclick*="'${tabName}'"]`);
-    if (tabBtn) tabBtn.classList.add('active');
+    // Hide all tabs
+    const tabContents = document.querySelectorAll('.tab-content');
+    tabContents.forEach(tab => {
+        tab.classList.remove('active');
+        tab.style.display = 'none';
+    });
 
-    // Switch content
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    const targetContent = document.getElementById('tab-' + tabName);
-    if (targetContent) targetContent.classList.add('active');
+    // Remove active class from all tab items
+    const tabItems = document.querySelectorAll('.tab-item');
+    tabItems.forEach(item => {
+        item.classList.remove('active');
+    });
+
+    // Show selected tab
+    const selectedTab = document.getElementById('tab-' + tabName);
+    if (selectedTab) {
+        selectedTab.classList.add('active');
+        selectedTab.style.display = 'block';
+    }
+
+    // Add active class to clicked tab item
+    const selectedTabItem = document.querySelector(`.tab-item[data-tab="${tabName}"]`);
+    if (selectedTabItem) {
+        selectedTabItem.classList.add('active');
+    }
     
-    // Persist selection
+    // Hide/Show date filter based on tab
+    const dateRangeTrigger = document.getElementById('dateRangeTrigger');
+    if (dateRangeTrigger) {
+        if (tabName === 'companies') {
+            // Hide date filter and load data
+            dateRangeTrigger.style.display = 'none';
+            // Trigger data load if specific function exists
+            if (typeof loadCompanyCards === 'function') {
+                loadCompanyCards(1);
+            }
+        } else {
+            // Show date filter for other tabs
+            dateRangeTrigger.style.display = 'flex';
+        }
+    }    // Persist selection
     localStorage.setItem('activeTab', tabName);
 }
 
