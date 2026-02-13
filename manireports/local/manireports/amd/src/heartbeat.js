@@ -21,12 +21,12 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notification) {
+define(['jquery', 'core/ajax', 'core/notification'], function ($, Ajax, Notification) {
 
     /**
      * Heartbeat manager class.
      */
-    var HeartbeatManager = function() {
+    var HeartbeatManager = function () {
         this.courseid = null;
         this.userid = null;
         this.interval = 25000; // 25 seconds default
@@ -42,7 +42,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
      * @param {int} userid User ID
      * @param {int} interval Heartbeat interval in seconds
      */
-    HeartbeatManager.prototype.init = function(courseid, userid, interval) {
+    HeartbeatManager.prototype.init = function (courseid, userid, interval) {
         this.courseid = courseid;
         this.userid = userid;
         this.interval = (interval || 25) * 1000; // Convert to milliseconds
@@ -65,7 +65,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
 
         // Handle page visibility changes
         var self = this;
-        document.addEventListener('visibilitychange', function() {
+        document.addEventListener('visibilitychange', function () {
             if (document.hidden) {
                 self.stop();
             } else {
@@ -75,7 +75,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
         });
 
         // Handle page unload
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', function () {
             self.stop();
         });
     };
@@ -83,13 +83,13 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
     /**
      * Start heartbeat timer.
      */
-    HeartbeatManager.prototype.start = function() {
+    HeartbeatManager.prototype.start = function () {
         if (!this.enabled || this.timer) {
             return;
         }
 
         var self = this;
-        this.timer = setInterval(function() {
+        this.timer = setInterval(function () {
             self.sendHeartbeat();
         }, this.interval);
     };
@@ -97,7 +97,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
     /**
      * Stop heartbeat timer.
      */
-    HeartbeatManager.prototype.stop = function() {
+    HeartbeatManager.prototype.stop = function () {
         if (this.timer) {
             clearInterval(this.timer);
             this.timer = null;
@@ -107,8 +107,15 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
     /**
      * Send heartbeat to server.
      */
-    HeartbeatManager.prototype.sendHeartbeat = function() {
+    HeartbeatManager.prototype.sendHeartbeat = function () {
         if (!this.enabled) {
+            return;
+        }
+
+        // Safety Guard: Check if Moodle config and sesskey are available
+        // in popups/iframes (like SCORM), M.cfg might be missing/incomplete
+        if (typeof M === 'undefined' || !M.cfg || !M.cfg.sesskey) {
+            // Silently abort to avoid 400 Bad Request errors
             return;
         }
 
@@ -132,13 +139,13 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
                 sesskey: M.cfg.sesskey
             },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.success) {
                     self.lastHeartbeat = now;
                     sessionStorage.setItem('manireports_last_heartbeat', now);
                 }
             },
-            error: function(xhr, status, error) {
+            error: function (xhr, status, error) {
                 // Silently fail - don't disrupt user experience
                 // eslint-disable-next-line no-console
                 console.warn('Heartbeat failed:', error);
@@ -149,7 +156,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
     /**
      * Disable heartbeat tracking.
      */
-    HeartbeatManager.prototype.disable = function() {
+    HeartbeatManager.prototype.disable = function () {
         this.enabled = false;
         this.stop();
     };
@@ -162,7 +169,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
          * @param {int} userid User ID
          * @param {int} interval Heartbeat interval in seconds
          */
-        init: function(courseid, userid, interval) {
+        init: function (courseid, userid, interval) {
             var manager = new HeartbeatManager();
             manager.init(courseid, userid, interval);
             return manager;

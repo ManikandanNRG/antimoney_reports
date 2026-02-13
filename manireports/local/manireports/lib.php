@@ -145,6 +145,18 @@ function local_manireports_before_footer() {
         return;
     }
 
+    // Exclude SCORM player and other minimal layouts where heartbeat often fails (400 Bad Request)
+    // SCORM player often runs in 'popup' or 'embedded' layout without full M.cfg/sesskey.
+    $excluded_layouts = ['popup', 'embedded', 'frametop', 'maintenance'];
+    if (in_array($PAGE->pagelayout, $excluded_layouts)) {
+        return;
+    }
+
+    // Explicit check for SCORM player URL (just in case layout check misses it)
+    if (strpos($PAGE->url->out(), 'mod/scorm/player.php') !== false) {
+        return;
+    }
+
     // Get heartbeat interval from settings (default: 25 seconds).
     $interval = get_config('local_manireports', 'heartbeatinterval') ?: 25;
 
