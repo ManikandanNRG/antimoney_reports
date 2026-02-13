@@ -28,22 +28,29 @@ require_once(__DIR__ . '/../../../../config.php');
 
 use local_manireports\api\time_engine;
 
-require_login();
-require_sesskey();
-
-$courseid = required_param('courseid', PARAM_INT);
-$timestamp = required_param('timestamp', PARAM_INT);
+// Return JSON response consistently
+header('Content-Type: application/json');
 
 try {
-    // Verify user is enrolled in course.
-    $context = context_course::instance($courseid);
-    require_capability('moodle/course:view', $context);
+    // 1. Get Parameters first (needed for login check)
+    $courseid = required_param('courseid', PARAM_INT);
+    $timestamp = required_param('timestamp', PARAM_INT);
 
-    // Check if time tracking is enabled
+    // 2. Authenticate User & Load Course Context
+    // Crucial: Passing $courseid loads the specific course capabilities/enrolment.
+    // Without this, capabilities like 'moodle/course:view' are checked against System context only, causing failures.
+    require_login($courseid); 
+
+    // 3. Validate Session Key (Graceful Check)
+    if (!confirm_sesskey()) {
+        echo json_encode(['success' => false, 'error' => 'Invalid session key']);
+        exit;
+    }
+
+    // 4. Check if time tracking is enabled
     $enabled = get_config('local_manireports', 'enabletimetracking');
     if (!$enabled) {
-        header('Content-Type: application/json');
-        http_response_code(400);
+        // error_log('Heartbeat: Time tracking disabled'); // Optional: uncomment if needed
         echo json_encode(array(
             'success' => false,
             'error' => 'Time tracking is not enabled'
@@ -51,12 +58,11 @@ try {
         exit;
     }
 
-    // Record heartbeat.
+    // 5. Record heartbeat.
     $engine = new time_engine();
     $success = $engine->record_heartbeat($USER->id, $courseid, $timestamp);
 
-    // Return JSON response.
-    header('Content-Type: application/json');
+    // Success Response
     echo json_encode(array(
         'success' => $success,
         'timestamp' => time(),
@@ -64,12 +70,14 @@ try {
         'courseid' => $courseid,
         'time_tracking_enabled' => (bool)$enabled
     ));
+
 } catch (Exception $e) {
-    header('Content-Type: application/json');
-    http_response_code(400);
+    // Log the actual error for debugging
+    error_log('Heartbeat Exception: ' . $e->getMessage() . ' | Trace: ' . $e->getTraceAsString());
+    
+    // Return 200 OK with error details (to avoid console red/400 errors)
     echo json_encode(array(
         'success' => false,
-        'error' => $e->getMessage(),
-        'trace' => $e->getTraceAsString()
+        'error' => $e->getMessage()
     ));
 }

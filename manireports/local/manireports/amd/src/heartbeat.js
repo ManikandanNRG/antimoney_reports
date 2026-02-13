@@ -41,15 +41,19 @@ define(['jquery', 'core/ajax', 'core/notification'], function ($, Ajax, Notifica
      * @param {int} courseid Course ID
      * @param {int} userid User ID
      * @param {int} interval Heartbeat interval in seconds
+     * @param {string} sesskey Session key (optional, but recommended)
      */
-    HeartbeatManager.prototype.init = function (courseid, userid, interval) {
+    HeartbeatManager.prototype.init = function (courseid, userid, interval, sesskey) {
         this.courseid = courseid;
         this.userid = userid;
         this.interval = (interval || 25) * 1000; // Convert to milliseconds
+        this.sesskey = sesskey || (M.cfg && M.cfg.sesskey) || ''; // Use explicit key or fallback
         this.enabled = true;
 
         // Add randomization to prevent server load spikes (±5 seconds)
         this.interval += Math.floor(Math.random() * 10000) - 5000;
+
+        // ... rest of init ...
 
         // Load last heartbeat from sessionStorage
         var stored = sessionStorage.getItem('manireports_last_heartbeat');
@@ -112,11 +116,14 @@ define(['jquery', 'core/ajax', 'core/notification'], function ($, Ajax, Notifica
             return;
         }
 
-        // Safety Guard: Check if Moodle config and sesskey are available
-        // in popups/iframes (like SCORM), M.cfg might be missing/incomplete
-        if (typeof M === 'undefined' || !M.cfg || !M.cfg.sesskey) {
-            // Silently abort to avoid 400 Bad Request errors
-            return;
+        // Must have a session key
+        if (!this.sesskey) {
+            // Try to grab from M.cfg if we somehow missed it in init (unlikely)
+            if (M.cfg && M.cfg.sesskey) {
+                this.sesskey = M.cfg.sesskey;
+            } else {
+                return;
+            }
         }
 
         var now = Math.floor(Date.now() / 1000);
@@ -136,7 +143,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function ($, Ajax, Notifica
                 courseid: this.courseid,
                 userid: this.userid,
                 timestamp: now,
-                sesskey: M.cfg.sesskey
+                sesskey: this.sesskey
             },
             dataType: 'json',
             success: function (response) {
@@ -168,10 +175,11 @@ define(['jquery', 'core/ajax', 'core/notification'], function ($, Ajax, Notifica
          * @param {int} courseid Course ID
          * @param {int} userid User ID
          * @param {int} interval Heartbeat interval in seconds
+         * @param {string} sesskey Session key
          */
-        init: function (courseid, userid, interval) {
+        init: function (courseid, userid, interval, sesskey) {
             var manager = new HeartbeatManager();
-            manager.init(courseid, userid, interval);
+            manager.init(courseid, userid, interval, sesskey);
             return manager;
         }
     };

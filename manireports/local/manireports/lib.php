@@ -145,27 +145,90 @@ function local_manireports_before_footer() {
         return;
     }
 
-    // Exclude SCORM player and other minimal layouts where heartbeat often fails (400 Bad Request)
-    // SCORM player often runs in 'popup' or 'embedded' layout without full M.cfg/sesskey.
-    $excluded_layouts = ['popup', 'embedded', 'frametop', 'maintenance'];
-    if (in_array($PAGE->pagelayout, $excluded_layouts)) {
-        return;
-    }
-
-    // Explicit check for SCORM player URL (just in case layout check misses it)
-    if (strpos($PAGE->url->out(), 'mod/scorm/player.php') !== false) {
-        return;
-    }
-
     // Get heartbeat interval from settings (default: 25 seconds).
     $interval = get_config('local_manireports', 'heartbeatinterval') ?: 25;
+    $interval_ms = $interval * 1000;
 
-    // Inject heartbeat JavaScript.
-    $PAGE->requires->js_call_amd('local_manireports/heartbeat', 'init', array(
-        $COURSE->id,
-        $USER->id,
-        $interval
-    ));
+    // INLINE JS HEARTBEAT (Bypassing AMD to avoid caching/SCORM issues)
+    // Matches the "dashboard.php" pattern of direct fetch + injected sesskey.
+    $sesskey = sesskey();
+    $ajax_url = new moodle_url('/local/manireports/ui/ajax/heartbeat.php');
+
+    $script = <<<JS
+(function() {
+    // Unique namespace
+    window.ManiReportsHeartbeat = {
+        courseid: {$COURSE->id},
+        userid: {$USER->id},
+        interval: {$interval_ms},
+        sesskey: '{$sesskey}',
+        timer: null,
+        lastHeartbeat: 0,
+        
+        init: function() {
+            // Add randomization (±5s) to prevent server spikes
+            this.interval += Math.floor(Math.random() * 10000) - 5000;
+            this.start();
+            this.send();
+            
+            // Visibility API to pause when inactive
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) {
+                    this.stop();
+                } else {
+                    this.start();
+                    this.send();
+                }
+            });
+        },
+        
+        start: function() {
+            if (this.timer) return;
+            this.timer = setInterval(() => {
+                this.send();
+            }, this.interval);
+        },
+        
+        stop: function() {
+            if (this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+            }
+        },
+        
+        send: function() {
+            const now = Math.floor(Date.now() / 1000);
+            if (now - this.lastHeartbeat < 10) return; // Debounce
+            
+            const formData = new FormData();
+            formData.append('courseid', this.courseid);
+            formData.append('userid', this.userid);
+            formData.append('timestamp', now);
+            formData.append('sesskey', this.sesskey);
+            
+            fetch('{$ajax_url}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.lastHeartbeat = now;
+                }
+            })
+            .catch(err => {
+                // Silently fail to avoid console noise
+                // console.warn('Heartbeat error:', err);
+            });
+        }
+    };
+    
+    // Start immediately
+    window.ManiReportsHeartbeat.init();
+})();
+JS;
+
+    $PAGE->requires->js_init_code($script);
 }
 
 /**
